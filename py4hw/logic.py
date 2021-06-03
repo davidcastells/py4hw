@@ -195,7 +195,7 @@ class NotSymbol:
     
 class Add(Logic):
     """
-    Arithmetic Add
+    Combinational Arithmetic Add
     """
     
     def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
