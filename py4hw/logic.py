@@ -193,6 +193,20 @@ class NotSymbol:
     def getWidth(self):
         return 30
     
+class Xor(Logic):
+    """
+    Binary Xor
+    """
+    
+    def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+    def propagate(self):
+        self.r.put((self.a.get()&~self.b.get())|(~self.a.get()&self.b.get()))
+
 class Add(Logic):
     """
     Combinational Arithmetic Add
