@@ -541,7 +541,57 @@ class Equal(Logic):
         
         Bits(self, "bits", a, bits)
         
-        Minterm(self, 'm{}'.format(v), bits, v, r)    
+        Minterm(self, 'm{}'.format(v), bits, v, r)
+
+class GT(Logic):
+    """
+    A Greater Than comparator circuit
+    """
+
+    def __init__(self, parent, name:str, a:Wire, v:int, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
+        self.v = v
+        
+    def propagate(self):
+        self.r.put(self.a.get() > self.v)
+
+class LT(Logic):
+    """
+    A Less Than comparator circuit
+    """
+
+    def __init__(self, parent, name:str, a:Wire, v:int, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
+        self.v = v
+        
+    def propagate(self):
+        self.r.put(self.a.get() < self.v)
+
+class Comparator(Logic):
+    """
+    A Greater Than, Equal and Less Than comparator circuit
+    """
+
+    def __init__(self, parent, name:str, a:Wire, b:Wire, gt:Wire, eq:Wire, lt:Wire):
+        super().__init__(parent, name)
+        self.addIn("a", a)
+        self.addIn("b", b)
+        self.addOut("gt", gt)
+        self.addOut("eq", eq)
+        self.addOut("lt", lt)
+        
+        self.sub = Wire(self, "sub", a.getWidth())
+
+        Sub(self, "Comparison", a, b, self.sub)
+        LT(self, "LessThan", self.sub, 0, lt)
+        Equal(self, "Equal", self.sub, 0, eq)
+        GT(self, "GreaterThan", self.sub, 0, gt)
+
+
     
 class Scope(Logic):
     

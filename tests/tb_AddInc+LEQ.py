@@ -4,7 +4,6 @@ from py4hw.logic import *
 from py4hw.storage import Reg
 import py4hw.debug
 
-
 class SumInc(Logic):
     """
     Configurable Incrementer/Adder
@@ -19,13 +18,14 @@ class SumInc(Logic):
         self.b = self.addIn("b", b)
         self.sel = self.addIn("sum/inc", sel)
         self.r = self.addOut("r", r)
+        
+        self.one = Wire(self, "one", 1)
+        self.muxOut = Wire(self, "muxOut", b.getWidth())
 
-    def propagate(self):
-        if self.sel.get() == 1:
-            self.r.put(self.a.get()+self.b.get())
-        else:
-            self.r.put(self.a.get()+1)
+        Constant(self, "1", 1, self.one)
 
+        self.mux = Mux2(self, "mux", sel, self.one, b, self.muxOut)
+        self.add = Add(self, "add", a, self.muxOut, r)
 
 class LEQ(Logic):
     """
@@ -40,9 +40,13 @@ class LEQ(Logic):
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.c = self.addOut("c", c)
-
-    def propagate(self):
-        self.c.put(1 if self.a.get() <= self.b.get() else 0)
+        
+        self.dummy = Wire(self, "", 1)
+        self.eq = Wire(self, "equal", 1)
+        self.lt = Wire(self, "less", 1)
+    
+        Comparator(self, "comparator", a, b, self.dummy, self.eq, self.lt)
+        Or(self, "or", self.eq, self.lt, c)
 
 
 sys = HWSystem()
