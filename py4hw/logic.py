@@ -543,33 +543,19 @@ class Equal(Logic):
         
         Minterm(self, 'm{}'.format(v), bits, v, r)
 
-class GT(Logic):
+class Sign(Logic):
     """
-    A Greater Than comparator circuit
+    Sign test.
+    r = 0 if a >= 0 (positive)
+    t = 1 if a < 0 (negative)
     """
 
-    def __init__(self, parent, name:str, a:Wire, v:int, r:Wire):
+    def __init__(self, parent, name:str, a:Wire, r:Wire):
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
-        self.v = v
-        
-    def propagate(self):
-        self.r.put(self.a.get() > self.v)
 
-class LT(Logic):
-    """
-    A Less Than comparator circuit
-    """
-
-    def __init__(self, parent, name:str, a:Wire, v:int, r:Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.r = self.addOut("r", r)
-        self.v = v
-        
-    def propagate(self):
-        self.r.put(self.a.get() < self.v)
+        Bit(self, "signBit", a, a.getWidth()-1, r)
 
 class Comparator(Logic):
     """
@@ -585,11 +571,24 @@ class Comparator(Logic):
         self.addOut("lt", lt)
         
         self.sub = Wire(self, "sub", a.getWidth())
+        self.notLT = Wire(self, "~LT", 1)
+        self.notEQ = Wire(self, "~EQ", 1)
 
         Sub(self, "Comparison", a, b, self.sub)
-        LT(self, "LessThan", self.sub, 0, lt)
+
+        # LT
+        Sign(self, "LessThan", self.sub, lt)
+        
+        # EQ
         Equal(self, "Equal", self.sub, 0, eq)
-        GT(self, "GreaterThan", self.sub, 0, gt)
+
+        # GT
+        Not(self, "~LT", lt, self.notLT)
+        Not(self, "~EQ", eq, self.notEQ)
+        And(self, "GreaterThan", self.notEQ, self.notLT, gt)
+        
+
+        
 
 
     
