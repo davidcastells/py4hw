@@ -4,7 +4,7 @@ Created on Thu Oct 29 17:10:01 2020
 
 @author: dcr
 """
-from math import log2
+
 from .base import Logic
 from .logic import Not
 from .logic import Mux2
