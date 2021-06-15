@@ -687,7 +687,7 @@ class Waveform(Logic):
       super().__init__(parent, name)
       self.name = name
       self.x = self.addIn("x", x)
-        self.wave = {"name": name, "wave": "x", "data": []}
+      self.wave = {"name": name, "wave": "x", "data": []}
 
     def propagate(self):
       if len(self.wave["data"]) > 0 and self.wave["data"][-1] == self.x.get():
