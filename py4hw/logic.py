@@ -130,8 +130,22 @@ class And(Logic):
     def getSymbol(self,x,y):
         return AndSymbol(self,x,y)
 
+class Nand(Logic):
+    """
+    Binary Nand
+    """
     
-    
+    def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+        self.mid = self.wire("Mid", a.getWidth())
+
+        And(self, "And", a, b, self.mid)
+        Not(self, "Not", self.mid, r)
+
 class AndSymbol:
     def __init__(self, obj, x, y):
         self.obj = obj
@@ -193,6 +207,25 @@ class NotSymbol:
     def getWidth(self):
         return 30
     
+class Xor(Logic):
+    """
+    Binary Xor
+    """
+    
+    def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+        self.mid = self.wire("Mid", a.getWidth())
+        self.xout = self.wire("XOut", a.getWidth())
+        self.yout = self.wire("YOut", a.getWidth())
+
+        Nand(self, "NandMid", a, b, self.mid)
+        Nand(self, "NandX", a, self.mid, self.xout)
+        Nand(self, "NandY", b, self.mid, self.yout)
+        Nand(self, "NandR", self.xout, self.yout, r)
 class Add(Logic):
     """
     Combinational Arithmetic Add
@@ -527,8 +560,52 @@ class Equal(Logic):
         
         Bits(self, "bits", a, bits)
         
-        Minterm(self, 'm{}'.format(v), bits, v, r)    
-    
+        Minterm(self, 'm{}'.format(v), bits, v, r)
+
+class Sign(Logic):
+    """
+    Sign test.
+    r = 0 if a >= 0 (positive)
+    t = 1 if a < 0 (negative)
+    """
+
+    def __init__(self, parent, name:str, a:Wire, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
+
+        Bit(self, "signBit", a, a.getWidth()-1, r)
+
+class Comparator(Logic):
+    """
+    A Greater Than, Equal and Less Than comparator circuit
+    """
+
+    def __init__(self, parent, name:str, a:Wire, b:Wire, gt:Wire, eq:Wire, lt:Wire):
+        super().__init__(parent, name)
+        self.addIn("a", a)
+        self.addIn("b", b)
+        self.addOut("gt", gt)
+        self.addOut("eq", eq)
+        self.addOut("lt", lt)
+        
+        self.sub = Wire(self, "sub", a.getWidth())
+        self.notLT = Wire(self, "~LT", 1)
+        self.notEQ = Wire(self, "~EQ", 1)
+
+        Sub(self, "Comparison", a, b, self.sub)
+
+        # LT
+        Sign(self, "LessThan", self.sub, lt)
+        
+        # EQ
+        Equal(self, "Equal", self.sub, 0, eq)
+
+        # GT
+        Not(self, "~LT", lt, self.notLT)
+        Not(self, "~EQ", eq, self.notEQ)
+        And(self, "GreaterThan", self.notEQ, self.notLT, gt)
+        
 class Scope(Logic):
     
     def __init__(self, parent, name:str, x:Wire):

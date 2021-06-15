@@ -4,6 +4,7 @@ Created on Thu Oct 29 17:10:01 2020
 
 @author: dcr
 """
+
 from .base import Logic
 from .logic import Not
 from .logic import Mux2
@@ -31,9 +32,7 @@ class Reg(Logic):
             #print('d source', port.name, port.parent.getFullPath())
         else:
             #maintain the same value
-            self.q.prepare(self.value)
-            
-            
+            self.q.prepare(self.value)    
             
 class TReg(Logic):
     def __init__(self, parent, name:str, t:Wire, e:Wire, q:Wire, ):
