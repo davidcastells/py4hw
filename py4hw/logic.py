@@ -130,8 +130,22 @@ class And(Logic):
     def getSymbol(self,x,y):
         return AndSymbol(self,x,y)
 
+class Nand(Logic):
+    """
+    Binary Nand
+    """
     
-    
+    def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+        self.mid = self.wire("Mid")
+
+        And(self, "And", a, b, self.mid)
+        Not(self, "Not", self.mid, r)
+
 class AndSymbol:
     def __init__(self, obj, x, y):
         self.obj = obj
@@ -204,9 +218,14 @@ class Xor(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
         
-    def propagate(self):
-        self.r.put((self.a.get()&~self.b.get())|(~self.a.get()&self.b.get()))
+        self.mid = self.wire("Mid")
+        self.xout = self.wire("XOut")
+        self.yout = self.wire("YOut")
 
+        Nand(self, "NandMid", a, b, self.mid)
+        Nand(self, "NandX", a, self.mid, self.xout)
+        Nand(self, "NandY", b, self.mid, self.yout)
+        Nand(self, "NandR", self.xout, self.yout, r)
 class Add(Logic):
     """
     Combinational Arithmetic Add
@@ -587,11 +606,6 @@ class Comparator(Logic):
         Not(self, "~EQ", eq, self.notEQ)
         And(self, "GreaterThan", self.notEQ, self.notLT, gt)
         
-
-        
-
-
-    
 class Scope(Logic):
     
     def __init__(self, parent, name:str, x:Wire):
