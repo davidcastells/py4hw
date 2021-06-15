@@ -46,6 +46,7 @@ class Simulator:
         
         self.clockables = []
         self.propagatables = []
+        self.wave_scopes = []
        
         leaves = self.sys.allLeaves()
         
@@ -54,6 +55,8 @@ class Simulator:
                 self.clockables.append(leaf)
             if (leaf.isPropagatable()):
                 self.propagatables.append(leaf)
+            if (isinstance(leaf, Waveform)):
+                self.wave_scopes.append(leaf)
                 
         # Now sort the propagatables list
         anyChange = True 
@@ -153,3 +156,14 @@ class Simulator:
     def _notifyListeners(self):
         for listener in self.listeners:
             listener.simulatorUpdated()
+    
+    def get_waveform(self, name:str = ""):
+      waveform = {
+        "signal": [wf.get_wave_raw() for wf in self.wave_scopes],
+        "head":{
+          "text": name,
+          "tock": 0,
+        }
+      }
+      
+      return waveform

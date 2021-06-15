@@ -1,1 +1,2 @@
 tk=8.6.10
+nbwavedrom=0.2.0
