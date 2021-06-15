@@ -141,7 +141,7 @@ class Nand(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
         
-        self.mid = self.wire("Mid")
+        self.mid = self.wire("Mid", a.getWidth())
 
         And(self, "And", a, b, self.mid)
         Not(self, "Not", self.mid, r)
@@ -218,9 +218,9 @@ class Xor(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
         
-        self.mid = self.wire("Mid")
-        self.xout = self.wire("XOut")
-        self.yout = self.wire("YOut")
+        self.mid = self.wire("Mid", a.getWidth())
+        self.xout = self.wire("XOut", a.getWidth())
+        self.yout = self.wire("YOut", a.getWidth())
 
         Nand(self, "NandMid", a, b, self.mid)
         Nand(self, "NandX", a, self.mid, self.xout)
