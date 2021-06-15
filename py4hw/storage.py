@@ -4,15 +4,13 @@ Created on Thu Oct 29 17:10:01 2020
 
 @author: dcr
 """
-from .base import Logic
-from .logic import Not
-from .logic import Mux2
-from .base import Wire
+from base import Logic
+from logic import Not
+from logic import Mux2
+from base import Wire
 
 class Reg(Logic):
-    """
-    This is a D flip flop
-    """
+    
     def __init__(self, parent, name:str, d:Wire, e:Wire, q:Wire, ):
         super().__init__(parent, name)
         self.d = self.addIn("d", d)

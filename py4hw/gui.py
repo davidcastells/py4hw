@@ -3,8 +3,8 @@ import tkinter.font
 from tkinter import *
 from tkinter import ttk
 
-from .base import Logic
-from .schematic import Schematic
+from base import Logic
+from schematic import Schematic
     
 class Workbench():
     

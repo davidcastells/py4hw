@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from .base import Logic
-from .base import Wire
+from base import Logic
+from base import Wire
 import math
 import tkinter
 
@@ -195,7 +195,7 @@ class NotSymbol:
     
 class Add(Logic):
     """
-    Combinational Arithmetic Add
+    Arithmetic Add
     """
     
     def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
@@ -206,20 +206,6 @@ class Add(Logic):
         
     def propagate(self):
         self.r.put(self.a.get()+self.b.get())
-
-class Mul(Logic):
-    """
-    Combinational Arithmetic Multiplier
-    """
-    
-    def __init__(self, parent, name:str, a:Wire, b:Wire, r:Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
-        
-    def propagate(self):
-        self.r.put(self.a.get()*self.b.get())
 
 class Sub(Logic):
     """

@@ -4,7 +4,7 @@ import tkinter.font
 from tkinter import *
 from tkinter import ttk
 
-from .base import Logic
+from base import Logic
 
 gridsize = 5
 portpitch = 25
@@ -104,6 +104,11 @@ class Schematic:
             self.sources.append([isym, 15, 8+5, inp.wire])
         
         self.x = self.x + 25 * gridsize
+        g = genGraph(self.sources)
+        g.add_edge(self.sources)
+        print("Executed")
+        g.col_assignment()
+        g.print_graph()
         
     def placeInstances(self):
         maxx = 0
@@ -257,3 +262,49 @@ class InstanceSymbol:
     
     def getWidth(self):
         return 25 * gridsize
+
+class AdjNode:
+    def __init__(self, data):
+        self.vertex = data
+        self.next = None
+
+# Generate graphs based on the ports and nets
+
+rows,cols = (gridsize,gridsize)
+matrix = [[0]*cols]*rows
+
+class genGraph:
+
+    def __init__(self,sources):
+        self.V = len(sources)
+        self.graph = [None]*self.V
+
+    def add_edge(self,sources):
+        for i in range(len(sources)-1):
+            for j in range(i+1,len(sources)):
+                if sources[j].parent == sources[i]:
+                    node = AdjNode(sources[j])
+                    node.next = self.graph[sources[i]]
+                    self.graph[sources[i]] = next
+
+    def print_graph(self):
+        for i in range(self.V):
+            print("Adjacency list of vertex {}\n head".format(i), end="")
+            temp = self.graph[i]
+            while temp:
+                print(" -> {}".format(temp.vertex), end="")
+                temp = temp.next
+            print(" \n")
+    
+    def col_assignment(self):
+        for i in range(self.V):
+            k=0
+            if(self.graph[i].isPrimitive()):
+                matrix[0][k] = self.graph[i]
+                k+=1
+            else:
+                matrix[self.graph[i].col][self.graph[i].row+1] = self.graph[i]
+
+
+
+

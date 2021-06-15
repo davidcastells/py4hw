@@ -1,6 +1,6 @@
-from .base import HWSystem
-from .base import Wire
-from .base import Logic
+from base import HWSystem
+from base import Wire
+from base import Logic
 
 class Simulator:
 

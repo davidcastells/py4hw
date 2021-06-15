@@ -390,7 +390,7 @@ class HWSystem(Logic):
             DESCRIPTION.
 
         """
-        from .simulation import Simulator
+        from simulation import Simulator
 
         if (self.simulator == None):
             self.simulator = Simulator(self)

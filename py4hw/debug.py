@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from .base import HWSystem
-from .base import Wire
-from .base import Logic
-from .base import Interface
+from base import HWSystem
+from base import Wire
+from base import Logic
+from base import Interface
 
 def printHierarchy(sys:HWSystem):
     
