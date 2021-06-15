@@ -688,26 +688,18 @@ class Waveform(Logic):
       self.name = name
       self.x = self.addIn("x", x)
       self.wave = {"name": name, "wave": "x", "data": []}
+      self.prev = None
 
     def propagate(self):
-      if len(self.wave["data"]) > 0 and self.wave["data"][-1] == self.x.get():
+      if self.prev == self.x.get():
         self.wave["wave"] += "."
+      elif self.x.getWidth() == 1:
+        self.wave["wave"] += "1"
       else:
         self.wave["wave"] += "2"
         self.wave["data"].append(self.x.get())
-
-    def get_waveform(self, name: str = ""):
-      self.wave["wave"] += "x"
-
-      waveform = {
-          "signal": [self.wave],
-          "head": {
-              "text": name,
-              "tock": 0,
-          }
-      }
-
-      return waveform
+        
+      self.prev = self.x.get()
 
     def get_wave_raw(self):
       self.wave["wave"] += "x"
