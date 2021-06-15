@@ -711,4 +711,4 @@ class Waveform(Logic):
 
     def get_wave_raw(self):
       self.wave["wave"] += "x"
-      return wave
+      return self.wave
