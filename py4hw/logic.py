@@ -694,11 +694,11 @@ class Waveform(Logic):
       if self.prev == self.x.get():
         self.wave["wave"] += "."
       elif self.x.getWidth() == 1:
-        self.wave["wave"] += "1"
+        self.wave["wave"] += str(self.x.get())
       else:
         self.wave["wave"] += "2"
         self.wave["data"].append(self.x.get())
-        
+
       self.prev = self.x.get()
 
     def get_wave_raw(self):
