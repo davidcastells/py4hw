@@ -163,7 +163,7 @@ class Simulator:
       if (with_ck):
           cklen = len(signals[0]["wave"])-1
           signals.insert(0, {"name": "CK", "wave": "P" + "."*cklen})
-  
+
       waveform = {
         "signal": signals,
         "head":{
