@@ -158,9 +158,11 @@ class Simulator:
         for listener in self.listeners:
             listener.simulatorUpdated()
     
-    def get_waveform(self, name:str = ""):
+    def get_waveform(self, name:str = "", with_ck = True):
       signals = [wf.get_wave_raw() for wf in self.wave_scopes]
-      signals.insert(0, {"name": name, "wave": "P" + "."*len(signals[0]["wave"])})
+      if (with_ck):
+          cklen = len(signals[0]["wave"])-1
+          signals.insert(0, {"name": "CK", "wave": "P" + "."*cklen})
   
       waveform = {
         "signal": signals,
