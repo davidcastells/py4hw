@@ -227,14 +227,14 @@ class Xor(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
-        self.mid = self.wire("Mid", a.getWidth())
-        self.xout = self.wire("XOut", a.getWidth())
-        self.yout = self.wire("YOut", a.getWidth())
+        mid = self.wire("Mid", a.getWidth())
+        xout = self.wire("XOut", a.getWidth())
+        yout = self.wire("YOut", a.getWidth())
 
-        Nand(self, "NandMid", a, b, self.mid)
-        Nand(self, "NandX", a, self.mid, self.xout)
-        Nand(self, "NandY", b, self.mid, self.yout)
-        Nand(self, "NandR", self.xout, self.yout, r)
+        Nand(self, "NandMid", a, b, mid)
+        Nand(self, "NandX", a, mid, xout)
+        Nand(self, "NandY", b, mid, yout)
+        Nand(self, "NandR", xout, yout, r)
 
 
 class Add(Logic):
@@ -619,22 +619,22 @@ class Comparator(Logic):
         self.addOut("eq", eq)
         self.addOut("lt", lt)
 
-        self.sub = Wire(self, "sub", a.getWidth())
-        self.notLT = Wire(self, "~LT", 1)
-        self.notEQ = Wire(self, "~EQ", 1)
+        sub = Wire(self, "sub", a.getWidth())
+        notLT = Wire(self, "~LT", 1)
+        notEQ = Wire(self, "~EQ", 1)
 
-        Sub(self, "Comparison", a, b, self.sub)
+        Sub(self, "Comparison", a, b, sub)
 
         # LT
-        Sign(self, "LessThan", self.sub, lt)
+        Sign(self, "LessThan", sub, lt)
 
         # EQ
-        Equal(self, "Equal", self.sub, 0, eq)
+        Equal(self, "Equal", sub, 0, eq)
 
         # GT
-        Not(self, "~LT", lt, self.notLT)
-        Not(self, "~EQ", eq, self.notEQ)
-        And(self, "GreaterThan", self.notEQ, self.notLT, gt)
+        Not(self, "~LT", lt, notLT)
+        Not(self, "~EQ", eq, notEQ)
+        And(self, "GreaterThan", notEQ, notLT, gt)
 
 
 class Scope(Logic):
