@@ -1,5 +1,7 @@
 # py4hw
 
+[![Join the chat at https://gitter.im/davidcastells/py4hw](https://badges.gitter.im/davidcastells/py4hw.svg)](https://gitter.im/davidcastells/py4hw?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 py4hw is an HDL language based on python to create digital circuits following a structural design methodology. It is highly influenced by the JHDL principles.
 
 clock is implicit
