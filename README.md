@@ -1,6 +1,6 @@
 # py4hw
 
-py4hw is an HDL language based on python to create digital circuits following a structural design methodology. It is highly influenced by the JHDL principles.
+py4hw is an HDL library based on python to create digital circuits following a structural design methodology. It is highly influenced by the JHDL principles.
 
 clock is implicit
 
