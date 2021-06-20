@@ -1,3 +1,3 @@
-nbwavedrom=0.2.0
-ipywidgets=7.6.3
-matplotlib=3.4.2
+nbwavedrom
+ipywidgets
+matplotlib
