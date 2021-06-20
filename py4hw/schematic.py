@@ -27,7 +27,35 @@ class MatplotlibRender:
         self.canvas.invert_yaxis()
         plt.axis('off')
         
+        self.color = 'k'
+        self.linewidth = 2
+        
+    def setForecolor(self, color):
+        self.color = color
+        
+    def setLineWidth(self, w):
+        self.linewidth = w
+        
     def drawText(self, x, y, text, anchor):
+        """
+        
+
+        Parameters
+        ----------
+        x : TYPE
+            DESCRIPTION.
+        y : TYPE
+            position of the lower part of the text bounding box
+        text : TYPE
+            DESCRIPTION.
+        anchor : TYPE
+            e for east, w for west, c for center.
+
+        Returns
+        -------
+        None.
+
+        """
         if (anchor == 'w'):
             ha = 'left'
         elif (anchor == 'e'):
@@ -38,7 +66,7 @@ class MatplotlibRender:
         self.canvas.annotate(text, (x, y), horizontalalignment=ha)
         
     def drawPolygon(self, x, y, outline=None, fill=None):
-        lines = Line2D(x,y)
+        lines = Line2D(x,y, color=self.color, linewidth=self.linewidth)
         self.canvas.add_line(lines)
 
     def drawLine(self, x0, y0, x1, y1):
@@ -49,11 +77,11 @@ class MatplotlibRender:
         self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0])
         
     def drawArc(self, x0, y0, x1, y1, start, extent):
-        arc = Arc(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent)
+        arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
         self.canvas.add_patch(arc)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
-        el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor='k', facecolor='none')
+        el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
         self.canvas.add_artist(el)
         
 class Schematic:
@@ -75,6 +103,7 @@ class Schematic:
         
         self.canvas = MatplotlibRender()
         
+        self.canvas.setForecolor('k')
         # hbar=Scrollbar(frame,orient=HORIZONTAL)
         # hbar.pack(side=BOTTOM,fill=X)
         # hbar.config(command=canvas.xview)
@@ -94,6 +123,8 @@ class Schematic:
         self.mapping[Not] = NotSymbol
         self.mapping[Or] = OrSymbol
         self.mapping[Add] = AddSymbol
+        self.mapping[Sub] = SubSymbol
+        
         
         self.placeInputPorts()
         self.placeInstances()
@@ -130,6 +161,11 @@ class Schematic:
             # check if if has free space above in the occupancy grid
             for y in range(rect['y'], (gridsize * 3)-1, -1):
                 candidate = grid[y:y+rect['h'],rect['x']:rect['x']+rect['w']]
+
+                if (candidate.shape[0]==0 or candidate.shape[1]==0):
+                    print('skip obj', candidate.shape, obj)
+                    continue 
+                
                 if (np.max(candidate) == 0):
                     minfree = y
                     
@@ -153,8 +189,10 @@ class Schematic:
         #grid = [[0] * self.grid_xunits] * self.grid_yunits
         
         changed = True
+        iterNum = 0
         
-        while (changed):
+        while (changed and iterNum < 1):
+            iterNum = iterNum + 1
             changed = False
             for sourceTuple in self.sources:
                 sinks = self.findSinkTuples(sourceTuple['wire'])
@@ -306,8 +344,8 @@ class Schematic:
             else:
                 x = obj.x
                 y = obj.y
-                w = obj.getWidth()
-                h = obj.getHeight()
+                w = obj.getWidth() #+ cellmargin
+                h = obj.getHeight() + cellmargin
                 grid[y:y+h,x:x+w]=1
             
         return grid
@@ -345,5 +383,7 @@ class NetSymbol:
         self.y = y
         
     def draw(self, canvas):
+        canvas.setForecolor('blueviolet')
+        canvas.setLineWidth(1)
         canvas.drawPolygon(self.x, self.y)
         
