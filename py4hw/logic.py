@@ -3,7 +3,7 @@
 from .base import Logic
 from .base import Wire
 import math
-import tkinter
+#import tkinter
 
 
 class Buf(Logic):
@@ -66,35 +66,7 @@ class Or(Logic):
                 aux = parent.wire('{}{}'.format(name, idx), w)
                 idx = idx + 1
 
-    def getSymbol(self, x, y):
-        return OrSymbol(self, x, y)
 
-
-class OrSymbol:
-    def __init__(self, obj, x, y):
-        self.obj = obj
-        self.x = x
-        self.y = y
-
-    def draw(self, canvas):
-        x = self.x
-        y = self.y
-
-        canvas.create_text(x, y, text=self.obj.name, anchor='w')
-        y = y + 8
-
-        y = y + 10
-
-        canvas.create_line(x, y, x + 40, y)
-        canvas.create_line(x, y + 40, x + 40, y + 40)
-        canvas.create_line(x, y, x, y + 40)
-        canvas.create_arc(x + 20, y, x + 50, y + 40, start=-90, extent=180, style=tkinter.ARC, outline='black', fill='white')
-
-    def getHeight(self):
-        return 30
-
-    def getWidth(self):
-        return 50
 
 
 class And(Logic):
@@ -130,8 +102,6 @@ class And(Logic):
                 aux = parent.wire('a{}'.format(idx))
                 idx = idx + 1
 
-    def getSymbol(self, x, y):
-        return AndSymbol(self, x, y)
 
 
 class Nand(Logic):
@@ -151,31 +121,6 @@ class Nand(Logic):
         Not(self, "Not", self.mid, r)
 
 
-class AndSymbol:
-    def __init__(self, obj, x, y):
-        self.obj = obj
-        self.x = x
-        self.y = y
-
-    def draw(self, canvas):
-        x = self.x
-        y = self.y
-
-        canvas.create_text(x, y, text=self.obj.name, anchor='w')
-        y = y + 8
-
-        y = y + 10
-
-        canvas.create_line(x, y, x + 40, y)
-        canvas.create_line(x, y + 40, x + 40, y + 40)
-        canvas.create_line(x, y, x, y + 40)
-        canvas.create_arc(x + 20, y, x + 50, y + 40, start=-90, extent=180, style=tkinter.ARC, outline='black', fill='white')
-
-    def getHeight(self):
-        return 30
-
-    def getWidth(self):
-        return 50
 
 
 class Not(Logic):
@@ -191,29 +136,6 @@ class Not(Logic):
         return NotSymbol(self, x, y)
 
 
-class NotSymbol:
-    def __init__(self, obj, x, y):
-        self.obj = obj
-        self.x = x
-        self.y = y
-
-    def draw(self, canvas):
-        x = self.x
-        y = self.y
-
-        canvas.create_text(x, y, text=self.obj.name, anchor='w')
-        y = y + 8
-
-        y = y + 10
-
-        canvas.create_polygon(x, y, x + 20, y + 10, x, y + 20, outline='black', fill='white')
-        canvas.create_oval(x + 20, y + 5, x + 30, y + 15, outline='black', fill='white')
-
-    def getHeight(self):
-        return 30
-
-    def getWidth(self):
-        return 30
 
 
 class Xor(Logic):
