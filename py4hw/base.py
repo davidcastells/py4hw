@@ -118,8 +118,6 @@ class Logic:
     def isClockable(self):
         return has_method(self, "clock")
     
-    def hasSymbol(self):
-        return has_method(self, "getSymbol")
     
     # def getHierarchy(self):
     #     str = ''
