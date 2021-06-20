@@ -112,10 +112,10 @@ def checkPortParent(port, obj:Logic):
         print('ERROR', obj.name + '['+ port.name+']', ' parent is ',  port.parent.getFullPath(), 'expecting', obj.getFullPath())
 
 def checkPort(port):
-    parent = port.getParent() # parent logic
+    parent = port.parent # parent logic
     
     if (not(port in parent.inPorts or port in parent.outPorts)):
-        print('ERROR', port.name , 'not port of parent ', parent.getFullPath())
+        raise Exception('ERROR: {} not port of parent {}'.format(port.name, parent.getFullPath()) )
     
 def checkIntegrity(obj:Logic):
     """
@@ -149,9 +149,9 @@ def checkIntegrity(obj:Logic):
         if (len(sinks) == 0):
             print('WARNING', obj.getFullPath(), wire.name, 'with no sinks')
         if (source == None):
-            print('ERROR', obj.getFullPath(), wire.name, 'with no source')
+            raise Exception('ERROR: {} {} with no source'.format(obj.getFullPath(), wire.name))
             
-            checkPort(source)
+        checkPort(source)
             
     for outP in obj.outPorts:
         wire = outP.wire
@@ -161,7 +161,7 @@ def checkIntegrity(obj:Logic):
         if (len(sinks) == 0):
             print('WARNING', obj.getFullPath(), wire.name, 'with no sinks')
         if (source == None):
-            print('ERROR', obj.getFullPath(), wire.name, 'with no source')
+            raise Exception('ERROR: {} {} with no source'.format(obj.getFullPath(), wire.name))
             
     for child in obj.children:
         checkIntegrity(child)
