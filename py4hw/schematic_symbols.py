@@ -315,6 +315,50 @@ class InstanceSymbol(LogicSymbol):
             y = y+portpitch
         
         
+class RegSymbol(InstanceSymbol):
+    def __init__(self, obj:Logic, x:int, y:int):
+        super().__init__(obj, x, y)
+        
+    def getWidth(self):
+        return 65
+    
+class ScopeSymbol(InstanceSymbol):
+    def __init__(self, obj:Logic, x:int, y:int):
+        super().__init__(obj, x, y)
+        
+    def getWidth(self):
+        return 100
+    
+    def getHeight(self):
+        return 100
+    
+    def draw(self, canvas):
+        x = self.x 
+        y = self.y 
+        
+        canvas.drawText(x, y, text=self.obj.name, anchor='w')
+        y = y+namemargin 
+
+        canvas.setFillcolor('lightsalmon')
+        canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - namemargin, fill=True)
+
+        ipw = instanceportwidth 
+        iph = instanceportheight
+        iphh = iph//2
+        iptm = instanceporttextmargin
+
+        y = y + portmargin
+        
+        for inp in self.obj.inPorts:
+            canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x,x], [y, y, y+iphh, y+iph, y+iph,y])
+            #canvas.drawText(x+ipw+iph, y+iptm, text=inp.name , anchor='w')
+            y = y+portpitch
+            
+        y = self.y + namemargin + portmargin
+        
+        canvas.setFillcolor('white')
+        canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-25+self.getHeight()-namemargin-20, radius=10, fill=True)
+        
 
 class NetSymbol:
     def __init__(self, source, sink):
@@ -337,6 +381,8 @@ class NetSymbol:
         
     def draw(self, canvas):
         canvas.setForecolor('blueviolet')
+        canvas.setFillcolor('blueviolet')
+        
         canvas.setLineWidth(1)
         canvas.drawPolygon(self.x, self.y)
         
@@ -346,4 +392,4 @@ class NetSymbol:
         
         ars = 5
         
-        canvas.drawPolygon([x-ars*2, x, x-ars*2, x-ars*2],[y-ars,y,y+ars, y-ars], fill=True)
+        canvas.drawPolygon([x-ars*2, x, x-ars*2, x-ars*2],[y-ars+1,y+1,y+ars+1, y-ars+1], fill=True)
