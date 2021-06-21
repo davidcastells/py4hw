@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
         
 from matplotlib.lines import Line2D
-from matplotlib.patches import Arc
-from matplotlib.patches import Ellipse
+from matplotlib.patches import *
 from .base import Logic
 from .logic import *
+from .storage import *
 from .schematic_symbols import *
 
 gridsize = 5
@@ -32,6 +32,9 @@ class MatplotlibRender:
         
     def setForecolor(self, color):
         self.color = color
+        
+    def setFillcolor(self, color):
+        self.fillcolor = color
         
     def setLineWidth(self, w):
         self.linewidth = w
@@ -68,18 +71,23 @@ class MatplotlibRender:
     def drawPolygon(self, x, y, fill=False):
         
         lines = Line2D(x,y, color=self.color, linewidth=self.linewidth)
-        
+
         if (fill):
-            self.canvas.fill(x, y, self.color)
-            
+            self.canvas.fill(x, y, self.fillcolor)
+
         self.canvas.add_line(lines)
 
     def drawLine(self, x0, y0, x1, y1):
         self.drawPolygon([x0, x1], [y0, y1])
         
-    def drawRectangle(self , x0, y0, x1, y1):
-        print('rect', x0, y0, x1, y1)
-        self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0])
+    def drawRectangle(self , x0, y0, x1, y1, fill=False):
+        #print('rect', x0, y0, x1, y1)
+        self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0], fill)
+        
+    def drawRoundRectangle(self, x0, y0, x1, y1, radius=5, fill=False):
+        box = FancyBboxPatch((x0,y0), width=x1-x0, height=y1-y0,
+              boxstyle=BoxStyle("Round", pad=radius), facecolor=self.fillcolor)
+        self.canvas.add_patch(box)
         
     def drawArc(self, x0, y0, x1, y1, start, extent):
         arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
@@ -129,6 +137,8 @@ class Schematic:
         self.mapping[Or] = OrSymbol
         self.mapping[Add] = AddSymbol
         self.mapping[Sub] = SubSymbol
+        self.mapping[Reg] = RegSymbol
+        self.mapping[Scope] = ScopeSymbol
         
         
         self.placeInputPorts()
