@@ -285,6 +285,12 @@ class Schematic:
         
         if (len(self.sys.inPorts) > 0):
             self.x = self.x + 25 * gridsize
+            
+        # g = genGraph(self.sources)
+        # g.add_edge(self.sources)
+        # print("Executed")
+        # g.col_assignment()
+        # g.print_graph()
         
     def getSymbol(self, obj, x, y):
         try:
@@ -298,6 +304,7 @@ class Schematic:
 
         return ret(obj, x, y)
         
+
     def placeInstances(self):
         maxx = 0
         self.y = gridsize*3
@@ -402,3 +409,79 @@ class Schematic:
             net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
                         
 
+        # for inp in self.obj.outPorts:
+        #     canvas.create_text(x+15-2, y, text=inp.name , anchor='e')
+        #     y = y+8
+        #     canvas.create_polygon(x, y, x+10, y, x+15, y+5, x+10, y+10, x, y+10)
+        #     y = y+portpitch-8
+        
+        
+    def getHeight(self):
+        return max(len(self.obj.inPorts), len(self.obj.outPorts)) * portpitch + cellmargin * 2
+    
+    def getWidth(self):
+        return 25 * gridsize
+
+class AdjNode:
+    def __init__(self, data):
+        self.vertex = data
+        self.next = None
+
+# Generate graphs based on the ports and nets
+
+rows,cols = (gridsize,gridsize)
+matrix = [[0]*cols]*rows
+
+class genGraph:
+
+    def __init__(self,sources):
+        self.V = len(sources)
+        self.graph = [None]*self.V
+
+    def add_edge(self,sources):
+        for i in range(len(sources)-1):
+            for j in range(i+1,len(sources)):
+                if sources[j].parent == sources[i]:
+                    node = AdjNode(sources[j])
+                    node.next = self.graph[sources[i]]
+                    self.graph[sources[i]] = next
+
+    def print_graph(self):
+        for i in range(self.V):
+            print("Adjacency list of vertex {}\n head".format(i), end="")
+            temp = self.graph[i]
+            while temp:
+                print(" -> {}".format(temp.vertex), end="")
+                temp = temp.next
+            print(" \n")
+    
+    def col_assignment(self):
+        for i in range(self.V):
+            k=0
+            if(self.graph[i].isPrimitive()):
+                matrix[0][k] = self.graph[i]
+                k+=1
+            else:
+                matrix[self.graph[i].col][self.graph[i].row+1] = self.graph[i]
+
+    def row_assignment(self):
+        
+        for i in range(self.V):
+            for j in range(matrix.size()):
+                count = 0
+                count = matrix[j].size()
+                for k in range(count):
+                    matrix[k][0] = self.graph[i]
+
+
+    def crossover_calc(self,matrix):
+        
+        numCross = 0
+        
+        for i in range(cols-1):
+            for j in range(cols):
+                for k in range(rows-1):
+                    for l in range(rows):
+                         numCross += Matrix[j][k]*Matrix[i][l]
+        
+        return numCross
