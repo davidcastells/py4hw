@@ -180,8 +180,8 @@ class NotSymbol(LogicSymbol):
 
         y = y + 10
 
-        canvas.drawPolygon([x, x + 20, x], [y, y + 10, y + 20], outline='black', fill='white')
-        canvas.drawEllipse(x + 20, y + 5, x + 30, y + 15, outline='black', fill='white')
+        canvas.drawPolygon([x, x + 20, x], [y, y + 10, y + 20])
+        canvas.drawEllipse(x + 20, y + 5, x + 30, y + 15)
 
     def getHeight(self):
         return 30
@@ -315,3 +315,35 @@ class InstanceSymbol(LogicSymbol):
             y = y+portpitch
         
         
+
+class NetSymbol:
+    def __init__(self, source, sink):
+        self.source = source
+        self.sink = sink
+        
+    def getStartPoint(self):
+        objsource = self.source['symbol']
+        portsource = objsource.getWireSourcePos(self.source['wire'])
+        return (objsource.x + portsource[0], objsource.y + portsource[1]) 
+    
+    def getEndPoint(self):
+        objsink = self.sink['symbol']
+        portsink = objsink.getWireSinkPos(self.source['wire'])
+        return (objsink.x + portsink[0], objsink.y + portsink[1]) 
+    
+    def setPath(self, x, y):
+        self.x = x
+        self.y = y
+        
+    def draw(self, canvas):
+        canvas.setForecolor('blueviolet')
+        canvas.setLineWidth(1)
+        canvas.drawPolygon(self.x, self.y)
+        
+        # draw the arrow finishing
+        x = self.x[len(self.x)-1]
+        y = self.y[len(self.y)-1]
+        
+        ars = 5
+        
+        canvas.drawPolygon([x-ars*2, x, x-ars*2, x-ars*2],[y-ars,y,y+ars, y-ars], fill=True)
