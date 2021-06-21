@@ -65,8 +65,13 @@ class MatplotlibRender:
             
         self.canvas.annotate(text, (x, y), horizontalalignment=ha)
         
-    def drawPolygon(self, x, y, outline=None, fill=None):
+    def drawPolygon(self, x, y, fill=False):
+        
         lines = Line2D(x,y, color=self.color, linewidth=self.linewidth)
+        
+        if (fill):
+            self.canvas.fill(x, y, self.color)
+            
         self.canvas.add_line(lines)
 
     def drawLine(self, x0, y0, x1, y1):
@@ -132,6 +137,7 @@ class Schematic:
         self.replaceByDependency()
         
         self.replaceVerticalCompress()
+        self.replaceHorizontalCompress()
         
         self.createNets()
         self.routeNets()
@@ -163,15 +169,48 @@ class Schematic:
                 candidate = grid[y:y+rect['h'],rect['x']:rect['x']+rect['w']]
 
                 if (candidate.shape[0]==0 or candidate.shape[1]==0):
-                    print('skip obj', candidate.shape, obj)
-                    continue 
-                
-                if (np.max(candidate) == 0):
+                    #print('y',y,'skip obj', candidate.shape, obj)
+                    pass
+                elif (np.max(candidate) == 0):
                     minfree = y
                     
             # if so, move it as much as possible
             if (minfree >= 0):
                 obj.y = minfree
+                
+            # compute the occupancy grid again
+            grid = self.getOccupancyGrid()
+            
+    def replaceHorizontalCompress(self):
+        """
+        Compress instances in the vertical axis, 
+        avoiding unused space above
+
+        Returns
+        -------
+        None.
+
+        """
+        grid = self.getOccupancyGrid()
+        
+        for obj in self.objs:
+            # get the occupancy area of this block
+            rect = obj.getOccupancy()
+
+            minfree = -1            
+            # check if if has free space to the left in the occupancy grid
+            for x in range(rect['x'], (gridsize * 3)-1, -1):
+                candidate = grid[rect['y']:rect['y']+rect['h'],x:x+rect['w']]
+
+                if (candidate.shape[0]==0 or candidate.shape[1]==0):
+                    #print('y',y,'skip obj', candidate.shape, obj)
+                    pass
+                elif (np.max(candidate) == 0):
+                    minfree = x
+                    
+            # if so, move it as much as possible
+            if (minfree >= 0):
+                obj.x = minfree
                 
             # compute the occupancy grid again
             grid = self.getOccupancyGrid()
@@ -191,7 +230,7 @@ class Schematic:
         changed = True
         iterNum = 0
         
-        while (changed and iterNum < 1):
+        while (changed and iterNum < 2):
             iterNum = iterNum + 1
             changed = False
             for sourceTuple in self.sources:
@@ -363,27 +402,3 @@ class Schematic:
             net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
                         
 
-class NetSymbol:
-    def __init__(self, source, sink):
-        self.source = source
-        self.sink = sink
-        
-    def getStartPoint(self):
-        objsource = self.source['symbol']
-        portsource = objsource.getWireSourcePos(self.source['wire'])
-        return (objsource.x + portsource[0], objsource.y + portsource[1]) 
-    
-    def getEndPoint(self):
-        objsink = self.sink['symbol']
-        portsink = objsink.getWireSinkPos(self.source['wire'])
-        return (objsink.x + portsink[0], objsink.y + portsink[1]) 
-    
-    def setPath(self, x, y):
-        self.x = x
-        self.y = y
-        
-    def draw(self, canvas):
-        canvas.setForecolor('blueviolet')
-        canvas.setLineWidth(1)
-        canvas.drawPolygon(self.x, self.y)
-        
