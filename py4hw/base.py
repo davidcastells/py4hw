@@ -325,6 +325,9 @@ class InPort:
 
         if (parent.isPrimitive()):
             wire.addSink(self)
+            
+    def getFullPath(self):
+        return self.parent.getFullPath() + '[{}]'.format(self.name)
     
 class OutPort:
     """
@@ -357,6 +360,9 @@ class OutPort:
         
         if (parent.isPrimitive()):
             wire.setSource(self)
+
+    def getFullPath(self):
+        return self.parent.getFullPath() + '[{}]'.format(self.name)
 
 class InterfaceSource:
     def __init__(self, name:str, ports):
