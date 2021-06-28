@@ -180,7 +180,7 @@ class NotSymbol(LogicSymbol):
 
         y = y + 10
 
-        canvas.drawPolygon([x, x + 20, x], [y, y + 10, y + 20])
+        canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
         canvas.drawEllipse(x + 20, y + 5, x + 30, y + 15)
 
     def getHeight(self):
@@ -189,8 +189,33 @@ class NotSymbol(LogicSymbol):
     def getWidth(self):
         return 30
     
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), namemargin + 10)
+    
+class BufSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
 
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
 
+        canvas.drawText(x, y, text=self.obj.name, anchor='w')
+        y = y + namemargin 
+
+        y = y + 10
+
+        canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
+        
+    def getHeight(self):
+        return 20
+
+    def getWidth(self):
+        return 30
+
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), namemargin + 10)
+    
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
@@ -250,7 +275,7 @@ class InPortSymbol(LogicSymbol):
         canvas.drawPolygon([x, x+10, x+15, x+10,x,x], [y, y, y+5, y+10, y+10, y])
 
     def getWidth(self):
-        return 10;
+        return 15;
     
     def getHeight(self):
         return 20;
@@ -271,7 +296,7 @@ class OutPortSymbol(LogicSymbol):
         canvas.drawPolygon([x, x+10, x+15, x+10, x, x], [y, y, y+5, y+10, y+10, y])
 
     def getWidth(self):
-        return 10;
+        return 15;
     
     def getHeight(self):
         return 20;
@@ -327,10 +352,10 @@ class ScopeSymbol(InstanceSymbol):
         super().__init__(obj, x, y)
         
     def getWidth(self):
-        return 100
+        return 80
     
     def getHeight(self):
-        return 100
+        return 80
     
     def draw(self, canvas):
         x = self.x 
@@ -357,7 +382,7 @@ class ScopeSymbol(InstanceSymbol):
         y = self.y + namemargin + portmargin
         
         canvas.setFillcolor('white')
-        canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-25+self.getHeight()-namemargin-20, radius=10, fill=True)
+        canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-20+self.getHeight()-namemargin-20, radius=10, fill=True)
         
 
 class NetSymbol:
