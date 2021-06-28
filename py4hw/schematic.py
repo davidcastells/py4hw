@@ -20,10 +20,10 @@ cellmargin = 20
 
 class MatplotlibRender:
     def __init__(self):
-        f = plt.figure(figsize=(8,8))
+        f = plt.figure(figsize=(16,16))
         self.canvas = f.add_subplot()
-        self.canvas.set_xlim(0, 1440//2)
-        self.canvas.set_ylim(0, 1440//2)
+        self.canvas.set_xlim(0, 1440)
+        self.canvas.set_ylim(0, 1440)
         self.canvas.invert_yaxis()
         plt.axis('off')
         
@@ -139,15 +139,20 @@ class Schematic:
         self.mapping[Sub] = SubSymbol
         self.mapping[Reg] = RegSymbol
         self.mapping[Scope] = ScopeSymbol
+        self.mapping[Buf] = BufSymbol
         
         
         self.placeInputPorts()
         self.placeInstances()
         self.placeOutputPorts()
-        self.replaceByDependency()
+
+        self.bruteForceSort()
+        self.replaceByAdjacencyMatrix()
+        
+        # self.replaceByDependency()
         
         self.replaceVerticalCompress()
-        self.replaceHorizontalCompress()
+        # #self.replaceHorizontalCompress()
         
         self.createNets()
         self.routeNets()
@@ -156,6 +161,35 @@ class Schematic:
         self.drawAll()
         
         #mainloop()
+        
+    def replaceByAdjacencyMatrix(self):
+        am = self.getAdjacencyMatrix()
+        
+        x = 0
+        y = 0
+        
+        for i in range(am.shape[0]):
+            obj = self.objs[i]
+            
+            srcs = am[0:i,i]
+            if (i == 0 or np.max(srcs) == 0):
+                # no source
+                obj.x = x
+                obj.y = y
+                y = y + obj.getHeight() + cellmargin
+
+            else:
+                lastsrc_aux = np.where(srcs>0) # more recent source
+                pos = len(lastsrc_aux[0])
+                lastsrc = lastsrc_aux[0][pos-1]
+                
+                dep = self.objs[lastsrc]
+                obj.x = dep.x + dep.getWidth() + cellmargin
+                obj.y = y
+                x = obj.x
+                y = y + obj.getHeight() + cellmargin
+                
+            
         
     def replaceVerticalCompress(self):
         """
@@ -247,24 +281,27 @@ class Schematic:
                 sinks = self.findSinkTuples(sourceTuple['wire'])
                 sourceObj = sourceTuple['symbol']
                 
-                print('Source Obj:', sourceObj.obj.name)
                 
                 for sinkTuple in sinks:
                     sinkObj = sinkTuple['symbol']
                     candidatex = sourceObj.x + sourceObj.getWidth() + cellmargin
     
-                    print('Sink Obj:', sinkObj.obj.name)
+                    
                 
                     # check if A -> B, B-> A happens
                     directCount = self.countNetsBetweenSymbols(sourceObj, sinkObj)
                     reverseCount = self.countNetsBetweenSymbols(sinkObj, sourceObj)
                     
-                    print('direct', directCount, 'reverse', reverseCount)
                     
-                    if (isinstance(sourceObj, Logic )):
-                        print(sourceObj.obj.getFullPath())
+                    
+                    #if (isinstance(sourceObj, Logic )):
+                    #    print(sourceObj.obj.getFullPath())
                     
                     if (candidatex > sinkObj.x and directCount > reverseCount):
+                        print('moving to',candidatex + cellmargin, sinkObj.obj.name, 'sink of', sourceObj.obj.name, '({}/{})'.format(directCount, reverseCount))
+                        #print('Source Obj:', sourceObj.obj.name)
+                        #print('Sink Obj:', sinkObj.obj.name)
+                        #print('direct', directCount, 'reverse', reverseCount)
                         sinkObj.x = candidatex + cellmargin
                         changed = True
                 
@@ -301,6 +338,7 @@ class Schematic:
         # print("Executed")
         # g.col_assignment()
         # g.print_graph()
+        self.numInputs = len(self.objs)
         
     def getSymbol(self, obj, x, y):
         try:
@@ -385,24 +423,127 @@ class Schematic:
         ba = np.array([isinstance(x, NetSymbol) for x in self.objs])
         return list(oa[ba])
     
+    def getNonNets(self):
+        oa = np.array(self.objs)
+        ba = np.array([not isinstance(x, NetSymbol) for x in self.objs])
+        return list(oa[ba])
+    
     def drawAll(self):
         for obj in self.objs:
             obj.draw(self.canvas)
         
         return self.canvas
     
-    def getOccupancyGrid(self):
-        grid = np.zeros((800,800))
+    def getAdjacencyMatrix(self):
+        """
         
-        for obj in self.objs:
-            if (isinstance(obj, NetSymbol)):
-                pass
-            else:
-                x = obj.x
-                y = obj.y
-                w = obj.getWidth() #+ cellmargin
-                h = obj.getHeight() + cellmargin
-                grid[y:y+h,x:x+w]=1
+
+        Returns
+        -------
+        adjacency matrix : numpy 2D array with the connections between 
+            circuit instances
+
+        """
+        non_nets = self.getNonNets()
+        nc = len(non_nets) # number of circuits
+        am = np.zeros((nc, nc), dtype=int) # adjacency matrix
+        
+        for srcidx in range(nc):
+            srcobj = non_nets[srcidx]
+            
+            for trgidx in range(nc):
+                trgobj = non_nets[trgidx]
+            
+                am[srcidx, trgidx] = self.areSourceTarget(srcobj, trgobj)
+            
+        
+        return am
+        
+    def computeAdjacencyMatrixCost(self):
+        am = self.getAdjacencyMatrix()
+        cost = 0
+        for y in range(am.shape[0]):
+            for x in range(y):
+                cost = cost + am[y, x]
+
+        return cost
+    
+    def swap(self, a, b):
+        self.objs[a], self.objs[b] = self.objs[b], self.objs[a] 
+
+    def bruteForceSort(self):
+        am = self.getAdjacencyMatrix()
+        nc = am.shape[0]
+
+
+        objs = self.objs.copy()
+        cost = self.computeAdjacencyMatrixCost()
+        
+        for k in range(nc):
+            anychange = False
+            for i in range(nc):
+                for j in range(i, nc):
+                    if (i != j):
+                        self.swap(i,j)
+                        newcost = self.computeAdjacencyMatrixCost()
+                        
+                        #print('swap', i, j, 'cost=', newcost)
+
+                        if (newcost >= cost):
+                            # revert swap
+                            self.objs = objs
+                        else:
+                            objs = self.objs.copy()
+                            cost = newcost
+                            anychange = True
+
+            print('iter', k, 'cost:', cost, anychange)
+                         
+            if (not anychange):
+                break
+
+        am = self.getAdjacencyMatrix()
+        return am
+
+    def areSourceTarget(self, srcobj, trgobj):
+        if (isinstance(srcobj, InPortSymbol)):
+            outwires = [srcobj.obj.wire]
+        elif (isinstance(srcobj, OutPortSymbol)):
+            outwires = []
+        else:
+            outwires = [outport.wire for outport in srcobj.obj.outPorts]
+        
+        if (isinstance(trgobj, InPortSymbol)):
+            inwires = []
+        elif (isinstance(trgobj, OutPortSymbol)):
+            inwires = [trgobj.obj.wire]
+        else:
+            inwires = [inport.wire for inport in trgobj.obj.inPorts]
+        
+        inter = Intersection(inwires, outwires)
+        
+        #print('Intersection ', srcobj.obj.getFullPath(), trgobj.obj.getFullPath(), '=', len(inter))
+        
+        return len(inter) 
+        
+    def getOccupancyGrid(self):
+        maxh = 0
+        maxw = 0
+        
+        for obj in self.getNonNets():
+            w = obj.x + obj.getWidth() #+ cellmargin
+            h = obj.y + obj.getHeight() + cellmargin
+            if (w > maxw): maxw = w
+            if (h > maxh): maxh = h
+            
+        grid = np.zeros((maxh,maxw))
+        
+        for obj in self.getNonNets():
+            x = obj.x
+            y = obj.y
+            w = obj.getWidth() #+ cellmargin
+            h = obj.getHeight() + cellmargin
+            grid[y:y+h,x:x+w]=1
             
         return grid
     
@@ -495,3 +636,8 @@ class genGraph:
                          numCross += Matrix[j][k]*Matrix[i][l]
         
         return numCross
+
+
+
+def Intersection(lst1, lst2):
+    return set(lst1).intersection(lst2)
