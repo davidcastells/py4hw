@@ -15,7 +15,7 @@ from .storage import *
 from .schematic_symbols import *
 
 gridsize = 5
-cellmargin = 20
+cellmargin = 50
 
 
 class MatplotlibRender:
@@ -99,7 +99,6 @@ class MatplotlibRender:
         
 class Schematic:
     
-    
     def __init__(self, sys:Logic):
    
         if (len(sys.children) == 0):
@@ -168,7 +167,10 @@ class Schematic:
         x = 0
         y = 0
         
-        for i in range(am.shape[0]):
+        if (self.numInputs > 0):
+            x = 10 + cellmargin
+        
+        for i in range(self.numInputs, am.shape[0]):
             obj = self.objs[i]
             
             srcs = am[0:i,i]
@@ -184,7 +186,7 @@ class Schematic:
                 lastsrc = lastsrc_aux[0][pos-1]
                 
                 dep = self.objs[lastsrc]
-                obj.x = dep.x + dep.getWidth() + cellmargin
+                obj.x = max(x, dep.x + dep.getWidth() + cellmargin)
                 obj.y = y
                 x = obj.x
                 y = y + obj.getHeight() + cellmargin
@@ -391,6 +393,8 @@ class Schematic:
         #self.x = 1
         self.y = gridsize * 5
         
+        self.firstOutput = len(self.objs)
+        
         for inp in self.sys.outPorts:
             osym = OutPortSymbol(inp, self.x, self.y)
             self.objs.append(osym)
@@ -398,13 +402,16 @@ class Schematic:
             self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
         
         #self.x = self.x + 3
+
+        self.lastOutput = len(self.objs)
+
         
     def findSourceTuple(self, sinkWire:Wire):
         for source in self.sources:
             if (source['wire'] == sinkWire):
                 return source
             
-        raise Exception('No source to wire {} in {}'.format(sinkWire.name, self.sources) )
+        raise Exception('No source to wire "{}" in {}'.format(sinkWire.name, self.sources) )
             
     def findSinkTuples(self, sourceWire):
         ret = []
@@ -479,11 +486,12 @@ class Schematic:
         objs = self.objs.copy()
         cost = self.computeAdjacencyMatrixCost()
         
-        for k in range(nc):
+        for k in range(self.numInputs, self.firstOutput):
             anychange = False
-            for i in range(nc):
-                for j in range(i, nc):
+            for i in range(self.numInputs, self.firstOutput):
+                for j in range(i, self.firstOutput):
                     if (i != j):
+                        objs = self.objs.copy()
                         self.swap(i,j)
                         newcost = self.computeAdjacencyMatrixCost()
                         
@@ -493,9 +501,10 @@ class Schematic:
                             # revert swap
                             self.objs = objs
                         else:
-                            objs = self.objs.copy()
                             cost = newcost
                             anychange = True
+                            
+                            #print(self.getAdjacencyMatrix())
 
             print('iter', k, 'cost:', cost, anychange)
                          
