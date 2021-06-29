@@ -10,7 +10,7 @@ import math
 
 gridsize = 5
 portpitch = 28
-cellmargin = 20
+cellmargin = 50
 portSeparation = 10
 
 namemargin = 8
@@ -203,18 +203,19 @@ class BufSymbol(LogicSymbol):
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
         y = y + namemargin 
 
-        y = y + 10
-
         canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
         
     def getHeight(self):
         return 20
 
     def getWidth(self):
-        return 30
+        return 20
 
     def getWireSourcePos(self, wire:Wire):
         return (self.getWidth(), namemargin + 10)
+    
+    def getWireSinkPos(self, wire:Wire):
+        return (0, namemargin + 10)
     
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
