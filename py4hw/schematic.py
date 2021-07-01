@@ -16,14 +16,23 @@ from .schematic_symbols import *
 
 gridsize = 5
 cellmargin = 50
-
+cellmargin_initial = 150
+netmargin = 40
+netspacing = 10
 
 class MatplotlibRender:
-    def __init__(self):
-        f = plt.figure(figsize=(16,16))
+    def __init__(self, shape):
+        w = shape[0]
+        h = shape[1]
+        dpi = 100
+        iw = w / dpi 
+        ih = h / dpi
+        pmax = max(w,h)
+        imax = max(iw, ih)
+        f = plt.figure(figsize=(imax,imax), dpi=dpi)
         self.canvas = f.add_subplot()
-        self.canvas.set_xlim(0, 1440)
-        self.canvas.set_ylim(0, 1440)
+        self.canvas.set_xlim(0, pmax)
+        self.canvas.set_ylim(0, pmax)
         self.canvas.invert_yaxis()
         plt.axis('off')
         
@@ -113,9 +122,6 @@ class Schematic:
         # frame.pack(expand=True, fill=BOTH) #.grid(row=0,column=0)
         # canvas=Canvas(frame,bg='#FFFFFF',width=300,height=900,scrollregion=(0,0,500,900))
         
-        self.canvas = MatplotlibRender()
-        
-        self.canvas.setForecolor('k')
         # hbar=Scrollbar(frame,orient=HORIZONTAL)
         # hbar.pack(side=BOTTOM,fill=X)
         # hbar.config(command=canvas.xview)
@@ -134,11 +140,16 @@ class Schematic:
         self.mapping[And] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or] = OrSymbol
+        
         self.mapping[Add] = AddSymbol
         self.mapping[Sub] = SubSymbol
+        self.mapping[Mul] = MulSymbol
+        
         self.mapping[Reg] = RegSymbol
         self.mapping[Scope] = ScopeSymbol
         self.mapping[Buf] = BufSymbol
+        self.mapping[Bit] = BitSymbol
+        self.mapping[Mux2] = Mux2Symbol
         
         
         self.placeInputPorts()
@@ -157,6 +168,10 @@ class Schematic:
         self.routeNets()
         
         
+        
+        self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
+        self.canvas.setForecolor('k')
+
         self.drawAll()
         
         #mainloop()
@@ -168,7 +183,7 @@ class Schematic:
         y = 0
         
         if (self.numInputs > 0):
-            x = 10 + cellmargin
+            x = 10 + cellmargin_initial
         
         for i in range(self.numInputs, am.shape[0]):
             obj = self.objs[i]
@@ -186,7 +201,7 @@ class Schematic:
                 lastsrc = lastsrc_aux[0][pos-1]
                 
                 dep = self.objs[lastsrc]
-                obj.x = max(x, dep.x + dep.getWidth() + cellmargin)
+                obj.x = max(x, dep.x + dep.getWidth() + cellmargin_initial)
                 obj.y = y
                 x = obj.x
                 y = y + obj.getHeight() + cellmargin
@@ -535,9 +550,27 @@ class Schematic:
         
         return len(inter) 
         
-    def getOccupancyGrid(self):
+    def getOccupancyGrid(self, mode=None, discard=[]):
+        """
+        Compute the occupancy grid
+
+        Parameters
+        ----------
+        mode : str, optional
+            DESCRIPTION. The default is None.
+        discard : TYPE, optional
+            DESCRIPTION. The default is [].
+
+        Returns
+        -------
+        grid : TYPE
+            DESCRIPTION.
+
+        """
         maxh = 0
         maxw = 0
+        
+        #print('-')
         
         for obj in self.getNonNets():
             w = obj.x + obj.getWidth() #+ cellmargin
@@ -545,28 +578,162 @@ class Schematic:
             if (w > maxw): maxw = w
             if (h > maxh): maxh = h
             
+        if (mode == 'prerouting'):
+            maxh = maxh*2
+            
         grid = np.zeros((maxh,maxw))
         
         for obj in self.getNonNets():
+            if (obj in discard):
+                continue
+
             x = obj.x
             y = obj.y
             w = obj.getWidth() #+ cellmargin
             h = obj.getHeight() + cellmargin
             grid[y:y+h,x:x+w]=1
+            #print('OG:', obj.obj.getFullPath(), x,y, x+w, y+h)
+            
+        if (mode == 'prerouting'):
+            for obj in self.getNets():
+                if (obj in discard):
+                    continue
+                if (obj.routed == False):
+                    continue
+                    
+                x = obj.x
+                y = obj.y
+                
+                if (x != None):
+                    grid[y[0]-netspacing:y[1]+netspacing, x[0]:x[1]] = 2
+                    grid[y[1]:y[2], x[1]-netspacing:x[2]+netspacing] = 2
+                    grid[y[2]-netspacing:y[3]+netspacing, x[2]:x[3]] = 2
+                    grid[y[3]:y[4], x[3]-netspacing:x[4]+netspacing] = 2
+                    grid[y[4]-netspacing:y[5]+netspacing, x[4]:x[5]] = 2
+                    
+                #print('OG:', obj.obj.getFullPath(), x,y, x+w, y+h)
             
         return grid
+
+    def isFreeRectangle(self, og, x0, y0, x1, y1):
+        try:
+            if (x0==x1 and y0==y1):
+                return True
+            
+            
+            if (y1 >= og.shape[0] or x1 >= og.shape[1]):
+                return False
+            
+            if (x0 > x1):
+                x0, x1 = x1, x0
+            if (y0 > y1):
+                y0, y1 = y1, y0
+            
+            v = np.max(og[y0:y1+1, x0:x1+1])
+        except:
+            return False
+        
+        return v == 0
+        
+    def routeNet(self, net:NetSymbol):
+        p0 = net.getStartPoint()
+        pf = net.getEndPoint()
+        
+        c0 = p0[0]
+        r0 = p0[1]
+        cf = pf[0]
+        rf = pf[1]
+
+        try:        
+            og = self.getOccupancyGrid(mode='prerouting', discard=[net.source['symbol'], net.sink['symbol']])
+            
+            #print('OG', og.shape)
+            #print('connecting ', c0, r0, cf, rf)
+            
+            # C1 assignment
+            c1 = -1
+            if (rf > r0):
+                rangec1 = range(cf-netmargin, c0+netmargin, -1)
+            else:
+                rangec1 = range(c0 + netmargin , cf-netmargin)
+    
+            for c in rangec1:
+                #print('checking ', c0, r0, c, r0)
+                if self.isFreeRectangle(og, c0,r0-netspacing, c, r0+netspacing):
+                    c1 = c
+                    break
+     
+            print('Final C1', c1)
+        
+            # R1 assignment
+            r1 = -1
+            doRun = (c1 != -1)
+            radius = 0
+            
+            #print('checking', c1, rf, cf, rf)
+            #print('checking', c1, r0, c1, rf)
+                    
+            for radius in range(max(rf, og.shape[1])):
+                for sign in [1,-1]:
+                    r = rf + radius*sign
+                    
+                    if (r < 0):
+                        continue
+                    
+                    #print('checking ', c1, r, cf, r) #, self.isFreeRectangle(og, c1, r, cf, r))
+                    #print('checking ', c1, r0, c1, r) #, self.isFreeRectangle(og, c1, r0, c1, r))
+    
+                    if (self.isFreeRectangle(og, c1, r-netspacing, cf, r+netspacing)  and self.isFreeRectangle(og, c1-netspacing, r0, c1+netspacing, r)):
+                        r1 = r
+                        doRun = False
+                        break
+                    
+                if (doRun == False):
+                    break
+                
+                radius = radius + 1
+                  
+            print('Final R1', r1)
+                
+            # C2 assignment
+            c2 = -1
+            if (r1 > rf):
+                rangec2 = range(cf-netmargin, c1+1, -1)
+            else:
+                rangec2 = range(c1 , cf-netmargin+1)
+                
+            #print('c2 range', rangec2)
+            
+            for c in rangec2:
+                #print('checking', c, r1, c, rf)
+                #print('checking', c, rf, cf, rf)
+                if (self.isFreeRectangle(og, c-netspacing, r1, c+netspacing, rf) and self.isFreeRectangle(og, c, rf-netspacing, cf, rf+netspacing)):
+                    c2 = c
+                    break
+    
+    
+            print('Final C2', c2)
+    
+            if (c1 != -1 and r1 != -1 and c2 != -1):
+                # solution found
+                net.setPath([c0, c1, c1, c2, c2, cf], [r0, r0, r1, r1, rf, rf])
+                net.routed = True
+                return og
+            
+        except:   
+            pass
+        
+        mp = ((p0[0]+pf[0])//2, (p0[1]+pf[1])//2)        
+        net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+        net.routed = False
+    
     
     def routeNets(self):
         nets = self.getNets()
         
         for net in nets:
             # route net
-            p0 = net.getStartPoint()
-            pf = net.getEndPoint()
-            
-            mp = ((p0[0]+pf[0])//2, (p0[1]+pf[1])//2)
-            
-            net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+            self.routeNet(net)
                         
 
         # for inp in self.obj.outPorts:
