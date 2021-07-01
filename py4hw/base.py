@@ -211,6 +211,9 @@ class Wire:
         self.sinks = []
         self.source = None
         
+    def getFullPath(self)->str:
+        return self.parent.getFullPath() + '[{}]'.format(self.name)
+    
     def getWidth(self) -> int:
         return self.width
     
