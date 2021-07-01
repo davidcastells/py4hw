@@ -123,6 +123,11 @@ class SubSymbol(BinaryOperatorSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         self.operator = '-'
+        
+class MulSymbol(BinaryOperatorSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+        self.operator = '*'
     
 class AndSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -213,6 +218,32 @@ class BufSymbol(LogicSymbol):
 
     def getWireSourcePos(self, wire:Wire):
         return (self.getWidth(), namemargin + 10)
+    
+    def getWireSinkPos(self, wire:Wire):
+        return (0, namemargin + 10)
+    
+class BitSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+
+        canvas.drawText(x, y, text='[{}]'.format(self.obj.bit), anchor='w')
+        y = y + namemargin 
+
+        canvas.drawLine(x+10,y, x, y+20)
+        #canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
+        
+    def getHeight(self):
+        return 20
+
+    def getWidth(self):
+        return 20
+
+    def getWireSourcePos(self, wire:Wire):
+        return (10, namemargin + 10)
     
     def getWireSinkPos(self, wire:Wire):
         return (0, namemargin + 10)
@@ -385,11 +416,69 @@ class ScopeSymbol(InstanceSymbol):
         canvas.setFillcolor('white')
         canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-20+self.getHeight()-namemargin-20, radius=10, fill=True)
         
+class Mux2Symbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+        self.h = 20*3
+
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+
+        canvas.drawText(x, y, text=self.obj.name, anchor='w')
+        y = y + namemargin
+
+        canvas.setForecolor('blueviolet')  
+        canvas.setLineWidth(1)
+        canvas.drawLine(x, y+10, x+15, y+10)
+        canvas.drawLine(x+15, y+10, x+15, y+25)
+
+        y = y+20
+        
+        canvas.setForecolor('k')  
+        canvas.setLineWidth(2)
+        
+        # the and box would be x[0:50] y[0:30]
+        canvas.drawLine(x, y, x + 20, y+10)
+        canvas.drawLine(x, y, x , y+40)
+        canvas.drawLine(x, y+40, x + 20, y + 30)
+        canvas.drawLine(x+20, y+10, x+20 , y+30)
+
+
+    def getHeight(self):
+        return namemargin + self.h
+
+    def getWidth(self):
+        return 20
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), namemargin + 40)
+    
+    def getWireSinkPos(self, wire:Wire):
+        selidx = -1
+        for idx, port in enumerate(self.obj.inPorts):
+            if (port.wire == wire):
+                selidx = idx
+                
+        if (selidx == -1):
+            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+
+        if (selidx == 0):
+            y = 10
+        elif (selidx == 1):
+            y = 30 
+        else:
+            y = 50 
+
+        return (0, namemargin + y)
 
 class NetSymbol:
     def __init__(self, source, sink):
         self.source = source
         self.sink = sink
+        self.x = None
+        self.y = None
+        self.routed = False
         
     def getStartPoint(self):
         objsource = self.source['symbol']
@@ -406,9 +495,16 @@ class NetSymbol:
         self.y = y
         
     def draw(self, canvas):
-        canvas.setForecolor('blueviolet')
-        canvas.setFillcolor('blueviolet')
+        if (self.x == None):
+            return
         
+        if (self.routed):
+            canvas.setForecolor('blueviolet')
+            canvas.setFillcolor('blueviolet')
+        else:
+            canvas.setForecolor('red')
+            canvas.setFillcolor('red')
+            
         canvas.setLineWidth(1)
         canvas.drawPolygon(self.x, self.y)
         
