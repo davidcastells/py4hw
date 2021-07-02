@@ -150,6 +150,8 @@ class Schematic:
         self.mapping[Buf] = BufSymbol
         self.mapping[Bit] = BitSymbol
         self.mapping[Mux2] = Mux2Symbol
+
+        self.mapping[Waveform] = ScopeSymbol # Temp solution
         
         
         self.placeInputPorts()
