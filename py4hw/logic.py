@@ -66,9 +66,6 @@ class Or(Logic):
                 aux = parent.wire('{}{}'.format(name, idx), w)
                 idx = idx + 1
 
-
-
-
 class And(Logic):
     """
     Binary And
@@ -561,30 +558,43 @@ class Comparator(Logic):
 
 class Scope(Logic):
 
-    def __init__(self, parent, name: str, x: Wire):
+    def __init__(self, parent: Logic, name: str, wires):
         """
-
-
         Parameters
         ----------
-        parent : TYPE
-            Parent cell.
+        parent : Logic
+            Parent circuit.
         name : str
             Name of the instance.
-        x : Wire
-            Wire to monitor.
+        x
+            Wire or list of wire to monitor.
 
         Returns
         -------
         None.
-
         """
-        super().__init__(parent, name)
-        self.name = name
-        self.x = self.addIn("x", x)
 
-    def propagate(self):
-        print("{}={}".format(self.name, self.x.get()))
+        super().__init__(parent, name)
+        self.wires = wires if isinstance(wires, list) else [wires]
+        for x in self.wires:
+            self.addIn(x.name, x)
+
+        # Get simulator
+        sim = parent
+        while sim.parent != None:
+            sim = sim.parent
+
+        sim.getSimulator().addListener(self)
+
+    def simulatorUpdated(self):
+        head = f"Scope [{self.name}]:"
+        print(head)
+
+        for x in self.wires:
+            print(f"{x.name}={x.get()}")
+
+        print("-"*len(head))
+        
 
 
 class Waveform(Logic):
