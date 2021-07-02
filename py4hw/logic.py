@@ -66,6 +66,7 @@ class Or(Logic):
                 aux = parent.wire('{}{}'.format(name, idx), w)
                 idx = idx + 1
 
+
 class And(Logic):
     """
     Binary And
@@ -100,7 +101,6 @@ class And(Logic):
                 idx = idx + 1
 
 
-
 class Nand(Logic):
     """
     Binary Nand
@@ -118,8 +118,6 @@ class Nand(Logic):
         Not(self, "Not", self.mid, r)
 
 
-
-
 class Not(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
@@ -131,8 +129,6 @@ class Not(Logic):
 
     def getSymbol(self, x, y):
         return NotSymbol(self, x, y)
-
-
 
 
 class Xor(Logic):
@@ -566,7 +562,7 @@ class Scope(Logic):
             Parent circuit.
         name : str
             Name of the instance.
-        x
+        wires
             Wire or list of wire to monitor.
 
         Returns
@@ -593,46 +589,76 @@ class Scope(Logic):
         for x in self.wires:
             print(f"{x.name}={x.get()}")
 
-        print("-"*len(head))
-        
+        print("-" * len(head))
 
 
 class Waveform(Logic):
 
-    def __init__(self, parent, name: str, x: Wire):
-      """
+    def __init__(self, parent: Logic, name: str, wires):
+        """
 
-      Parameters
-      ----------
-      parent : TYPE
-          Parent cell.
-      name : str
-          Name of the instance.
-      x : Wire
-          Wire to monitor.
+        Parameters
+        ----------
+        parent : Logic
+              Parent circuit.
+        name : str
+            Name of the instance.
+        wires
+              Wire or list of wire to monitor.
 
-      Returns
-      -------
-      None.
+        Returns
+        -------
+        None.
 
-      """
-      super().__init__(parent, name)
-      self.name = name
-      self.x = self.addIn("x", x)
-      self.wave = {"name": name, "wave": "x", "data": []}
-      self.prev = None
+        """
+        super().__init__(parent, name)
+        self.waves = {}
+        self.prevs = {}
+        self.ck = {"name": "CK", "wave": "P"}
 
-    def propagate(self):
-      if self.prev == self.x.get():
-        self.wave["wave"] += "."
-      elif self.x.getWidth() == 1:
-        self.wave["wave"] += str(self.x.get())
-      else:
-        self.wave["wave"] += "2"
-        self.wave["data"].append(self.x.get())
+        self.wires = wires if isinstance(wires, list) else [wires]
+        for x in self.wires:
+            self.addIn(x.name, x)
+            self.waves[x] = {"name": name, "wave": "x", "data": []}
+            self.prevs[x] = None
 
-      self.prev = self.x.get()
+        # Get simulator
+        self.sim = parent
+        while self.sim.parent != None:
+            self.sim = self.sim.parent
 
-    def get_wave_raw(self):
-      self.wave["wave"] += "x"
-      return self.wave
+        self.sim.getSimulator().addListener(self)
+
+    def simulatorUpdated(self):
+        for x in self.wires:
+            if self.prevs[x] == x.get():
+                self.waves[x]["wave"] += "."
+            elif x.getWidth() == 1:
+                self.waves[x]["wave"] += str(x.get())
+            else:
+                self.waves[x]["wave"] += "2"
+                self.waves[x]["data"].append(x.get())
+
+            self.prevs[x] = x.get()
+
+        self.ck["wave"] += "."
+
+    def get_waveform(self, with_ck=True):
+        signals = list(self.waves.values())
+        for x in signals:
+            x["wave"] += "x"
+
+        if with_ck:
+            ck = self.ck.copy()
+            ck["wave"] += "x"
+            signals.insert(0, ck)
+
+        waveform = {
+            "signal": signals,
+            "head": {
+                "text": self.name,
+                "tock": 0,
+            }
+        }
+
+        return waveform
