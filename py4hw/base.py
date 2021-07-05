@@ -401,6 +401,8 @@ class HWSystem(Logic):
 
         if (self.simulator == None):
             self.simulator = Simulator(self)
+        else: 
+            self.simulator.topologicalSort() # Updates existing simulator
             
         return self.simulator
         
