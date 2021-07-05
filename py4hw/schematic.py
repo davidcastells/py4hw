@@ -9,7 +9,7 @@ import numpy as np
         
 from matplotlib.lines import Line2D
 from matplotlib.patches import *
-from .base import Logic
+from .base import *
 from .logic import *
 from .storage import *
 from .schematic_symbols import *
@@ -134,6 +134,7 @@ class Schematic:
         # canvas.pack(side=LEFT,expand=True,fill=BOTH)
 
         self.objs = []      # a list of the objects displayed
+        self.nets = []      # a list of the nets
         self.sources = []   # a list of net sources with tuples [symbol, x, y, wire]
         self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, wire]
         
@@ -161,11 +162,14 @@ class Schematic:
 
         self.bruteForceSort()
         self.columnAssignment()
+        
+        self.createNets()
+        
         self.passthroughCreation()
+        
         self.rowAssignment()
         
 
-        self.createNets()
         self.trackAssignment()
         self.replaceAsColRow()
         
@@ -213,25 +217,27 @@ class Schematic:
             #print('Nets is column', colidx, netsInCol )
             for net in netsInCol:
                 try:
-                    existingtrack = channeltracks[net.source['symbol']]
+                    existingtrack = channeltracks[net.source['wire']]
                 except:
                     existingtrack = None
                     
                 if (existingtrack == None):
                     net.track = track
                     track = track + 1
-                    channeltracks[net.source['symbol']]=net.track
+                    channeltracks[net.source['wire']]={'num':net.track, 'nets':[net]}
                 else:
-                    net.track = existingtrack
+                    net.track = existingtrack['num']
+                    existingtrack['nets'].append(net)
                     
                 net.sourcecol = colidx - 1
                     
                 
-            self.channels.append({'tracks':track})
+            self.channels.append({'tracks':track, 'track':channeltracks})
         
-    def getAllInstanceSources(self, sym):
+    def getAllInstanceSources(self, sym:LogicSymbol):
         """
-        Return all instance sources
+        Return all the instance objects that are connected
+        as sources to this symbol
 
         Parameters
         ----------
@@ -256,7 +262,65 @@ class Schematic:
                     ret.append(src['symbol'])
         
         return ret
+    
+    def getAllInstanceSinks(self, sym:LogicSymbol):
+        """
+        Return all the instance objects that are connected
+        as sinks to this symbol
+
+        Parameters
+        ----------
+        sym : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        ret : TYPE
+            A list of dictionaries with the symbols.
+
+        """
+        obj = sym.obj
         
+        ret = []
+        
+        if (isinstance(obj, InPort)):
+            outports = [obj]
+        elif (isinstance(obj, OutPort)):
+            # no instances 
+            return []
+        else:
+            outports = obj.outPorts
+        
+        for outp in outports:
+            wire = outp.wire
+            
+            for src in self.sinks:
+                if (src['wire'] == wire):
+                    ret.append(src['symbol'])
+        
+        return ret
+        
+    def getSymbolColumn(self, sym):
+        """
+        Find the column assigned to a symbol
+
+        Parameters
+        ----------
+        src : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        for colidx, col in enumerate(self.columns):
+            if (sym in col):
+                return colidx
+            
+        return -1
+                            
     def columnAssignment(self):
         self.columns = []
         currentCol = []
@@ -275,20 +339,20 @@ class Schematic:
             elif (idx < self.firstOutput):
                 # find the 
                 maxcol = -1
-                print('Checking sources', obj)
+                #print('Checking sources', obj)
                 for src in self.getAllInstanceSources(obj):
-                    print('Source', src)
-                    for colidx, col in enumerate(self.columns):
-                        if (src in col):
-                            if (colidx > maxcol):
-                                maxcol = colidx
+                    #print('Source', src)
+                    colidx = self.getSymbolColumn(src)
+
+                    if (colidx > maxcol):
+                        maxcol = colidx
 
                 maxcol = maxcol + 1
                 
                 while (maxcol >= len(self.columns)):
                     self.columns.append([])
 
-                print('Assigning ', obj, ' to column', maxcol)
+                #print('Assigning ', obj, ' to column', maxcol)
                 self.columns[maxcol].append(obj)
                 
         currentCol = []
@@ -309,6 +373,9 @@ class Schematic:
         y = 0
         
         for colidx, col in enumerate(self.columns):
+            # iterate over all columns we assign the x and y
+            # of all column members, and we compute the maxw of
+            # the column
             maxw = 0
             y = 0
             
@@ -325,7 +392,7 @@ class Schematic:
             if (colidx < len(self.channels)):
                 x = x + self.channels[colidx]['tracks'] * nettrackspacing
 
-            if ((colidx + 1) < len(self.channels)):
+            if (colidx < len(self.channels)):
                 self.channels[colidx]['sourcewidth'] = maxw
     
     def passthroughCreation(self):
@@ -337,8 +404,80 @@ class Schematic:
         None.
 
         """
-        # @TODO
-        pass
+
+        for colidx, col in enumerate(self.columns):
+            for obj in col:
+                if (isinstance(obj, PassthroughSymbol)):
+                    continue
+                
+                sinks = self.getAllInstanceSinks(obj)
+                
+                for sink in sinks:
+                    sinkcol = self.getSymbolColumn(sink)
+                    
+                    if (sinkcol > colidx +1):
+                        #print('WARNING: passthrough required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
+                        self.insertPassthrough(obj, colidx, sink, sinkcol)
+
+    def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
+        """
+        A passthrough instance has to be inserted for every wire connecting both entities
+
+        Parameters
+        ----------
+        source : LogicSymbol
+            DESCRIPTION.
+        sourcecol : int
+            DESCRIPTION.
+        sink : LogicSymbol
+            DESCRIPTION.
+        sinkcol : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        #return
+    
+        source_wires = self.getWiresFromSource(source)
+        sink_wires = self.getWiresFromSink(sink)
+        intersection = Intersection(source_wires, sink_wires)
+        
+       
+        
+        for wire in intersection:
+            # remove the original net
+            removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
+            self.nets.remove(removeNets[0])
+        
+            lastSymbol = source
+            
+            for col in range(sourcecol+1, sinkcol):
+                pts = PassthroughSymbol()
+                self.objs.append(pts)
+                self.columns[col].append(pts)
+                self.sources.append({'symbol':pts, 'wire':wire})
+                self.sinks.append({'symbol':pts, 'wire':wire})
+                
+                net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
+                net1.sourcecol = col-1
+                self.nets.append(net1)
+                
+                lastSymbol = pts
+                
+                
+            if (lastSymbol != None):
+                net2 = NetSymbol({'symbol':pts, 'wire':wire}, {'symbol': sink, 'wire': wire})
+                self.nets.append(net2)
+                                
+
+    def getWiresFromSource(self, source):
+        return [x['wire'] for x in self.sources if x['symbol'] == source]
+
+    def getWiresFromSink(self, sink):
+        return [x['wire'] for x in self.sinks if x['symbol'] == sink]
     
     def replaceByAdjacencyMatrix(self):
         am = self.getAdjacencyMatrix()
@@ -525,7 +664,7 @@ class Schematic:
         try:
             ret = self.mapping[type(obj)]
     
-            print('getSymbol -> good', obj)
+            #print('getSymbol -> good', obj)
                 
         except:
             print('getSymbol -> none for object', type(obj))
@@ -538,10 +677,10 @@ class Schematic:
         maxx = 0
         self.y = gridsize*3
         
-        print('placeInstances', self.sys)
+        #print('placeInstances', self.sys)
         
         for child in self.sys.children:
-            print('child', child)
+            #print('child', child)
             isym = self.getSymbol(child, self.x, self.y)
             
             if (isym is None):
@@ -552,12 +691,12 @@ class Schematic:
  
             i = 0
             for inp in child.inPorts:
-                print('adding inport ', child, inp.name)
+                #print('adding inport ', child, inp.name)
                 self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
                 i = i+1
             i = 0
             for inp in child.outPorts:
-                print('adding outport ', child, inp.name)
+                #print('adding outport ', child, inp.name)
                 self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
                 i = i+1
                     
@@ -602,20 +741,25 @@ class Schematic:
     def createNets(self):
         for sink in self.sinks:
             source = self.findSourceTuple(sink['wire'])
-            self.objs.append(NetSymbol(source, sink))   
+            self.nets.append(NetSymbol(source, sink))   
 
     def getNets(self):
-        oa = np.array(self.objs)
-        ba = np.array([isinstance(x, NetSymbol) for x in self.objs])
-        return list(oa[ba])
+        #oa = np.array(self.objs)
+        #ba = np.array([isinstance(x, NetSymbol) for x in self.objs])
+        #return list(oa[ba])
+        return self.nets
     
     def getNonNets(self):
-        oa = np.array(self.objs)
-        ba = np.array([not isinstance(x, NetSymbol) for x in self.objs])
-        return list(oa[ba])
+        #oa = np.array(self.objs)
+        #ba = np.array([not isinstance(x, NetSymbol) for x in self.objs])
+        #return list(oa[ba])
+        return self.objs
     
     def drawAll(self):
-        for obj in self.objs:
+        for obj in self.getNonNets():
+            obj.draw(self.canvas)
+
+        for obj in self.getNets():
             obj.draw(self.canvas)
         
         return self.canvas
@@ -891,17 +1035,19 @@ class Schematic:
         sw = 0
         try:
             sw = self.channels[net.sourcecol]['sourcewidth'] 
-            sw = sw - net.source['symbol'].getWidth() + netspacing
-            print('sw[{}]={}'.format(net.sourcecol, sw))
+            #sw = sw - net.source['symbol'].getWidth() + netspacing
+            #print('sw[{}]={}'.format(net.sourcecol, sw))
         except:
             if (hasattr(net, 'sourcecol') == False):
                 # this net was not assigned a sourcecol
                 print('WARNING: net', net.source['wire'].getFullPath(), 'without source column')
                 net.track = 0
             else:
-                print('error', net.sourcecol, self.channels[net.sourcecol], net.source)
+                print('error sourcecol=', net.sourcecol)
+                print('channels[{}]'.format(net.sourcecol), self.channels[net.sourcecol])
+                print('source sym', net.source)
         
-        mp = (p0[0] + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
+        mp = (net.source['symbol'].x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
         #mp[0] = p0[0] + net.track * nettrackspacing
         net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
         net.routed = True
