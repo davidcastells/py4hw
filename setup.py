@@ -5,9 +5,10 @@ from setuptools import find_packages, setup
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+                         
 setup(
     name='py4hw',
-    version='0.0.3',
+    version='0.0.4',
     author='David Castells-Rufas',
     author_email='david.castells@uab.cat',
     description='py4hw is a library to model, and simulate digital logic circuits. It promotes the use of structural design style to build hardware and it is highly influenced by the ideas behind JHDL.',
