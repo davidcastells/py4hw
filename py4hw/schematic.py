@@ -19,6 +19,7 @@ cellmargin = 50
 cellmargin_initial = 150
 netmargin = 40
 netspacing = 10
+nettrackspacing = 10
 
 class MatplotlibRender:
     def __init__(self, shape):
@@ -157,14 +158,23 @@ class Schematic:
         self.placeOutputPorts()
 
         self.bruteForceSort()
-        self.replaceByAdjacencyMatrix()
+        self.columnAssignment()
+        self.passthroughCreation()
+        self.rowAssignment()
+        
+
+        self.createNets()
+        self.trackAssignment()
+        self.replaceAsColRow()
+        
+        #self.replaceByAdjacencyMatrix()
         
         # self.replaceByDependency()
         
-        self.replaceVerticalCompress()
+        #self.replaceVerticalCompress()
         # #self.replaceHorizontalCompress()
         
-        self.createNets()
+
         self.routeNets()
         
         
@@ -176,6 +186,158 @@ class Schematic:
         
         #mainloop()
         
+    def trackAssignment(self):
+        """
+        Track assignment consist in assigning a track (vertical path to each net)
+
+        Returns
+        -------
+        None.
+
+        """
+        nets = self.getNets()
+        numCols = len(self.columns)
+        self.channels = [] 
+        
+        #print('cols', self.columns)
+        for colidx in range(1, numCols):
+            track = 0
+            netsInCol = [n for n in nets if n.sink['symbol'] in self.columns[colidx]]
+            
+            # temporal object to check if several nets are created from the same
+            # source
+            channeltracks = {}
+            
+            #print('Nets is column', colidx, netsInCol )
+            for net in netsInCol:
+                try:
+                    existingtrack = channeltracks[net.source['symbol']]
+                except:
+                    existingtrack = None
+                    
+                if (existingtrack == None):
+                    net.track = track
+                    track = track + 1
+                    channeltracks[net.source['symbol']]=net.track
+                else:
+                    net.track = existingtrack
+                    
+                net.sourcecol = colidx - 1
+                    
+                
+            self.channels.append({'tracks':track})
+        
+    def getAllInstanceSources(self, sym):
+        """
+        Return all instance sources
+
+        Parameters
+        ----------
+        sym : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        ret : TYPE
+            DESCRIPTION.
+
+        """
+        obj = sym.obj
+        
+        ret = []
+        
+        for inp in obj.inPorts:
+            wire = inp.wire
+            
+            for src in self.sources:
+                if (src['wire'] == wire):
+                    ret.append(src['symbol'])
+        
+        return ret
+        
+    def columnAssignment(self):
+        self.columns = []
+        currentCol = []
+        
+        # append inputs
+        for idx, obj in enumerate(self.objs):
+            if (idx < self.numInputs):
+                currentCol.append(obj)
+
+        self.columns.append(currentCol)
+                
+        # append instances
+        for idx, obj in enumerate(self.objs):
+            if (idx < self.numInputs):
+                pass
+            elif (idx < self.firstOutput):
+                # find the 
+                maxcol = -1
+                print('Checking sources', obj)
+                for src in self.getAllInstanceSources(obj):
+                    print('Source', src)
+                    for colidx, col in enumerate(self.columns):
+                        if (src in col):
+                            if (colidx > maxcol):
+                                maxcol = colidx
+
+                maxcol = maxcol + 1
+                
+                while (maxcol >= len(self.columns)):
+                    self.columns.append([])
+
+                print('Assigning ', obj, ' to column', maxcol)
+                self.columns[maxcol].append(obj)
+                
+        currentCol = []
+                
+        for idx, obj in enumerate(self.objs):
+            if (idx >= self.firstOutput):
+                currentCol.append(obj)
+
+        self.columns.append(currentCol)
+        
+        
+    def rowAssignment(self):
+        pass
+    
+    def replaceAsColRow(self):
+        
+        x = 0
+        y = 0
+        
+        for colidx, col in enumerate(self.columns):
+            maxw = 0
+            y = 0
+            
+            for obj in col:
+                obj.x = x
+                obj.y = y
+                y = y + obj.getHeight() + cellmargin
+                if (obj.getWidth() > maxw):
+                    maxw = obj.getWidth()
+
+
+            x = x + maxw  + cellmargin
+            
+            if (colidx < len(self.channels)):
+                x = x + self.channels[colidx]['tracks'] * nettrackspacing
+
+            if ((colidx + 1) < len(self.channels)):
+                self.channels[colidx]['sourcewidth'] = maxw
+    
+    def passthroughCreation(self):
+        """
+        Create passthrough entities
+
+        Returns
+        -------
+        None.
+
+        """
+        # @TODO
+        pass
+    
     def replaceByAdjacencyMatrix(self):
         am = self.getAdjacencyMatrix()
         
@@ -639,93 +801,108 @@ class Schematic:
         p0 = net.getStartPoint()
         pf = net.getEndPoint()
         
-        c0 = p0[0]
-        r0 = p0[1]
-        cf = pf[0]
-        rf = pf[1]
+        # c0 = p0[0]
+        # r0 = p0[1]
+        # cf = pf[0]
+        # rf = pf[1]
 
-        try:        
-            og = self.getOccupancyGrid(mode='prerouting', discard=[net.source['symbol'], net.sink['symbol']])
+        # try:        
+        #     og = self.getOccupancyGrid(mode='prerouting', discard=[net.source['symbol'], net.sink['symbol']])
             
-            #print('OG', og.shape)
-            #print('connecting ', c0, r0, cf, rf)
+        #     #print('OG', og.shape)
+        #     #print('connecting ', c0, r0, cf, rf)
             
-            # C1 assignment
-            c1 = -1
-            if (rf > r0):
-                rangec1 = range(cf-netmargin, c0+netmargin, -1)
-            else:
-                rangec1 = range(c0 + netmargin , cf-netmargin)
+        #     # C1 assignment
+        #     c1 = -1
+        #     if (rf > r0):
+        #         rangec1 = range(cf-netmargin, c0+netmargin, -1)
+        #     else:
+        #         rangec1 = range(c0 + netmargin , cf-netmargin)
     
-            for c in rangec1:
-                #print('checking ', c0, r0, c, r0)
-                if self.isFreeRectangle(og, c0,r0-netspacing, c, r0+netspacing):
-                    c1 = c
-                    break
+        #     for c in rangec1:
+        #         #print('checking ', c0, r0, c, r0)
+        #         if self.isFreeRectangle(og, c0,r0-netspacing, c, r0+netspacing):
+        #             c1 = c
+        #             break
      
-            print('Final C1', c1)
+        #     print('Final C1', c1)
         
-            # R1 assignment
-            r1 = -1
-            doRun = (c1 != -1)
-            radius = 0
+        #     # R1 assignment
+        #     r1 = -1
+        #     doRun = (c1 != -1)
+        #     radius = 0
             
-            #print('checking', c1, rf, cf, rf)
-            #print('checking', c1, r0, c1, rf)
+        #     #print('checking', c1, rf, cf, rf)
+        #     #print('checking', c1, r0, c1, rf)
                     
-            for radius in range(max(rf, og.shape[1])):
-                for sign in [1,-1]:
-                    r = rf + radius*sign
+        #     for radius in range(max(rf, og.shape[1])):
+        #         for sign in [1,-1]:
+        #             r = rf + radius*sign
                     
-                    if (r < 0):
-                        continue
+        #             if (r < 0):
+        #                 continue
                     
-                    #print('checking ', c1, r, cf, r) #, self.isFreeRectangle(og, c1, r, cf, r))
-                    #print('checking ', c1, r0, c1, r) #, self.isFreeRectangle(og, c1, r0, c1, r))
+        #             #print('checking ', c1, r, cf, r) #, self.isFreeRectangle(og, c1, r, cf, r))
+        #             #print('checking ', c1, r0, c1, r) #, self.isFreeRectangle(og, c1, r0, c1, r))
     
-                    if (self.isFreeRectangle(og, c1, r-netspacing, cf, r+netspacing)  and self.isFreeRectangle(og, c1-netspacing, r0, c1+netspacing, r)):
-                        r1 = r
-                        doRun = False
-                        break
+        #             if (self.isFreeRectangle(og, c1, r-netspacing, cf, r+netspacing)  and self.isFreeRectangle(og, c1-netspacing, r0, c1+netspacing, r)):
+        #                 r1 = r
+        #                 doRun = False
+        #                 break
                     
-                if (doRun == False):
-                    break
+        #         if (doRun == False):
+        #             break
                 
-                radius = radius + 1
+        #         radius = radius + 1
                   
-            print('Final R1', r1)
+        #     print('Final R1', r1)
                 
-            # C2 assignment
-            c2 = -1
-            if (r1 > rf):
-                rangec2 = range(cf-netmargin, c1+1, -1)
-            else:
-                rangec2 = range(c1 , cf-netmargin+1)
+        #     # C2 assignment
+        #     c2 = -1
+        #     if (r1 > rf):
+        #         rangec2 = range(cf-netmargin, c1+1, -1)
+        #     else:
+        #         rangec2 = range(c1 , cf-netmargin+1)
                 
-            #print('c2 range', rangec2)
+        #     #print('c2 range', rangec2)
             
-            for c in rangec2:
-                #print('checking', c, r1, c, rf)
-                #print('checking', c, rf, cf, rf)
-                if (self.isFreeRectangle(og, c-netspacing, r1, c+netspacing, rf) and self.isFreeRectangle(og, c, rf-netspacing, cf, rf+netspacing)):
-                    c2 = c
-                    break
+        #     for c in rangec2:
+        #         #print('checking', c, r1, c, rf)
+        #         #print('checking', c, rf, cf, rf)
+        #         if (self.isFreeRectangle(og, c-netspacing, r1, c+netspacing, rf) and self.isFreeRectangle(og, c, rf-netspacing, cf, rf+netspacing)):
+        #             c2 = c
+        #             break
     
     
-            print('Final C2', c2)
+        #     print('Final C2', c2)
     
-            if (c1 != -1 and r1 != -1 and c2 != -1):
-                # solution found
-                net.setPath([c0, c1, c1, c2, c2, cf], [r0, r0, r1, r1, rf, rf])
-                net.routed = True
-                return og
+        #     if (c1 != -1 and r1 != -1 and c2 != -1):
+        #         # solution found
+        #         net.setPath([c0, c1, c1, c2, c2, cf], [r0, r0, r1, r1, rf, rf])
+        #         net.routed = True
+        #         return og
             
-        except:   
-            pass
+        # except:   
+        #     pass
         
-        mp = ((p0[0]+pf[0])//2, (p0[1]+pf[1])//2)        
+        #mp = ((p0[0]+pf[0])//2, (p0[1]+pf[1])//2)    
+        sw = 0
+        try:
+            sw = self.channels[net.sourcecol]['sourcewidth'] 
+            sw = sw - net.source['symbol'].getWidth() + netspacing
+            print('sw[{}]={}'.format(net.sourcecol, sw))
+        except:
+            if (hasattr(net, 'sourcecol') == False):
+                # this net was not assigned a sourcecol
+                print('WARNING: net', net.source['wire'].getFullPath(), 'without source column')
+                net.track = 0
+            else:
+                print('error', net.sourcecol, self.channels[net.sourcecol], net.source)
+        
+        mp = (p0[0] + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
+        #mp[0] = p0[0] + net.track * nettrackspacing
         net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
-        net.routed = False
+        net.routed = True
     
     
     def routeNets(self):
