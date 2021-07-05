@@ -472,6 +472,36 @@ class Mux2Symbol(LogicSymbol):
 
         return (0, namemargin + y)
 
+class PassthroughSymbol(LogicSymbol):
+    def __init__(self):
+        super().__init__(None, 0, 0)
+        
+    def getHeight(self):
+        return 30
+    
+    def getWidth(self):
+        return 30
+    
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+        
+        canvas.setForecolor('blueviolet')  
+        canvas.setLineWidth(1)
+        
+        #canvas.drawRectangle(x, y, x+30, y+30)
+        canvas.drawLine(x, y+15, x+30, y+15)
+
+        canvas.setForecolor('k')  
+        canvas.setLineWidth(2)
+        
+    def getWireSinkPos(self, wire:Wire):
+        return (0, 15);
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (30, 15);
+    
+    
 class NetSymbol:
     def __init__(self, source, sink):
         self.source = source
