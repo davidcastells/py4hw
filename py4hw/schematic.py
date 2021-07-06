@@ -366,6 +366,9 @@ class Schematic:
                     if (colidx > maxcol):
                         maxcol = colidx
 
+                if (maxcol == -1):
+                    maxcol = 0
+                    
                 maxcol = maxcol + 1
                 
                 while (maxcol >= len(self.columns)):
@@ -476,6 +479,10 @@ class Schematic:
         for wire in intersection:
             # remove the original net
             removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
+            if (len(removeNets) == 0):
+                print('WARNING: no nets to remove')
+                continue
+            
             self.nets.remove(removeNets[0])
         
             lastSymbol = source
@@ -546,7 +553,7 @@ class Schematic:
             
             net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':fb_start, 'wire':wire})
             net1.sourcecol = sourcecol
-            #net1.arrow = False
+            net1.arrow = False
             self.nets.append(net1)
             
             
@@ -558,29 +565,31 @@ class Schematic:
             
             net2 = NetSymbol({'symbol':fb_end, 'wire':wire}, {'symbol':sink, 'wire':wire})
             net2.sourcecol = sinkcol-1
-            #net1.arrow = False
+            net2.arrow = True
             self.nets.append(net2)
             
             lastSymbol = fb_end
             
-            for col in range(sinkcol+1, sourcecol):
-                 pts = PassthroughSymbol()
-                 self.objs.append(pts)
-                 self.columns[col].append(pts)
-                 self.sources.append({'symbol':pts, 'wire':wire})
-                 self.sinks.append({'symbol':pts, 'wire':wire})
+            
+            for col in range(sinkcol, sourcecol+1):
+                  pts = PassthroughSymbol()
+                  self.objs.append(pts)
+                  self.columns[col].append(pts)
+                  self.sources.append({'symbol':pts, 'wire':wire})
+                  self.sinks.append({'symbol':pts, 'wire':wire})
                 
-                 net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
-                 net1.sourcecol = col-1
-                 net1.arrow = False
-                 self.nets.append(net1)
+                  net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
+                  net1.sourcecol = col-1
+                  net1.arrow = False
+                  self.nets.append(net1)
                 
-                 lastSymbol = pts
+                  lastSymbol = pts
                 
                 
             if (lastSymbol != None):
-                net2 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol': fb_start, 'wire': wire})
-                self.nets.append(net2)
+                 net2 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol': fb_start, 'wire': wire})
+                 net2.arrow = False
+                 self.nets.append(net2)
 
     def getWiresFromSource(self, source):
         return [x['wire'] for x in self.sources if x['symbol'] == source]
@@ -868,13 +877,16 @@ class Schematic:
         # Draw Instances
         for obj in self.getNonNets():
             self.canvas.setForecolor('k')  
+            self.canvas.setFillcolor('k')
             self.canvas.setLineWidth(2)
             obj.draw(self.canvas)
 
         # Draw Nets
         for obj in self.getNets():
-            self.canvas.setForecolor('violetblue')  
+            self.canvas.setForecolor('blueviolet')  
+            self.canvas.setFillcolor('blueviolet')
             self.canvas.setLineWidth(1)
+            
             obj.draw(self.canvas)
         
         return self.canvas
@@ -1062,91 +1074,7 @@ class Schematic:
         p0 = net.getStartPoint()
         pf = net.getEndPoint()
         
-        # c0 = p0[0]
-        # r0 = p0[1]
-        # cf = pf[0]
-        # rf = pf[1]
 
-        # try:        
-        #     og = self.getOccupancyGrid(mode='prerouting', discard=[net.source['symbol'], net.sink['symbol']])
-            
-        #     #print('OG', og.shape)
-        #     #print('connecting ', c0, r0, cf, rf)
-            
-        #     # C1 assignment
-        #     c1 = -1
-        #     if (rf > r0):
-        #         rangec1 = range(cf-netmargin, c0+netmargin, -1)
-        #     else:
-        #         rangec1 = range(c0 + netmargin , cf-netmargin)
-    
-        #     for c in rangec1:
-        #         #print('checking ', c0, r0, c, r0)
-        #         if self.isFreeRectangle(og, c0,r0-netspacing, c, r0+netspacing):
-        #             c1 = c
-        #             break
-     
-        #     print('Final C1', c1)
-        
-        #     # R1 assignment
-        #     r1 = -1
-        #     doRun = (c1 != -1)
-        #     radius = 0
-            
-        #     #print('checking', c1, rf, cf, rf)
-        #     #print('checking', c1, r0, c1, rf)
-                    
-        #     for radius in range(max(rf, og.shape[1])):
-        #         for sign in [1,-1]:
-        #             r = rf + radius*sign
-                    
-        #             if (r < 0):
-        #                 continue
-                    
-        #             #print('checking ', c1, r, cf, r) #, self.isFreeRectangle(og, c1, r, cf, r))
-        #             #print('checking ', c1, r0, c1, r) #, self.isFreeRectangle(og, c1, r0, c1, r))
-    
-        #             if (self.isFreeRectangle(og, c1, r-netspacing, cf, r+netspacing)  and self.isFreeRectangle(og, c1-netspacing, r0, c1+netspacing, r)):
-        #                 r1 = r
-        #                 doRun = False
-        #                 break
-                    
-        #         if (doRun == False):
-        #             break
-                
-        #         radius = radius + 1
-                  
-        #     print('Final R1', r1)
-                
-        #     # C2 assignment
-        #     c2 = -1
-        #     if (r1 > rf):
-        #         rangec2 = range(cf-netmargin, c1+1, -1)
-        #     else:
-        #         rangec2 = range(c1 , cf-netmargin+1)
-                
-        #     #print('c2 range', rangec2)
-            
-        #     for c in rangec2:
-        #         #print('checking', c, r1, c, rf)
-        #         #print('checking', c, rf, cf, rf)
-        #         if (self.isFreeRectangle(og, c-netspacing, r1, c+netspacing, rf) and self.isFreeRectangle(og, c, rf-netspacing, cf, rf+netspacing)):
-        #             c2 = c
-        #             break
-    
-    
-        #     print('Final C2', c2)
-    
-        #     if (c1 != -1 and r1 != -1 and c2 != -1):
-        #         # solution found
-        #         net.setPath([c0, c1, c1, c2, c2, cf], [r0, r0, r1, r1, rf, rf])
-        #         net.routed = True
-        #         return og
-            
-        # except:   
-        #     pass
-        
-        #mp = ((p0[0]+pf[0])//2, (p0[1]+pf[1])//2)    
         sw = 0
         try:
             sw = self.channels[net.sourcecol]['sourcewidth'] 
@@ -1165,10 +1093,20 @@ class Schematic:
         if (hasattr(net, 'track') == False):
             print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
             net.track = 0
-            
+
         mp = (net.source['symbol'].x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
+            
+        if (isinstance(net.source['symbol'], FeedbackStopSymbol)):
+            print('Feedback-stop track:', net.track, mp[0])
+            net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
+        elif (isinstance(net.sink['symbol'], FeedbackStartSymbol)):
+            print('Feedback-start track:', net.track, mp[0])
+            net.setPath([p0[0], mp[0], mp[0]], [p0[1],p0[1],pf[1]])
+        else:                  
+            net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+
         #mp[0] = p0[0] + net.track * nettrackspacing
-        net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+        
         net.routed = True
     
     

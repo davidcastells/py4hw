@@ -145,7 +145,7 @@ class AndSymbol(LogicSymbol):
         canvas.drawLine(x, y, x + 25, y)
         canvas.drawLine(x, y + self.h, x + 25, y + self.h)
         canvas.drawLine(x, y, x, y + self.h)
-        canvas.drawArc(x , y, x + 50, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x , y+2, x + 50, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
 
     def getHeight(self):
         return namemargin + self.h
@@ -185,17 +185,21 @@ class NotSymbol(LogicSymbol):
 
         y = y + 10
 
-        canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
-        canvas.drawEllipse(x + 20, y + 5, x + 30, y + 15)
+        canvas.drawPolygon([x, x + 30, x, x], [y, y + 15, y + 30, y])
+        canvas.drawEllipse(x + 30, y + 10, x + 40, y + 20)
 
     def getHeight(self):
         return 30
 
     def getWidth(self):
-        return 30
+        return 40
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + 10)
+        return (self.getWidth(), namemargin + 25)
+    
+    def getWireSinkPos(self, wire:Wire):
+        return (0, namemargin + 25)
+    
     
 class BufSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -520,17 +524,7 @@ class FeedbackStartSymbol(LogicSymbol):
         return 30
     
     def draw(self, canvas):
-        x = self.x
-        y = self.y
-        
-        canvas.setForecolor('blueviolet')  
-        canvas.setLineWidth(1)
-        
-        canvas.drawRectangle(x, y, x+30, y+30)
-        # canvas.drawLine(x, y+15, x+30, y+15)
-
-        # canvas.setForecolor('k')  
-        # canvas.setLineWidth(2)
+        pass
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -549,17 +543,7 @@ class FeedbackStopSymbol(LogicSymbol):
         return 30
     
     def draw(self, canvas):
-        x = self.x
-        y = self.y
-        
-        canvas.setForecolor('blueviolet')  
-        canvas.setLineWidth(1)
-        
-        canvas.drawRectangle(x, y, x+30, y+30)
-        # canvas.drawLine(x, y+15, x+30, y+15)
-
-        # canvas.setForecolor('k')  
-        # canvas.setLineWidth(2)
+        pass
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -596,8 +580,7 @@ class NetSymbol:
             return
         
         if (self.routed):
-            canvas.setForecolor('blueviolet')
-            canvas.setFillcolor('blueviolet')
+            pass
         else:
             canvas.setForecolor('red')
             canvas.setFillcolor('red')
