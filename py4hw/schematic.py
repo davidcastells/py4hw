@@ -38,6 +38,7 @@ class MatplotlibRender:
         plt.axis('off')
         
         self.color = 'k'
+        self.fillcolor = 'k'
         self.linewidth = 2
         
     def setForecolor(self, color):
@@ -164,8 +165,8 @@ class Schematic:
         self.columnAssignment()
         
         self.createNets()
-        
         self.passthroughCreation()
+        self.removeArrowsSpecialCases()
         
         self.rowAssignment()
         
@@ -191,6 +192,24 @@ class Schematic:
         self.drawAll()
         
         #mainloop()
+        
+        
+    def removeArrowsSpecialCases(self):
+        """
+        Remove the arrows from some nets like the ones
+        connected to selection ports of muxes 
+        (as they are drawed inside the symbol)
+        
+
+        Returns
+        -------
+        None.
+
+        """    
+        for net in self.nets:
+            if (isinstance(net.sink['symbol'], Mux2Symbol)):
+                if (net.sink['wire'] == net.sink['symbol'].obj.inPorts[0].wire):
+                    net.arrow = False
         
     def trackAssignment(self):
         """
@@ -409,6 +428,10 @@ class Schematic:
             for obj in col:
                 if (isinstance(obj, PassthroughSymbol)):
                     continue
+                if (isinstance(obj, FeedbackStartSymbol)):
+                    continue
+                if (isinstance(obj, FeedbackStopSymbol)):
+                    continue
                 
                 sinks = self.getAllInstanceSinks(obj)
                 
@@ -418,6 +441,9 @@ class Schematic:
                     if (sinkcol > colidx +1):
                         #print('WARNING: passthrough required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
                         self.insertPassthrough(obj, colidx, sink, sinkcol)
+                    if (sinkcol <= colidx):
+                        print('WARNING: feedback required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
+                        self.insertFeedback(obj, colidx, sink, sinkcol)
 
     def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
         """
@@ -463,6 +489,7 @@ class Schematic:
                 
                 net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
                 net1.sourcecol = col-1
+                net1.arrow = False
                 self.nets.append(net1)
                 
                 lastSymbol = pts
@@ -472,6 +499,88 @@ class Schematic:
                 net2 = NetSymbol({'symbol':pts, 'wire':wire}, {'symbol': sink, 'wire': wire})
                 self.nets.append(net2)
                                 
+                
+    def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
+        """
+        A passthrough instance has to be inserted for every wire connecting both entities
+
+        Parameters
+        ----------
+        source : LogicSymbol
+            DESCRIPTION.
+        sourcecol : int
+            DESCRIPTION.
+        sink : LogicSymbol
+            DESCRIPTION.
+        sinkcol : int
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        #return
+    
+        source_wires = self.getWiresFromSource(source)
+        sink_wires = self.getWiresFromSink(sink)
+        intersection = Intersection(source_wires, sink_wires)
+        
+       
+        
+        for wire in intersection:
+            # remove the original net
+            removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
+            self.nets.remove(removeNets[0])
+        
+            lastSymbol = source
+            
+            #insert feedback channel if necessary
+            
+            #self.channels[sourcecol+1]
+            fb_start = FeedbackStartSymbol()
+            self.objs.append(fb_start)
+            self.columns[sourcecol+1].append(fb_start)
+            #self.sources.append({'symbol':fb_start, 'wire':wire})
+            #self.sinks.append({'symbol':fb_start, 'wire':wire})
+            
+            net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':fb_start, 'wire':wire})
+            net1.sourcecol = sourcecol
+            #net1.arrow = False
+            self.nets.append(net1)
+            
+            
+            fb_end = FeedbackStopSymbol()
+            self.objs.append(fb_end)
+            self.columns[sinkcol-1].append(fb_end)
+            #self.sources.append({'symbol':fb_start, 'wire':wire})
+            #self.sinks.append({'symbol':fb_start, 'wire':wire})
+            
+            net2 = NetSymbol({'symbol':fb_end, 'wire':wire}, {'symbol':sink, 'wire':wire})
+            net2.sourcecol = sinkcol-1
+            #net1.arrow = False
+            self.nets.append(net2)
+            
+            lastSymbol = fb_end
+            
+            for col in range(sinkcol+1, sourcecol):
+                 pts = PassthroughSymbol()
+                 self.objs.append(pts)
+                 self.columns[col].append(pts)
+                 self.sources.append({'symbol':pts, 'wire':wire})
+                 self.sinks.append({'symbol':pts, 'wire':wire})
+                
+                 net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
+                 net1.sourcecol = col-1
+                 net1.arrow = False
+                 self.nets.append(net1)
+                
+                 lastSymbol = pts
+                
+                
+            if (lastSymbol != None):
+                net2 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol': fb_start, 'wire': wire})
+                self.nets.append(net2)
 
     def getWiresFromSource(self, source):
         return [x['wire'] for x in self.sources if x['symbol'] == source]
@@ -756,10 +865,16 @@ class Schematic:
         return self.objs
     
     def drawAll(self):
+        # Draw Instances
         for obj in self.getNonNets():
+            self.canvas.setForecolor('k')  
+            self.canvas.setLineWidth(2)
             obj.draw(self.canvas)
 
+        # Draw Nets
         for obj in self.getNets():
+            self.canvas.setForecolor('violetblue')  
+            self.canvas.setLineWidth(1)
             obj.draw(self.canvas)
         
         return self.canvas
@@ -1047,6 +1162,10 @@ class Schematic:
                 print('channels[{}]'.format(net.sourcecol), self.channels[net.sourcecol])
                 print('source sym', net.source)
         
+        if (hasattr(net, 'track') == False):
+            print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
+            net.track = 0
+            
         mp = (net.source['symbol'].x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
         #mp[0] = p0[0] + net.track * nettrackspacing
         net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
