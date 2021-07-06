@@ -444,6 +444,14 @@ class Mux2Symbol(LogicSymbol):
         canvas.drawLine(x, y+40, x + 20, y + 30)
         canvas.drawLine(x+20, y+10, x+20 , y+30)
 
+        canvas.setForecolor('blueviolet')
+        canvas.setFillcolor('blueviolet')
+        
+        ars = 3
+        x = x + 15
+        y = y + 5
+        canvas.drawPolygon([x-ars+1,x+1,x+ars+1, x-ars+1], [y-ars*2, y, y-ars*2, y-ars*2], fill=True)
+
 
     def getHeight(self):
         return namemargin + self.h
@@ -501,6 +509,64 @@ class PassthroughSymbol(LogicSymbol):
     def getWireSourcePos(self, wire:Wire):
         return (30, 15);
     
+class FeedbackStartSymbol(LogicSymbol):
+    def __init__(self):
+        super().__init__(None, 0, 0)
+        
+    def getHeight(self):
+        return 30
+    
+    def getWidth(self):
+        return 30
+    
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+        
+        canvas.setForecolor('blueviolet')  
+        canvas.setLineWidth(1)
+        
+        canvas.drawRectangle(x, y, x+30, y+30)
+        # canvas.drawLine(x, y+15, x+30, y+15)
+
+        # canvas.setForecolor('k')  
+        # canvas.setLineWidth(2)
+        
+    def getWireSinkPos(self, wire:Wire):
+        return (0, 15);
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (30, 15);
+    
+class FeedbackStopSymbol(LogicSymbol):
+    def __init__(self):
+        super().__init__(None, 0, 0)
+        
+    def getHeight(self):
+        return 30
+    
+    def getWidth(self):
+        return 30
+    
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+        
+        canvas.setForecolor('blueviolet')  
+        canvas.setLineWidth(1)
+        
+        canvas.drawRectangle(x, y, x+30, y+30)
+        # canvas.drawLine(x, y+15, x+30, y+15)
+
+        # canvas.setForecolor('k')  
+        # canvas.setLineWidth(2)
+        
+    def getWireSinkPos(self, wire:Wire):
+        return (0, 15);
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (30, 15);
+    
     
 class NetSymbol:
     def __init__(self, source, sink):
@@ -509,6 +575,7 @@ class NetSymbol:
         self.x = None
         self.y = None
         self.routed = False
+        self.arrow = True
         
     def getStartPoint(self):
         objsource = self.source['symbol']
@@ -544,4 +611,5 @@ class NetSymbol:
         
         ars = 5
         
-        canvas.drawPolygon([x-ars*2, x, x-ars*2, x-ars*2],[y-ars+1,y+1,y+ars+1, y-ars+1], fill=True)
+        if (self.arrow):
+            canvas.drawPolygon([x-ars*2, x, x-ars*2, x-ars*2],[y-ars+1,y+1,y+ars+1, y-ars+1], fill=True)
