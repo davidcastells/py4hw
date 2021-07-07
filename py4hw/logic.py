@@ -619,7 +619,7 @@ class Waveform(Logic):
         self.wires = wires if isinstance(wires, list) else [wires]
         for x in self.wires:
             self.addIn(x.name, x)
-            self.waves[x] = {"name": name, "wave": "x", "data": []}
+            self.waves[x] = {"name": x.name, "wave": "x", "data": []}
             self.prevs[x] = None
 
         # Get simulator
