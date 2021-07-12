@@ -203,7 +203,7 @@ class Wire:
     # this is the list of prepared wires, 
     prepared = []
     
-    def __init__(self, parent, name : str, width: int ):
+    def __init__(self, parent, name : str, width: int = 1 ):
         self.parent = parent
         self.name = name
         self.width = width
