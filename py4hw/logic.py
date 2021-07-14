@@ -299,6 +299,22 @@ class Constant(Logic):
         self.r.put(self.value)
         #print(self.name, '=', self.value)
 
+class Sequence(Logic):
+    """
+    A sequence of value
+    """
+
+    def __init__(self, parent: Logic, name: str, values, r: Wire):
+        super().__init__(parent, name)
+        self.r = self.addOut("r", r)
+
+        self.values = values
+        self.n = len(values)
+        self.i = 0
+        
+    def clock(self):
+        self.r.prepare(self.values[self.i])
+        self.i = ( self.i +1 ) % self.n
 
 class SignExtend(Logic):
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
