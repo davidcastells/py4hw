@@ -290,7 +290,7 @@ class Constant(Logic):
     A constant value
     """
 
-    def __init__(self, parent: Logic, name: str, value, r: Wire):
+    def __init__(self, parent: Logic, name: str, value: int, r: Wire):
         super().__init__(parent, name)
         self.value = value
         self.r = self.addOut("r", r)
@@ -304,7 +304,7 @@ class Sequence(Logic):
     A sequence of value
     """
 
-    def __init__(self, parent: Logic, name: str, values, r: Wire):
+    def __init__(self, parent: Logic, name: str, values: list(int), r: Wire):
         super().__init__(parent, name)
         self.r = self.addOut("r", r)
 
