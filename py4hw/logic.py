@@ -304,7 +304,7 @@ class Sequence(Logic):
     A sequence of value
     """
 
-    def __init__(self, parent: Logic, name: str, values: list[int], r: Wire):
+    def __init__(self, parent: Logic, name: str, values: list(), r: Wire):
         super().__init__(parent, name)
         self.r = self.addOut("r", r)
 
