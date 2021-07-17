@@ -203,7 +203,7 @@ class Wire:
     # this is the list of prepared wires, 
     prepared = []
     
-    def __init__(self, parent, name : str, width: int ):
+    def __init__(self, parent, name : str, width: int = 1 ):
         self.parent = parent
         self.name = name
         self.width = width
@@ -401,6 +401,8 @@ class HWSystem(Logic):
 
         if (self.simulator == None):
             self.simulator = Simulator(self)
+        else: 
+            self.simulator.topologicalSort() # Updates existing simulator
             
         return self.simulator
         

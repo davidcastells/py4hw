@@ -32,6 +32,7 @@ class Simulator:
     
     def __new__(cls, sys:HWSystem):
         if sys.simulator != None:
+            sys.simulator.topologicalSort() # Updates existing simulator
             return sys.simulator
         else:
             return super().__new__(cls)

@@ -290,7 +290,7 @@ class Constant(Logic):
     A constant value
     """
 
-    def __init__(self, parent: Logic, name: str, value, r: Wire):
+    def __init__(self, parent: Logic, name: str, value: int, r: Wire):
         super().__init__(parent, name)
         self.value = value
         self.r = self.addOut("r", r)
@@ -299,6 +299,22 @@ class Constant(Logic):
         self.r.put(self.value)
         #print(self.name, '=', self.value)
 
+class Sequence(Logic):
+    """
+    A sequence of value
+    """
+
+    def __init__(self, parent: Logic, name: str, values: list(), r: Wire):
+        super().__init__(parent, name)
+        self.r = self.addOut("r", r)
+
+        self.values = values
+        self.n = len(values)
+        self.i = 0
+        
+    def clock(self):
+        self.r.prepare(self.values[self.i])
+        self.i = ( self.i +1 ) % self.n
 
 class SignExtend(Logic):
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
@@ -619,7 +635,7 @@ class Waveform(Logic):
         self.wires = wires if isinstance(wires, list) else [wires]
         for x in self.wires:
             self.addIn(x.name, x)
-            self.waves[x] = {"name": name, "wave": "x", "data": []}
+            self.waves[x] = {"name": x.name, "wave": "x", "data": []}
             self.prevs[x] = None
 
         # Get simulator
