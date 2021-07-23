@@ -445,7 +445,7 @@ class Schematic:
                         #print('WARNING: passthrough required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
                         self.insertPassthrough(obj, colidx, sink, sinkcol)
                     if (sinkcol <= colidx):
-                        print('WARNING: feedback required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
+                        #print('WARNING: feedback required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
                         self.insertFeedback(obj, colidx, sink, sinkcol)
 
     def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
@@ -480,7 +480,7 @@ class Schematic:
             # remove the original net
             removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
             if (len(removeNets) == 0):
-                print('WARNING: no nets to remove')
+                #print('WARNING: no nets to remove')
                 continue
             
             self.nets.remove(removeNets[0])
@@ -785,7 +785,7 @@ class Schematic:
             #print('getSymbol -> good', obj)
                 
         except:
-            print('getSymbol -> none for object', type(obj))
+            #print('getSymbol -> none for object', type(obj))
             return None
 
         return ret(obj, x, y)
@@ -1097,10 +1097,10 @@ class Schematic:
         mp = (net.source['symbol'].x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
             
         if (isinstance(net.source['symbol'], FeedbackStopSymbol)):
-            print('Feedback-stop track:', net.track, mp[0])
+            #print('Feedback-stop track:', net.track, mp[0])
             net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
         elif (isinstance(net.sink['symbol'], FeedbackStartSymbol)):
-            print('Feedback-start track:', net.track, mp[0])
+            #print('Feedback-start track:', net.track, mp[0])
             net.setPath([p0[0], mp[0], mp[0]], [p0[1],p0[1],pf[1]])
         else:                  
             net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
