@@ -1,3 +1,4 @@
 nbwavedrom
 ipywidgets
 matplotlib
+deprecated
