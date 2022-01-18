@@ -140,7 +140,7 @@ class Schematic:
         self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, wire]
         
         self.mapping = {}
-        self.mapping[And] = AndSymbol
+        self.mapping[And2] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or] = OrSymbol
         
