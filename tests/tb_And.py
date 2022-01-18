@@ -65,6 +65,35 @@ class tb_And(unittest.TestCase):
         self.assertEqual(r2.get(), 5)
         self.assertEqual(r3.get(), 0)
 
+    def test_AndX_integrity(self):
+        sys = HWSystem()
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        c = sys.wire("c", 32)
+        r = sys.wire("r", 32)
 
+        Constant(sys, "a", 0xF7F7, a)
+        Constant(sys, "b", 0x7685, b)
+        Constant(sys, "c", 0x3452, c)
+        
+        AndX(sys, 'andx', [a,b,c], r)
+        
+        py4hw.debug.checkIntegrity(sys)
+        
+    def test_AndX(self):
+        sys = HWSystem()
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        c = sys.wire("c", 32)
+        r = sys.wire("r", 32)
+
+        Constant(sys, "a", 0xF7F7, a)
+        Constant(sys, "b", 0x7685, b)
+        Constant(sys, "c", 0x3452, c)
+        
+        AndX(sys, 'andx', [a,b,c], r)
+        
+        self.assertEqual(r.get(), 0x3400)
+        
 if __name__ == '__main__':
     unittest.main()
