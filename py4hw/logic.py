@@ -4,7 +4,7 @@ from .base import Logic
 from .base import Wire
 import math
 #import tkinter
-
+from deprecated import deprecated
 
 class Buf(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
@@ -66,8 +66,7 @@ class Or(Logic):
                 aux = parent.wire('{}{}'.format(name, idx), w)
                 idx = idx + 1
 
-
-class And(Logic):
+class And2(Logic):
     """
     Binary And
     """
@@ -80,25 +79,60 @@ class And(Logic):
 
     def propagate(self):
         self.r.put(self.a.get() & self.b.get())
+        
+        
+class AndX(Logic):
+    def __init__(self, parent, name:str, ins, r: Wire):
+        super().__init__(parent, name)
+        lins = []
+        r = self.addOut('r', r)
+        w = r.getWidth()
+        
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
 
-    def fromList(parent, name: str, list, r: Wire):
-        if (len(list) < 2):
+        num = len(ins)
+
+        if (num == 2):
+            And2(self, 'and2', ins[0], ins[1], r)
+            return
+            
+        if (num < 3):
             raise Exception('List should be > 2')
 
-        auxin = list[0]
-        idx = 0
-        aux = parent.wire('a{}'.format(idx))
-        idx = idx + 1
-        for i in range(len(list) - 1):
-            And(parent, 'a{}'.format(i), auxin, list[i + 1], aux)
-
-            auxin = aux
-
-            if (i == (len(list) - 3)):
-                aux = r
+        # by now we do an inefficient ladder structure, we should
+        # do a more fancy logarithmic design
+        
+        auxin = lins[0]
+        auxout = self.wire('and{}'.format(0), w)
+        
+        for i in range(num-1):
+            And2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
+            auxin = auxout
+            if (i == num-2):
+                auxout = r
             else:
-                aux = parent.wire('a{}'.format(idx))
-                idx = idx + 1
+                auxout = self.wire('and{}'.format(i+1), w)
+                
+                        
+                
+class And(Logic):
+    """
+    Binary And
+    """
+    @deprecated(version='0.0.5', reason="Use And2 for two input and")
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() & self.b.get())
+
+    @deprecated(version='0.0.5', reason="Use AndX for multiple inputs and")
+    def fromList(parent, name: str, list, r: Wire):
+        return AndX(parent, name, list, r)
 
 
 class Nand(Logic):
@@ -454,12 +488,12 @@ class Decoder(Logic):
 
         """
         super().__init__(parent, name)
-        self.addIn("a", a)
+        a = self.addIn("a", a)
 
         for i in range(len(b)):
-            self.addOut('b{}'.format(i), b[i])
+            lb = self.addOut('b{}'.format(i), b[i])
 
-            Equal(self, 'eq{}'.format(i), a, i, b[i])
+            Equal(self, 'eq{}'.format(i), a, i, lb)
 
 
 class Minterm(Logic):
@@ -489,17 +523,18 @@ class Minterm(Logic):
 
         """
         super().__init__(parent, name)
-        self.addOut('r', r)
+        r = self.addOut('r', r)
         parts = []
+        lbits = []
         for i in range(len(bits)):
-            self.addIn('b{}'.format(i), bits[i])
+            lbits.append(self.addIn('b{}'.format(i), bits[i]))
             v = (value >> i) & 1
             if (v == 0):
                 nbit = self.wire('n{}'.format(i), 1)
-                Not(self, 'n{}'.format(i), bits[i], nbit)
+                Not(self, 'n{}'.format(i), lbits[i], nbit)
                 parts.append(nbit)
             else:
-                parts.append(bits[i])
+                parts.append(lbits[i])
 
         And.fromList(self, 'prod', parts, r)
 
@@ -512,8 +547,8 @@ class Equal(Logic):
     def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
         super().__init__(parent, name)
 
-        self.addIn("a", a)
-        self.addOut("r", r)
+        a = self.addIn("a", a)
+        r = self.addOut("r", r)
 
         bits = self.wires('b', a.getWidth(), 1)
 
