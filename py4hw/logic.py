@@ -107,9 +107,12 @@ class AndX(Logic):
         auxout = self.wire('and{}'.format(0), w)
         
         for i in range(num-1):
+            print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
+            print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
+            print('creating and{} output: {}'.format(i, auxout.getFullPath()))
             And2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
             auxin = auxout
-            if (i == num-2):
+            if (i == num-3):
                 auxout = r
             else:
                 auxout = self.wire('and{}'.format(i+1), w)
