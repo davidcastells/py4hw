@@ -553,11 +553,19 @@ class Equal(Logic):
         a = self.addIn("a", a)
         r = self.addOut("r", r)
 
-        bits = self.wires('b', a.getWidth(), 1)
-
-        Bits(self, "bits", a, bits)
-
-        Minterm(self, 'm{}'.format(v), bits, v, r)
+        w = a.getWidth()
+        
+        if (w == 1):
+            # very simple case
+            if (v == 0):
+                Not(self, 'buf', a, r)
+            else:
+                Buf(self, 'not', a, r)
+                
+        else:
+            bits = self.wires('b', a.getWidth(), 1)
+            Bits(self, "bits", a, bits)
+            Minterm(self, 'm{}'.format(v), bits, v, r)
 
 
 class Sign(Logic):
