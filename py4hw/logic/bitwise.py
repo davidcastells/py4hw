@@ -5,7 +5,7 @@ Created on Wed Jan 19 12:36:38 2022
 @author: dcr
 """
 from .. import *
-
+from .relational import *
 from deprecated import deprecated
 
 class Buf(Logic):
