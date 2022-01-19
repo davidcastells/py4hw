@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from .base import *
-from .logic import *
-from .simulation import *
-from .storage import *
+from .logic.bitwise import *
+from .logic.storage import *
+from .logic.arithmetic import *
+from .logic.relational import *
+from .logic.simulation import *
 from .schematic import *
 
 import py4hw.gui
