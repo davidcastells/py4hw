@@ -11,7 +11,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import *
 from .base import *
 from .logic import *
-from .storage import *
+from .logic.bitwise import *
+from .logic.storage import *
 from .schematic_symbols import *
 
 gridsize = 5
