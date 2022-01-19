@@ -6,6 +6,7 @@ Created on Sat Oct 31 11:07:23 2020
 """
 from py4hw.base import *
 from py4hw.logic import *
+
 from py4hw.simulation import Simulator
 import py4hw.debug
 
