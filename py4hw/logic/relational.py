@@ -5,7 +5,7 @@ Created on Wed Jan 19 12:53:34 2022
 @author: dcr
 """
 from .. import *
-from .bitwise import *
+
 from deprecated import deprecated
 
 
@@ -16,6 +16,10 @@ class Equal(Logic):
 
     def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
         super().__init__(parent, name)
+
+        from .bitwise import Bits
+        from .bitwise import Minterm
+        from .bitwise import Buf
 
         a = self.addIn("a", a)
         r = self.addOut("r", r)
