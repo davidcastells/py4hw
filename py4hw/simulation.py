@@ -1,7 +1,7 @@
 from .base import HWSystem
 from .base import Wire
 from .base import Logic
-from .logic import Waveform
+from .logic.simulation import Waveform
 
 class Simulator:
 
