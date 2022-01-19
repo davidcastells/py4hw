@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""py4hw: an HDL framework based on python."""
 
 from .base import *
 from .logic.bitwise import *
