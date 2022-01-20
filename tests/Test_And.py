@@ -64,7 +64,7 @@ class Test_And:
         assert (r2.get() == 5)
         assert (r3.get() == 0)
 
-    def test_AndX_integrity(self):
+    def test_And_integrity(self):
         sys = py4hw.HWSystem()
         a = sys.wire("a", 32)
         b = sys.wire("b", 32)
@@ -75,11 +75,11 @@ class Test_And:
         py4hw.Constant(sys, "b", 0x7685, b)
         py4hw.Constant(sys, "c", 0x3452, c)
         
-        py4hw.AndX(sys, 'andx', [a,b,c], r)
+        py4hw.And(sys, 'andx', [a,b,c], r)
         
         py4hw.debug.checkIntegrity(sys)
         
-    def test_AndX(self):
+    def test_And(self):
         sys = py4hw.HWSystem()
         a = sys.wire("a", 32)
         b = sys.wire("b", 32)
@@ -90,7 +90,7 @@ class Test_And:
         py4hw.Constant(sys, "b", 0x7685, b)
         py4hw.Constant(sys, "c", 0x3452, c)
         
-        py4hw.AndX(sys, 'andx', [a,b,c], r)
+        py4hw.And(sys, 'andx', [a,b,c], r)
         
         sys.getSimulator().clk(1)
         
