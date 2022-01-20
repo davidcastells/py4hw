@@ -8,8 +8,34 @@ from .. import *
 
 from deprecated import deprecated
 
+class AnyEqual(Logic):
+    """
+    Checks whether there are any equal values in the inputs
+    """
+    
+    def __init__(self, parent, name, ins, r:Wire):
+        super().__init__(parent, name)
+        
+        from .bitwise import Or
+        from .bitwise import Not
+        
+        r = self.addOut('r',r)
+        lins = []
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
+            
+        num = len(ins)
+        checks = []
+        for i in range(num):
+            for j in range(num):
+                if (i != j):
+                    rp = self.wire('eq_{}_{}'.format(i,j), 1)
+                    Equal(self, 'eq_{}_{}'.format(i,j), lins[i], lins[j], rp)
+                    checks.append(rp)
 
-class Equal(Logic):
+        Or(self, 'anyEqual', checks, r)
+                
+class EqualConstant(Logic):
     """
     An Equal comparator circuit
     """
@@ -40,6 +66,36 @@ class Equal(Logic):
 
 
 
+class Equal(Logic):
+    """
+    An Equal comparator circuit
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+
+        from .bitwise import Bits
+        from .bitwise import Minterm
+        from .bitwise import Buf
+        from .bitwise import Xor2
+        from .bitwise import Nor
+
+
+        a = self.addIn("a", a)
+        b = self.addIn("b", b)
+        r = self.addOut("r", r)
+
+        w = a.getWidth()
+        
+        xor = self.wire('xor', w)
+        
+        Xor2(self, 'xor', a, b, xor)
+        
+        bits = self.wires('bits', w, 1)
+        Bits(self, 'bits', xor, bits)
+        
+        Nor(self, 'nor', bits, r)
+        
 class Comparator(Logic):
     """
     A Greater Than, Equal and Less Than comparator circuit
