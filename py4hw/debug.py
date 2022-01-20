@@ -36,30 +36,38 @@ def printElement(obj:Logic):
         indent = oldindent 
 
 
-def printHierarchyWithValues(sys:HWSystem):
+def printHierarchyWithValues(sys:HWSystem, include=None):
     
     global indent 
     
     indent = 0;
     
-    printElementWithValues(sys)
+    printElementWithValues(sys, include=include)
     
     
-def printElementWithValues(obj:Logic):
+def printElementWithValues(obj:Logic, include=None):
     
     global indent
     
     indStr = ' ' * indent
+
+    doPrint = True    
     
-    
-    print( indStr + type(obj).__name__ , obj.name, getPortValues(obj))
+    if (not(include is None)):
+        # something to filter
+        if (not(type(obj).__name__ in include)):
+            doPrint = False
+
+    if (doPrint):
+        # no filter
+        print( indStr + type(obj).__name__ , obj.name, getPortValues(obj))
     
     if (len(obj.children) > 0):
         oldindent = indent;
         
         for child in obj.children:
             indent = oldindent + 1
-            printElementWithValues(child)
+            printElementWithValues(child, include=include)
             
         indent = oldindent
     
