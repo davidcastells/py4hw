@@ -7,15 +7,8 @@ Created on Wed Jan 19 12:36:38 2022
 from .. import *
 from .relational import *
 from deprecated import deprecated
+import math
 
-class Buf(Logic):
-    def __init__(self, parent, name: str, a: Wire, r: Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn('a', a)
-        self.r = self.addOut('r', r)
-
-    def propagate(self):
-        self.r.put(self.a.get())
 
 
 class ShiftLeft(Logic):
@@ -29,44 +22,6 @@ class ShiftLeft(Logic):
         self.r.put(self.a.get() << self.n)
 
 
-class Or(Logic):
-    """
-    Binary And
-    """
-
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
-
-    def propagate(self):
-        self.r.put(self.a.get() | self.b.get())
-
-    def fromList(parent, name: str, list, r: Wire):
-        if (len(list) < 2):
-            #raise Exception('List should be > 1')
-            Buf(parent, name, list[0], r)
-            return
-
-        auxin = list[0]
-        w = auxin.getWidth()
-        idx = 0
-        if (len(list) == 2):
-            aux = r
-        else:
-            aux = parent.wire('{}{}'.format(name, idx), w)
-        idx = idx + 1
-        for i in range(len(list) - 1):
-            Or(parent, '{}{}'.format(name, i), auxin, list[i + 1], aux)
-
-            auxin = aux
-
-            if (i == (len(list) - 3)):
-                aux = r
-            else:
-                aux = parent.wire('{}{}'.format(name, idx), w)
-                idx = idx + 1
 
 class And2(Logic):
     """
@@ -83,7 +38,7 @@ class And2(Logic):
         self.r.put(self.a.get() & self.b.get())
         
         
-class AndX(Logic):
+class And(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
         super().__init__(parent, name)
         lins = []
@@ -109,9 +64,9 @@ class AndX(Logic):
         auxout = self.wire('and{}'.format(0), w)
         
         for i in range(num-1):
-            print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
-            print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
-            print('creating and{} output: {}'.format(i, auxout.getFullPath()))
+            # print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
+            # print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
+            # print('creating and{} output: {}'.format(i, auxout.getFullPath()))
             And2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
             auxin = auxout
             if (i == num-3):
@@ -140,26 +95,17 @@ class Bit(Logic):
         self.r.put(newvalue)
 
 
-class And(Logic):
-    """
-    Binary And
-    """
-    @deprecated(version='0.0.5', reason="Use And2 for two input and")
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+
+class Buf(Logic):
+    def __init__(self, parent, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
 
     def propagate(self):
-        self.r.put(self.a.get() & self.b.get())
+        self.r.put(self.a.get())
 
-    @deprecated(version='0.0.5', reason="Use AndX for multiple inputs and")
-    def fromList(parent, name: str, list, r: Wire):
-        return AndX(parent, name, list, r)
-
-
-class Nand(Logic):
+class Nand2(Logic):
     """
     Binary Nand
     """
@@ -172,9 +118,45 @@ class Nand(Logic):
 
         self.mid = self.wire("Mid", a.getWidth())
 
-        And(self, "And", a, b, self.mid)
+        And2(self, "And", a, b, self.mid)
         Not(self, "Not", self.mid, r)
 
+class Nor(Logic):
+    """
+    Binary Nand
+    """
+
+    def __init__(self, parent, name: str, ins, r: Wire):
+        super().__init__(parent, name)
+        
+        lins = []
+        
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
+
+        self.r = self.addOut("r", r)
+
+        self.mid = self.wire("Mid", lins[0].getWidth())
+
+        Or(self, "Or", lins, self.mid)
+        Not(self, "Not", self.mid, r)
+
+
+class Nor2(Logic):
+    """
+    Binary Nand
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+        self.mid = self.wire("Mid", a.getWidth())
+
+        Or2(self, "Or", a, b, self.mid)
+        Not(self, "Not", self.mid, r)
 
 class Not(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
@@ -189,7 +171,58 @@ class Not(Logic):
         return NotSymbol(self, x, y)
 
 
-class Xor(Logic):
+class Or2(Logic):
+    """
+    Binary And
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() | self.b.get())
+
+class Or(Logic):
+    def __init__(self, parent, name:str, ins, r: Wire):
+        super().__init__(parent, name)
+        lins = []
+        r = self.addOut('r', r)
+        w = r.getWidth()
+        
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
+
+        num = len(ins)
+
+        if (num == 2):
+            Or2(self, 'and2', ins[0], ins[1], r)
+            return
+            
+        if (num < 3):
+            raise Exception('List should be > 2')
+
+        # by now we do an inefficient ladder structure, we should
+        # do a more fancy logarithmic design
+        
+        auxin = lins[0]
+        auxout = self.wire('and{}'.format(0), w)
+        
+        for i in range(num-1):
+            # print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
+            # print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
+            # print('creating and{} output: {}'.format(i, auxout.getFullPath()))
+            Or2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
+            auxin = auxout
+            if (i == num-3):
+                auxout = r
+            else:
+                auxout = self.wire('and{}'.format(i+1), w)    
+
+                
+class Xor2(Logic):
     """
     Binary Xor
     """
@@ -204,11 +237,83 @@ class Xor(Logic):
         xout = self.wire("XOut", a.getWidth())
         yout = self.wire("YOut", a.getWidth())
 
-        Nand(self, "NandMid", a, b, mid)
-        Nand(self, "NandX", a, mid, xout)
-        Nand(self, "NandY", b, mid, yout)
-        Nand(self, "NandR", xout, yout, r)
+        Nand2(self, "NandMid", a, b, mid)
+        Nand2(self, "NandX", a, mid, xout)
+        Nand2(self, "NandY", b, mid, yout)
+        Nand2(self, "NandR", xout, yout, r)
 
+
+class Xor(Logic):
+    def __init__(self, parent, name:str, ins, r: Wire):
+        super().__init__(parent, name)
+        lins = []
+        r = self.addOut('r', r)
+        w = r.getWidth()
+        
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
+
+        num = len(ins)
+
+        if (num == 2):
+            Xor2(self, 'and2', ins[0], ins[1], r)
+            return
+            
+        if (num < 3):
+            raise Exception('List should be > 2')
+
+        # by now we do an inefficient ladder structure, we should
+        # do a more fancy logarithmic design
+        
+        auxin = lins[0]
+        auxout = self.wire('and{}'.format(0), w)
+        
+        for i in range(num-1):
+            # print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
+            # print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
+            # print('creating and{} output: {}'.format(i, auxout.getFullPath()))
+            Xor2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
+            auxin = auxout
+            if (i == num-3):
+                auxout = r
+            else:
+                auxout = self.wire('and{}'.format(i+1), w)
+                
+
+class Mux(Logic):
+    def __init__(self, parent, name: str, sel: Wire, ins, r: Wire):
+        super().__init__(parent, name)
+        
+        sel = self.addIn('sel', sel)
+        r = self.addOut('r', r)
+        bits = Bits.fromWire(self, 'sel', sel)
+
+        lins = []
+        for idx, inv in enumerate(ins):
+            lins.append(self.addIn('in{}'.format(idx), inv))
+
+        if (len(bits) != int(math.log2(len(ins)))):
+            raise Exception('Invalid length sel bits: {} # ins: {}'.format(bits, ins))
+            
+        fp, ip = math.modf(math.log2(len(ins)))
+        
+        if (fp != 0):
+            raise Exception('Input wires are not a power of 2')
+
+        w = len(ins) // 2
+        auxin = ins
+        auxout = self.wires('l{}'.format(1), w, r.getWidth())
+
+        for i in range(len(bits)):
+            for k in range(w):
+                Mux2(self, 'm{}_{}'.format(i, k), bits[i], auxin[k * 2 + 0], auxin[k * 2 + 1], auxout[k])
+
+            auxin = auxout
+            w = w // 2
+            if (w == 1):
+                auxout = [r]
+            else:
+                auxout = self.wires('l{}'.format(i + 1), w, r.getWidth())
 
 class Mux2(Logic):
     def __init__(self, parent, name: str, sel: Wire, sel0: Wire, sel1: Wire, r: Wire):
@@ -266,34 +371,6 @@ class Select(Logic):
         self.addOut('r', r)
         Or.fromList(self, 'or', final, r)
 
-
-class Mux(Logic):
-    def __init__(self, parent, name: str, sel: Wire, ins, r: Wire):
-        super().__init__(parent, name)
-        self.addIn('sel', sel)
-        self.addOut('r', r)
-        bits = Bits.fromWire(self, 'sel', sel)
-
-        for i in range(len(ins)):
-            self.addIn('in{}'.format(i), ins[i])
-
-        if (len(bits) != int(math.log2(len(ins)))):
-            raise Exception('Invalid length')
-
-        w = len(ins) // 2
-        auxin = ins
-        auxout = self.wires('l{}'.format(1), w, r.getWidth())
-
-        for i in range(len(bits)):
-            for k in range(w):
-                Mux2(self, 'm{}_{}'.format(i, k), bits[i], auxin[k * 2 + 0], auxin[k * 2 + 1], auxout[k])
-
-            auxin = auxout
-            w = w // 2
-            if (w == 1):
-                auxout = [r]
-            else:
-                auxout = self.wires('l{}'.format(i + 1), w, r.getWidth())
 
 
 class Constant(Logic):
@@ -371,7 +448,7 @@ class Decoder(Logic):
         for i in range(len(b)):
             lb = self.addOut('b{}'.format(i), b[i])
 
-            Equal(self, 'eq{}'.format(i), a, i, lb)
+            EqualConstant(self, 'eq{}'.format(i), a, i, lb)
 
 
 class Minterm(Logic):
@@ -414,7 +491,7 @@ class Minterm(Logic):
             else:
                 parts.append(lbits[i])
 
-        And.fromList(self, 'prod', parts, r)
+        And(self, 'prod', parts, r)
         
 
 class Concatenate(Logic):
