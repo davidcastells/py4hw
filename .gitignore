@@ -1,5 +1,13 @@
 .gitignore
 .vscode
 .ipynb_checkpoints
-py4hw/__pycache__
+*__pycache__*
+*.spyproject
+*.pyc
+*.egg-info
 idees.txt
+pypi.token
+pyproject.toml
+build/
+dist/
+riscv/
