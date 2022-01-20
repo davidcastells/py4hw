@@ -143,7 +143,7 @@ class Schematic:
         self.mapping = {}
         self.mapping[And2] = AndSymbol
         self.mapping[Not] = NotSymbol
-        self.mapping[Or] = OrSymbol
+        self.mapping[Or2] = OrSymbol
         
         self.mapping[Add] = AddSymbol
         self.mapping[Sub] = SubSymbol
@@ -848,7 +848,8 @@ class Schematic:
             if (source['wire'] == sinkWire):
                 return source
             
-        raise Exception('No source to wire "{}" in {}'.format(sinkWire.name, self.sources) )
+        sourceNames = [x['wire'].getFullPath() for x in self.sources]
+        raise Exception('No source to wire "{}" in {}'.format(sinkWire.getFullPath(), sourceNames ) )
             
     def findSinkTuples(self, sourceWire):
         ret = []
