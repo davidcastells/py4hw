@@ -99,7 +99,7 @@ class Logic:
     def wires(self, name:str, num:int, width:int):
         ret = []
         for i in range(num):
-            ret.append(self.wire('{}{}'.format(name,i), width))
+            ret.append(self.wire('{}_{}'.format(name,i), width))
         return ret;
     
     def allLeaves(self):
@@ -132,7 +132,7 @@ class Logic:
     def isPrimitive(self):
         return self.isClockable() or self.isPropagatable();
     
-    def getFullPath(self)->str:
+    def getFullPath(self, withselfnames=True)->str:
         """
         Gets the full of a hierarchy element
 
@@ -145,9 +145,12 @@ class Logic:
         str = ''
         
         if (self.parent != None):
-            str = self.parent.getFullPath()
+            str = self.parent.getFullPath(withselfnames=withselfnames)
             
-        str = str + '/' + type(self).__name__ + '[' + self.name + ']' 
+        str = str + '/' + type(self).__name__ 
+        if (withselfnames):
+            str += '[' + self.name + ']' 
+        
         return str
 
     
