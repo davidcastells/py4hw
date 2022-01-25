@@ -5,8 +5,7 @@ Created on Sat Oct 31 12:28:11 2020
 @author: dcr
 """
 from py4hw.base import *
-from py4hw.logic import *
-from py4hw.storage import *
+from py4hw.logic.storage import *
 import py4hw.debug
 import py4hw.gui as gui
 
@@ -22,7 +21,7 @@ q = sys.wire("q", 1)
 TReg(sys, 'treg1', one, one, e2)
 TReg(sys, 'treg2', e2, one, e3)
 
-Reg(sys, 'reg', e3, e2, q)
+r3 = Reg(sys, 'reg', e3, e2, q)
 
 Constant(sys, 'one', 1, one)
 
@@ -48,5 +47,7 @@ Constant(sys, 'one', 1, one)
 
 # py4hw.debug.printHierarchyWithValues(sys)
 
+rtlgen = py4hw.VerilogGenerator(r3)
+print(rtlgen.getVerilog())
 
-gui.Workbench(sys)
+#gui.Workbench(sys)
