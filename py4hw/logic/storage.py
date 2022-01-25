@@ -21,13 +21,13 @@ class Reg(Logic):
         self.value = 0
         
     def clock(self):
-        if (self.e.get() & 1):
+        if (self.e.get() == 1):
             self.value = self.d.get()
             self.q.prepare(self.value)
             
             #print(self.name, 'sel', self.e.get(), self.d.get(), 'value prepared=', self.value)
             
-            port = self.d.getSource()
+            #port = self.d.getSource()
             #print('d source', port.name, port.parent.getFullPath())
         else:
             #maintain the same value
