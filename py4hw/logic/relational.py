@@ -47,8 +47,10 @@ class EqualConstant(Logic):
         from .bitwise import Minterm
         from .bitwise import Buf
 
-        a = self.addIn("a", a)
-        r = self.addOut("r", r)
+        # we save the values for Verilog generation
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
+        self.v = v
 
         w = a.getWidth()
         
@@ -84,6 +86,11 @@ class Equal(Logic):
         a = self.addIn("a", a)
         b = self.addIn("b", b)
         r = self.addOut("r", r)
+
+        # save them for RTL 
+        self.a = a
+        self.b = b
+        self.r = r
 
         w = a.getWidth()
         
