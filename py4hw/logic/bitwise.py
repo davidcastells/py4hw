@@ -48,6 +48,10 @@ class And(Logic):
         for idx, inv in enumerate(ins):
             lins.append(self.addIn('in{}'.format(idx), inv))
 
+        # store inputs/outputs for RTL generation
+        self.r = r
+        self.ins = lins
+        
         num = len(ins)
 
         if (num == 2):
@@ -96,6 +100,34 @@ class Bit(Logic):
 
 
 
+class Bits(Logic):
+    """
+    splits the bits of a wire into individual wires
+    """
+
+    def __init__(self, parent: Logic, name: str, a: Wire, bits):
+        super().__init__(parent, name)
+
+        self.a = self.addIn('a', a)
+
+        w = a.getWidth()
+
+        self.bits = []
+        for i in range(w):
+            self.bits.append(self.addOut('b{}'.format(i), bits[i]))
+
+    def propagate(self):
+        w = self.a.getWidth()
+        v = self.a.get()
+
+        for i in range(w):
+            self.bits[i].put((v >> i) & 1)
+
+    def fromWire(parent: Logic, name: str, a: Wire):
+        bits = parent.wires(name + '_bits', a.getWidth(), 1)
+        Bits(parent, name, a, bits)
+        return bits
+    
 class Buf(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
@@ -105,6 +137,21 @@ class Buf(Logic):
     def propagate(self):
         self.r.put(self.a.get())
 
+
+class Constant(Logic):
+    """
+    A constant value
+    """
+
+    def __init__(self, parent: Logic, name: str, value: int, r: Wire):
+        super().__init__(parent, name)
+        self.value = value
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.value)
+        #print(self.name, '=', self.value)
+        
 class Nand2(Logic):
     """
     Binary Nand
@@ -134,12 +181,16 @@ class Nor(Logic):
         for idx, inv in enumerate(ins):
             lins.append(self.addIn('in{}'.format(idx), inv))
 
-        self.r = self.addOut("r", r)
+        r = self.addOut("r", r)
 
-        self.mid = self.wire("Mid", lins[0].getWidth())
+        mid = self.wire("Mid", lins[0].getWidth())
+        
+        # save inputs/outputs for RTL generation
+        self.r = r
+        self.ins = lins
 
-        Or(self, "Or", lins, self.mid)
-        Not(self, "Not", self.mid, r)
+        Or(self, "Or", lins, mid)
+        Not(self, "Not", mid, r)
 
 
 class Nor2(Logic):
@@ -195,6 +246,10 @@ class Or(Logic):
         for idx, inv in enumerate(ins):
             lins.append(self.addIn('in{}'.format(idx), inv))
 
+        # save inputs/outputs for RTL generation
+        self.r = r
+        self.ins = lins
+        
         num = len(ins)
 
         if (num == 2):
@@ -302,7 +357,7 @@ class Mux(Logic):
 
         w = len(ins) // 2
         auxin = ins
-        auxout = self.wires('l{}'.format(1), w, r.getWidth())
+        auxout = self.wires('l{}'.format(0), w, r.getWidth())
 
         for i in range(len(bits)):
             for k in range(w):
@@ -373,48 +428,8 @@ class Select(Logic):
 
 
 
-class Constant(Logic):
-    """
-    A constant value
-    """
-
-    def __init__(self, parent: Logic, name: str, value: int, r: Wire):
-        super().__init__(parent, name)
-        self.value = value
-        self.r = self.addOut("r", r)
-
-    def propagate(self):
-        self.r.put(self.value)
-        #print(self.name, '=', self.value)
         
 
-class Bits(Logic):
-    """
-    splits the bits of a wire into individual wires
-    """
-
-    def __init__(self, parent: Logic, name: str, a: Wire, bits):
-        super().__init__(parent, name)
-
-        self.a = self.addIn('a', a)
-
-        w = a.getWidth()
-
-        self.bits = []
-        for i in range(w):
-            self.bits.append(self.addOut('b{}'.format(i), bits[i]))
-
-    def propagate(self):
-        w = self.a.getWidth()
-        v = self.a.get()
-
-        for i in range(w):
-            self.bits[i].put((v >> i) & 1)
-
-    def fromWire(parent: Logic, name: str, a: Wire):
-        bits = parent.wires(name + '_bits', a.getWidth(), 1)
-        Bits(parent, name, a, bits)
-        return bits
 
 
 class Decoder(Logic):
