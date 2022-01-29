@@ -1,4 +1,5 @@
 
+        
 class Logic:
     """
     Base class for all logic circuits
@@ -9,14 +10,19 @@ class Logic:
         self.name = instanceName
         
         if (not(parent is None)):
-            parent.children.append(self)
+            # Add this object as a parent's child
+            if (instanceName in parent.children.keys()):
+                raise Exception('there is already a child named {} in {}'.format(instanceName, parent.getFullPath() ))
 
-        self.inPorts = []
-        self.outPorts = []
-        self.sources = [] # list of InterfaceSource objects
-        self.sinks = []
+            parent.children[instanceName] = self
+
+        self.inPorts = []   # in ports are a sorted list
+        self.outPorts = []  # out ports are a sorted list
+        self.sources = []   # list of InterfaceSource objects
+        self.sinks = []     # List of InterfaceSink objects
     
-        self.children = []
+        self.children = {}          # children are keyed by name
+        self.clockDriver = None     # every circuit has a clock driver, if None it is inherited from parent
         
     def addIn(self, name , wire):
         port = InPort(self, name, wire)
@@ -105,7 +111,7 @@ class Logic:
     def allLeaves(self):
         acum = []
         if (len(self.children) > 0):
-            for obj in self.children:
+            for obj in self.children.values():
                 acum = acum + obj.allLeaves()
         else:
             acum = acum + [self];
@@ -240,6 +246,7 @@ class Wire:
             raise Exception('Source already connected to ' + self.source.parent.getFullPath())
 
         self.source = source
+        
         
     def getSource(self):
         """
@@ -389,6 +396,7 @@ class HWSystem(Logic):
     def __init__(self):
         super().__init__(None, "HWSystem")
         self.simulator = None
+        self.clockDriver = ClockDriver('clk50', 50E6, 0) # we create a 50MHz clock driver by default
         
     def getSimulator(self):
         """
@@ -409,6 +417,48 @@ class HWSystem(Logic):
             
         return self.simulator
         
+    
+class ClockDriver():
+    """
+    A clock driver
+    """
+    
+    def __init__(self, name:str, freq=50, phaseOffset=0, base=None, enable=None):
+        """
+        Creates a clock driver
+
+        Parameters
+        ----------
+        name : str
+            Name of the clock driver.
+        freq : number, optional
+            frequency (in Hz) of the clock .
+        phaseOffset : number, optional
+            phase offset (in %) of the positive edge of the clock
+        base : ClockDriver, optional
+            ClockDriver that this clock driver is based on. This is useful for gated clocks.
+        enable : Wire, optional
+            Wire controling the gating of the clock. When enable is 0, the clock
+            will be gated
+
+        Returns
+        -------
+        None.
+
+        """
+        self.name = name
+        self.base = base
+        
+        if (base is None):
+            self.freq = freq
+            self.phaseOffset = phaseOffset
+        else:
+            self.freq = base.freq;
+            self.phaseOffset = base.phaseOffset
+            
+        self.enable = enable
+        
+
 def has_method(o, name):
     return callable(getattr(o, name, None))
 
@@ -464,3 +514,64 @@ class Interface:
         self.sinkToSource.append([name, w])
         return w;
         
+
+def disconnectWireFromLogicObject(w:Wire, obj:Logic):
+    """
+    Disconnects a wire from a logic object
+
+    Parameters
+    ----------
+    w : Wire
+        The wire to disconnect from the object.
+    obj : Logic
+        The object to disconnect from the wire.
+
+    Returns
+    -------
+    None.
+
+    """
+    if (w.source in obj.outPorts):
+        # wire is connected to an output port of the obj
+        port = w.source
+        w.source = None
+        port.wire = None
+        return 
+
+    for sink in w.sinks:
+        if (sink in obj.inPorts):
+            # wire is connected to an input port of the obj
+            w.sinks.remove(sink)
+            sink.wire = None
+            return
+        
+    raise Exception('wire and object are not connected')
+    
+def getObjectClockDriver(obj:Logic) -> ClockDriver:
+    """
+    Returns the clock driver of an object.
+    @todo consider multiple clock drivers scenario
+
+    Parameters
+    ----------
+    obj : Logic
+        Object of interest.
+
+    Raises
+    ------
+    Exception
+        DESCRIPTION.
+
+    Returns
+    -------
+    ClockDriver
+        The ClockDriver of the object.
+
+    """
+    
+    if (obj.clockDriver != None):
+        return obj.clockDriver
+    if (obj.parent == None):
+        raise Exception('No clock driver at top level')
+    else:
+        return getObjectClockDriver(obj.parent)
