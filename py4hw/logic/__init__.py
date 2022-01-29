@@ -9,4 +9,5 @@ from .bitwise import *
 from .arithmetic import *
 from .relational import *
 from .simulation import *
+from .clock import *
 from .. import *
