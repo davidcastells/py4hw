@@ -25,7 +25,7 @@ def printElement(obj:Logic):
         oldindent = indent;
         
         
-        for child in obj.children:
+        for child in obj.children.values():
             indent = oldindent + 1
             printElement(child)
         
@@ -65,7 +65,7 @@ def printElementWithValues(obj:Logic, include=None):
     if (len(obj.children) > 0):
         oldindent = indent;
         
-        for child in obj.children:
+        for child in obj.children.values():
             indent = oldindent + 1
             printElementWithValues(child, include=include)
             
@@ -171,5 +171,5 @@ def checkIntegrity(obj:Logic):
         if (source == None):
             raise Exception('ERROR: {} {} with no source'.format(obj.getFullPath(), wire.name))
             
-    for child in obj.children:
+    for child in obj.children.values():
         checkIntegrity(child)
