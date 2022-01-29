@@ -164,7 +164,7 @@ class Workbench():
          
     
     def populateTree(self, tv, tvid, obj:Logic):
-        for child in obj.children:
+        for child in obj.children.values():
             instanceName = child.name
             circuitType = 'Structural'
             if (child.isClockable()):
