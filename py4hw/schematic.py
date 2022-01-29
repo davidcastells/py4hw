@@ -798,7 +798,7 @@ class Schematic:
         
         #print('placeInstances', self.sys)
         
-        for child in self.sys.children:
+        for child in self.sys.children.values():
             #print('child', child)
             isym = self.getSymbol(child, self.x, self.y)
             
