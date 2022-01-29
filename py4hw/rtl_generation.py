@@ -106,7 +106,7 @@ def getWireNames(obj:Logic):
     ret = {}
     
     # process all the wires connected to child instances
-    for child in obj.children:
+    for child in obj.children.values():
         for wire in collectPortWires(child):
             ret[wire]= "w_" + wire.name
  
@@ -137,10 +137,12 @@ def collectPortWires( obj:Logic):
     ret = []
     
     for inp in obj.inPorts:
-        ret.append(inp.wire)
+        if (not(inp.wire is None)):
+            ret.append(inp.wire)
 
     for outp in obj.outPorts:
-        ret.append(outp.wire)
+        if (not(outp.wire is None)):
+            ret.append(outp.wire)
 
     return ret
 
@@ -163,7 +165,7 @@ def collectLocalWires(obj:Logic):
     
     portWires = collectPortWires(obj)
     
-    for child in obj.children:
+    for child in obj.children.values():
         
         childLocalWires = [x for x in collectPortWires(child) if x not in portWires]
         ret.extend(childLocalWires)
@@ -224,9 +226,16 @@ def InlineSub(obj:Logic):
 def InlineEqualConstant(obj:Logic):
     return "assign {} = ({} == {})? 1 : 0;\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a), obj.v )
 
+def InlineRange(obj:Logic):
+    return "assign {} = {}[{}:{}];\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.high, obj.low)
+
 def InlineBits(obj:Logic):
     str = ""
-    for i in range(len(obj.bits)):
+    w = len(obj.bits)
+    if (w == 1):
+        return "assign {} = {};\n".format(getParentWireName(obj, obj.bits[0]), getParentWireName(obj, obj.a))
+
+    for i in range(w):
         str += "assign {} = {}[{}];\n".format(getParentWireName(obj, obj.bits[i]), getParentWireName(obj, obj.a), i)
         
     return str
@@ -262,13 +271,24 @@ def InlineEqual(obj:Logic):
     return "assign {} = ({} == {})? 1:0;\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a), getParentWireName(obj, obj.b))
 
 def BodyReg(obj:Logic):
+    clkname = getObjectClockDriver(obj).name
     str = "reg "+getWidthInfo(obj.q) + " rq = 0;\n"
-    str += "always @(posedge clk)\n"
+    str += "always @(posedge {})\n".format(clkname)
     str +=  "if (e == 1)\n"
     str += "begin\n"
     str += "   rq <= d;\n"
     str += "end\n"
     str += "assign q = rq;\n"
+    return str
+
+def BodyGatedClock(obj:Logic):
+    str = "reg eq = 0;\n"
+    str += "always @(negedge clk_in)\n"
+    str += "begin\n"
+    str += "   eq <= enin;\n"
+    str += "end\n"
+    str += "assign enout = eq;\n"
+    str += "assign clk_out = enout & clk_in;\n"
     return str
 
 class VerilogGenerator:
@@ -297,10 +317,12 @@ class VerilogGenerator:
         self.inlinablePrimitives[Sub] = InlineSub
         self.inlinablePrimitives[Bits] = InlineBits
         self.inlinablePrimitives[Xor2] = InlineXor2
+        self.inlinablePrimitives[Range] = InlineRange
         
         self.providingBody = {}
         
         self.providingBody[Reg] = BodyReg 
+        self.providingBody[GatedClock] = BodyGatedClock
         
     def getVerilogForHierarchy(self, obj=None):
         """
@@ -346,14 +368,19 @@ class VerilogGenerator:
                 
         if (obj.isPropagatable()):
             # generate code from propagate function
-            pass
+            if (self.isProvidingBody(obj)):
+                str += self.provideBody(obj);
+            else:
+                print('transpiling', obj.getFullPath())
+                str += self.generateCodeFromPropagate(obj)
+
         elif (obj.isClockable()):
             #generate code from clock function
             if (self.isProvidingBody(obj)):
                 str += self.provideBody(obj);
             else:
                 str += self.generateCodeFromClock(obj)
-            pass
+
         else:
             # structural circuit
             str += self.createModuleInstances(obj)
@@ -379,7 +406,7 @@ class VerilogGenerator:
         if (obj.isPrimitive()):
             return obj.isClockable()
         
-        for child in obj.children:
+        for child in obj.children.values():
             if (self.anyClockableDescendant(child)):
                 return True
             
@@ -387,15 +414,22 @@ class VerilogGenerator:
         
     def createModuleHeader(self, obj:Logic):
         str = "module " + getVerilogModuleName(obj) + " (\n\t"
+
+        link = ""
         
+        if (isinstance(obj, GatedClock)):
+            drv = obj.drv
+            str += link + "input clk_in".format(drv.base.name)
+            link = ",\n\t"
+            str += link + "output clk_out".format(drv.name)
+            
         reg = ""
         if (obj.isClockable() and not(self.isProvidingBody(obj))):
             reg = " reg "
         
-        link = ""
-        
         if (self.anyClockableDescendant(obj)):
-            str += "input clk"
+            clkname = getObjectClockDriver(obj).name
+            str += "input {}".format(clkname)
             link = ",\n\t"
         
         for inp in obj.inPorts:
@@ -446,7 +480,7 @@ class VerilogGenerator:
     def createModuleInstances(self, obj:Logic):
         str = "\n"
         
-        for child in obj.children:
+        for child in obj.children.values():
             
             if (self.isInlinable(child)):
                 str += self.inlinePrimitive(child)
@@ -460,11 +494,20 @@ class VerilogGenerator:
         str += "("
         link = ""
         
-        # Clock is an implicit parameter
-        if (self.anyClockableDescendant(child)):
-            str += link + ".clk(clk)"
+        if (isinstance(child, GatedClock)):
+            # ClockGate elements are special
+            drv:ClockDriver = child.drv
+            str += link + ".clk_in({})".format(drv.base.name)
+            link = ","
+            str += link + ".clk_out({})".format(drv.name)
+            
+        elif (self.anyClockableDescendant(child)):
+            # Clock is an implicit parameter
+            clkname = getObjectClockDriver(child).name
+            str += link + ".{}({})".format(clkname, clkname)
             link = ","
         
+
         # get the wire names from the instantiator
         wireName = getWireNames(child.parent)
         
@@ -485,6 +528,7 @@ class VerilogGenerator:
     
     def generateCodeFromClock(self, obj:Logic):
         str = "// Code generated from clock method\n"
+        clkname = getObjectClockDriver(obj).name
         
         tr = Python2VerilogTranspiler(obj, 'clock')
         
@@ -493,7 +537,7 @@ class VerilogGenerator:
         str += "// local declarations\n"
         str += tr.getExtraDeclarations() + "\n";
         str += "// sequential process\n"
-        str += "always @(posedge clk)\n"
+        str += "always @(posedge {})\n".format(clkname)
         str += "begin\n"
         str += transpiled + "\n"
         str += "end\n"
@@ -502,6 +546,25 @@ class VerilogGenerator:
         
         return str
 
+    def generateCodeFromPropagate(self, obj:Logic):
+        str = "// Code generated from clock method\n"
+        clkname = getObjectClockDriver(obj).name
+        
+        tr = Python2VerilogTranspiler(obj, 'propagate')
+        
+        transpiled = tr.transpile() ;
+        
+        str += "// local declarations\n"
+        str += tr.getExtraDeclarations() + "\n";
+        str += "// sequential process\n"
+        str += "always @(posedge {})\n".format(clkname)
+        str += "begin\n"
+        str += transpiled + "\n"
+        str += "end\n"
+        
+        str += "\n"
+        
+        return str
 import inspect
 import ast
 import textwrap
@@ -631,21 +694,32 @@ class Python2VerilogTranspiler:
     
     
     
+def getAstName(obj):
+    if (isinstance(obj, ast.Name)):
+        return obj.id
+    elif (isinstance(obj, ast.Attribute)):
+        return getAstName(obj.attr)
+    elif (isinstance(obj, str)):
+        return obj
+    else:
+        raise Exception('unknown type {}'.format(type(obj)))
+
 class ReplaceWireGets(ast.NodeTransformer):
     def visit_Call(self, node):
-        attr = node.func.attr
+        attr = getAstName(node.func)
         
         if (attr == 'get'):
-            if isinstance(node.func.value, ast.Attribute):
-                wirename = node.func.value.attr
-                #print('REPLACING GET ', wirename)
-                return ast.Name(wirename, ast.Load)
+            #if isinstance(node.func.value, ast.Attribute):
+            wirename = getAstName(node.func.value)
+            #print('REPLACING GET ', wirename)
+            return ast.Name(wirename, ast.Load)
         
         return node
     
+    
 class ReplaceWirePrepare(ast.NodeTransformer):
     def visit_Call(self, node):
-        attr = node.func.attr
+        attr = getAstName(node.func)
         
         if (attr == 'prepare'):
             #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
