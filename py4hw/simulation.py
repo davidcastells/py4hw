@@ -1,7 +1,27 @@
 from .base import HWSystem
 from .base import Wire
 from .base import Logic
+from .base import ClockDriver
+from .base import getObjectClockDriver
 from .logic.simulation import Waveform
+
+class ClockDriverSimulator:
+    """
+    The simulation is organized by clock drivers
+    """
+    
+    def __init__(self, drv:ClockDriver):
+        self.driver = drv
+        self.clockables = []
+        
+    def addClockable(self, obj:Logic):
+        self.clockables.append(obj)
+
+    def clockAll(self):
+        for obj in self.clockables:
+            obj.clock()
+
+
 
 class Simulator:
 
@@ -23,13 +43,17 @@ class Simulator:
             return
 
         self.sys = sys;
+
         
         self.topologicalSort()
         self.listeners = []
-        
+
+        self.propagateAll()
+    
+    def propagateAll(self):
         for obj in self.propagatables:
             obj.propagate();
-    
+
     def __new__(cls, sys:HWSystem):
         if sys.simulator != None:
             sys.simulator.topologicalSort() # Updates existing simulator
@@ -40,6 +64,8 @@ class Simulator:
         
     def topologicalSort(self):
         """
+        We segment the circuit by clock drivers.
+        
         Sorts all the elements of the circuit so that cycle-base 
         simlation is possible.
         
@@ -53,15 +79,19 @@ class Simulator:
         None.
 
         """
-        
-        self.clockables = []
+
         self.propagatables = []
-       
+        self.clockDrivers = {}
+        
         leaves = self.sys.allLeaves()
         
         for leaf in leaves:
+            
             if (leaf.isClockable()):
-                self.clockables.append(leaf)
+                leafDriver = getObjectClockDriver(leaf)
+                drv = self.getOrCreateClockDriverSimulator(leafDriver)
+                drv.addClockable(leaf)
+
             if (leaf.isPropagatable()):
                 self.propagatables.append(leaf)
                 
@@ -81,6 +111,15 @@ class Simulator:
                     self.propagatables[i] = first
                     anyChange = True
         
+    
+        
+    def getOrCreateClockDriverSimulator(self, drv:ClockDriver) -> ClockDriverSimulator:
+        try:
+            return self.clockDrivers[drv]
+        except:
+            self.clockDrivers[drv] = ClockDriverSimulator(drv)
+            return self.clockDrivers[drv]
+            
     def findFirstDependentPosition(self, obj:Logic) -> int:
         """
         We look at the outputs of the provided circuit and find
@@ -100,6 +139,11 @@ class Simulator:
         sinks = []
         
         for port in obj.outPorts:
+            if (port.wire is None):
+                #raise Exception('Unconnected wire to {}'.format(port.getFullPath()))
+                # skip unconnected ports
+                continue
+            
             sinkPorts = port.wire.getSinks()
             
             for sinkPort in sinkPorts:
@@ -120,14 +164,14 @@ class Simulator:
                 
         return minPos
         
-    def clk(self, cycles:int):
+    def clk(self, cycles:int=1):
         """
         Advance a number of clock cycles
 
         Parameters
         ----------
         cycles : int
-            DESCRIPTION.
+            Number of clock cycles.
 
         Returns
         -------
@@ -147,8 +191,12 @@ class Simulator:
         None.
 
         """
-        for obj in self.clockables:
-            obj.clock()
+        for drv in self.clockDrivers:
+            if (not(drv.enable is None)):
+                if (drv.enable.get() == 0):
+                    continue;
+                    
+            self.clockDrivers[drv].clockAll()
             
         Wire.settleAll()
                 
@@ -163,3 +211,6 @@ class Simulator:
     def _notifyListeners(self):
         for listener in self.listeners:
             listener.simulatorUpdated()
+            
+    
+    
