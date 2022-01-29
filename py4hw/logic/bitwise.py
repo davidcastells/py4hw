@@ -348,7 +348,7 @@ class Mux(Logic):
             lins.append(self.addIn('in{}'.format(idx), inv))
 
         if (len(bits) != int(math.log2(len(ins)))):
-            raise Exception('Invalid length sel bits: {} # ins: {}'.format(bits, ins))
+            raise Exception('Invalid length sel bits: {} # ins: {}'.format(len(bits), int(math.log2(len(ins)))))
             
         fp, ip = math.modf(math.log2(len(ins)))
         
