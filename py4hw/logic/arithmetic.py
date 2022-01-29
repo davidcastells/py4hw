@@ -5,6 +5,7 @@ Created on Wed Jan 19 12:53:47 2022
 @author: dcr
 """
 from .. import *
+from .bitwise import *
 from deprecated import deprecated
 
 
@@ -172,3 +173,16 @@ class ModuloCounter(Logic):
         Add(self, 'add', q, one, add)
         Reg(self, 'reg', d, e_add, q)
         EqualConstant(self, 'eq{}'.format(mod-1), q, mod-1, carryout)
+        
+        
+class BinaryToBCD(Logic):
+    """
+    Converts a binary number into BCD digits
+    """
+    
+    def __init__(self, parent, name : str, a: Wire, r:Wire):
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        r = self.addOut('r', r)
+    
