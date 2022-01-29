@@ -32,12 +32,15 @@ class Waveform(Logic):
         self.prevs = {}
         self.ck = {"name": "CK", "wave": "P"}
 
-        self.wires = wires if isinstance(wires, list) else [wires]
+        self.wires = wires # if isinstance(wires, list) else [wires]
         for x in self.wires:
-            self.addIn(x.name, x)
-            self.waves[x] = {"name": x.name, "wave": "x", "data": []}
-            self.prevs[x] = None
-
+            if (isinstance(x, Wire)):
+                self.addIn(x.name, x)
+                self.waves[x] = {"name": x.name, "wave": "x", "data": []}
+                self.prevs[x] = None
+            else:
+                raise Exception('We only support wires by now')
+                
         # Get simulator
         self.sim = parent
         while self.sim.parent != None:
