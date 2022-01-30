@@ -11,9 +11,12 @@ from .logic.bitwise import *
 from .logic.storage import *
 from .schematic_symbols import *
 
-def getVerilogModuleName(obj:Logic):
-    sid = hex(id(obj))
-    str = type(obj).__name__ + "_" + sid[2:] 
+def getVerilogModuleName(obj:Logic, noInstanceNumber=False):
+    str = type(obj).__name__  
+    if (not(noInstanceNumber)):
+        sid = hex(id(obj))
+        str += "_" +sid[2:] 
+        
     return str
 
 def getWidthInfo(w:Wire):
@@ -324,7 +327,7 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
-    def getVerilogForHierarchy(self, obj=None):
+    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=False):
         """
         Generates Verilog for all entities of the object hierarchy
 
@@ -336,24 +339,24 @@ class VerilogGenerator:
         if (obj is None):
             obj = self.obj
             
-        str = self.getVerilog(obj)
+        str = self.getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity)
         
-        for child in obj.children:
+        for child in obj.children.values():
             if (not(self.isInlinable(child))):
                 # skip inlinable modules from verilog generation
                 str += "\n"
-                str += self.getVerilogForHierarchy(child)
+                str += self.getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
 
         return str        
         
-    def getVerilog(self, obj=None):
+    def getVerilog(self, obj=None, noInstanceNumber=False):
         str = "// This file was automatically created by py4hw RTL generator\n"
         
         if (obj is None):
             obj = self.obj
             
             
-        str += self.createModuleHeader(obj)
+        str += self.createModuleHeader(obj, noInstanceNumber=noInstanceNumber)
         
         localWires = collectLocalWires(obj)
         wireNames = getWireNames(obj)
@@ -412,8 +415,8 @@ class VerilogGenerator:
             
         return False
         
-    def createModuleHeader(self, obj:Logic):
-        str = "module " + getVerilogModuleName(obj) + " (\n\t"
+    def createModuleHeader(self, obj:Logic, noInstanceNumber=None):
+        str = "module " + getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber) + " (\n\t"
 
         link = ""
         
@@ -575,6 +578,10 @@ class Python2VerilogTranspiler:
         self.obj = obj
         self.methodName = methodName
         self.signals = {}
+        self.indent = 0
+
+    def getIndent(self):
+        return ' ' * (self.indent * 4)
         
     def transpile(self):
         
@@ -609,8 +616,13 @@ class Python2VerilogTranspiler:
 
         extra = [x for x in self.signals if x not in portNames]
         
+        # @todo we should analyze the number of possible values of 
+        # extra signals to decide their width. By now we consider a worst
+        # case scenario with extra signals all requiring a maximum of 8 bits
+        # this will be simplyfied during synthesis if less bits are required
+        # but it will cause a BUG if the required bits are higher
         for sig in extra:
-            str += "reg " + sig + " = 0;" 
+            str += "reg [7:0] " + sig + " = 0;" 
             
         return str
     
@@ -664,19 +676,24 @@ class Python2VerilogTranspiler:
         
         self.signals[var] = var
         
-        return var + " <= " + self.transpileUnknown(line.value) + ";\n";
+        return var + " <= " + self.transpileUnknown(line.value) + ";\n" + self.getIndent()  ;
     
     def transpileIf(self, line:ast.If):
         str = "if " + self.transpileUnknown(line.test) + "\n"
-        str += "begin\n"
-        str += self.transpileUnknown(line.body)
-        str += "end\n"
+        str += self.getIndent() + "begin\n"
+        self.indent += 1
+        str += self.getIndent() + self.transpileUnknown(line.body)
+        self.indent -= 1
+        str +=  "end\n"
         
         if (not(line.orelse is None)):
-            str += "else \n"
-            str += "begin\n"
-            str += self.transpileUnknown(line.orelse)
-            str += "end\n"
+            str += self.getIndent() + "else \n"
+            str += self.getIndent() + "begin\n"
+            self.indent += 1
+            str += self.getIndent() + self.transpileUnknown(line.orelse)
+            self.indent -= 1
+            str +=  "end\n"
+
         return str
     
     def transpileCompare(self, line:ast.Compare):
