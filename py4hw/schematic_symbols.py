@@ -298,6 +298,54 @@ class OrSymbol(LogicSymbol):
 
         return (5, namemargin + y)
     
+class XorSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+        self.h = 40
+
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+
+        canvas.drawText(x, y, text=self.obj.name, anchor='w')
+        y = y + namemargin
+
+        # the and box would be x[0:50] y[0:30]
+        canvas.drawLine(x+10, y, x + 20+10, y)
+        canvas.drawLine(x+10, y + self.h, x + 20+10, y + self.h)
+        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x , y, x + 20, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+
+        canvas.drawArc(x-30 +10, y, x + 50+20+10, y + self.h*4, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x-30 +10, y-self.h*3, x + 50+20+10, y + self.h, start=60, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+
+
+
+    def getHeight(self):
+        return namemargin + self.h
+
+    def getWidth(self):
+        return 50+10
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), namemargin + self.h//2)
+    
+    def getWireSinkPos(self, wire:Wire):
+        selidx = -1
+        for idx, port in enumerate(self.obj.inPorts):
+            if (port.wire == wire):
+                selidx = idx
+                
+        if (selidx == -1):
+            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+
+        if (selidx == 0):
+            y = self.h//2 - 10
+        else:
+            y = self.h//2 + 10 
+
+        return (5, namemargin + y)
+    
 class InPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
