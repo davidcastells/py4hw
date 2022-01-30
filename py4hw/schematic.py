@@ -111,12 +111,12 @@ class MatplotlibRender:
         
 class Schematic:
     
-    def __init__(self, sys:Logic):
+    def __init__(self, obj:Logic):
    
-        if (len(sys.children) == 0):
+        if (len(obj.children.values()) == 0):
             raise Exception('Schematics are only available to structural circuits')
 
-        self.sys = sys
+        self.sys = obj
         self.x = 0
         self.y = 0
                 
@@ -144,6 +144,7 @@ class Schematic:
         self.mapping[And2] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or2] = OrSymbol
+        self.mapping[Xor2] = XorSymbol
         
         self.mapping[Add] = AddSymbol
         self.mapping[Sub] = SubSymbol
@@ -195,6 +196,10 @@ class Schematic:
         #mainloop()
         
         
+    def draw(self):
+        import matplotlib.pyplot as plt
+        return plt.show()
+    
     def removeArrowsSpecialCases(self):
         """
         Remove the arrows from some nets like the ones
@@ -860,8 +865,11 @@ class Schematic:
             
     def createNets(self):
         for sink in self.sinks:
-            source = self.findSourceTuple(sink['wire'])
-            self.nets.append(NetSymbol(source, sink))   
+            try:
+                source = self.findSourceTuple(sink['wire'])
+                self.nets.append(NetSymbol(source, sink))   
+            except Exception as err:
+                print('Exception', err)
 
     def getNets(self):
         #oa = np.array(self.objs)
