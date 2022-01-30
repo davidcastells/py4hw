@@ -341,11 +341,21 @@ class Mux(Logic):
         
         sel = self.addIn('sel', sel)
         r = self.addOut('r', r)
-        bits = Bits.fromWire(self, 'sel', sel)
 
         lins = []
         for idx, inv in enumerate(ins):
             lins.append(self.addIn('in{}'.format(idx), inv))
+        
+        if (sel.getWidth() == 1):
+            # two inputs is a trivial case
+            Mux2(self, 'mux2', sel, lins[0], lins[1], r)
+            return
+            
+        # bits contain all the bits from the selection wire
+        # which will be the base for creating a logarithmic
+        # selection tree
+        bits = Bits.fromWire(self, 'sel', sel)
+
 
         if (len(bits) != int(math.log2(len(ins)))):
             raise Exception('Invalid length sel bits: {} # ins: {}'.format(len(bits), int(math.log2(len(ins)))))
