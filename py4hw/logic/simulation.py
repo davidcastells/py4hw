@@ -82,6 +82,10 @@ class Waveform(Logic):
 
         return waveform
     
+    def draw(self):
+        import nbwavedrom as wave
+        return wave.draw(self.get_waveform())
+    
 
 class Scope(Logic):
 
