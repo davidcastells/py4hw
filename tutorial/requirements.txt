@@ -1,4 +1,4 @@
-nbwavedrom=0.3.0
+nbwavedrom=0.2.0
 ipywidgets
 matplotlib
 deprecated
