@@ -6,4 +6,4 @@
 py4hw is an HDL library based on python to create digital circuits (mainly) following a structural design methodology. 
 It is highly influenced by the JHDL principles but using the power of Python.
 
-[Follow the jump start tutorial !]/(tutorial/tutorial.ipynb)
+[Follow the jump start tutorial !](tutorial/tutorial.ipynb)
