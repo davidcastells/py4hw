@@ -81,6 +81,7 @@ class Equal(Logic):
         from .bitwise import Buf
         from .bitwise import Xor2
         from .bitwise import Nor
+        from .bitwise import Not
 
 
         a = self.addIn("a", a)
@@ -96,29 +97,68 @@ class Equal(Logic):
         
         xor = self.wire('xor', w)
         
-        Xor2(self, 'xor', a, b, xor)
-        
-        bits = self.wires('bits', w, 1)
-        Bits(self, 'bits', xor, bits)
-        
-        Nor(self, 'nor', bits, r)
+        if (w == 1):
+            # simple case
+            Xor2(self, 'xor', a, b, xor)
+            Not(self, 'not', xor, r)
+            
+        else:
+            Xor2(self, 'xor', a, b, xor)
+            
+            bits = self.wires('bits', w, 1)
+            Bits(self, 'bits', xor, bits)
+            
+            Nor(self, 'nor', bits, r)
         
 class Comparator(Logic):
     """
     A Greater Than, Equal and Less Than comparator circuit
     """
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, gt: Wire, eq: Wire, lt: Wire):
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, gt: Wire, eq: Wire, lt: Wire):
+        """
+        Constructor of the comparator circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            parent circuit.
+        name : str
+            instance name.
+        a : Wire
+            operand a.
+        b : Wire
+            operand b.
+        gt : Wire
+            1 if a > b.
+        eq : Wire
+            1 if a == b.
+        lt : Wire
+            1 if a < b.
+
+        Returns
+        -------
+        the object.
+
+        """
+        
+        from .bitwise import Equal
+        from .bitwise import And2
+        from .bitwise import Not
+        from .bitwise import Mux2
+        from .arithmetic import Sub
+        from .arithmetic import Sign
+
         super().__init__(parent, name)
-        self.addIn("a", a)
-        self.addIn("b", b)
-        self.addOut("gt", gt)
-        self.addOut("eq", eq)
-        self.addOut("lt", lt)
+        a = self.addIn("a", a)
+        b = self.addIn("b", b)
+        gt = self.addOut("gt", gt)
+        eq = self.addOut("eq", eq)
+        lt = self.addOut("lt", lt)
 
         sub = Wire(self, "sub", a.getWidth())
-        notLT = Wire(self, "~LT", 1)
-        notEQ = Wire(self, "~EQ", 1)
+        notLT = Wire(self, "nLT", 1)
+        notEQ = Wire(self, "nEQ", 1)
 
         Sub(self, "Comparison", a, b, sub)
 
@@ -126,9 +166,174 @@ class Comparator(Logic):
         Sign(self, "LessThan", sub, lt)
 
         # EQ
-        Equal(self, "Equal", sub, 0, eq)
+        EqualConstant(self, "Equal", sub, 0, eq)
 
         # GT
-        Not(self, "~LT", lt, notLT)
-        Not(self, "~EQ", eq, notEQ)
-        And(self, "GreaterThan", notEQ, notLT, gt)
+        Not(self, "nLT", lt, notLT)
+        Not(self, "nEQ", eq, notEQ)
+        And2(self, "GT", notEQ, notLT, gt)
+
+
+class Max2(Logic):
+    """
+    A circuit that computes the maximum from two inputs
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Implements the function r = max(a,b)
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        a : Wire
+            DESCRIPTION.
+        b : Wire
+            DESCRIPTION.
+        r : Wire
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        from .bitwise import Mux2
+        
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+        
+        gt = self.wire('gt')
+        eq = self.wire('eq')
+        lt = self.wire('lt')
+        
+        Comparator(self, 'comp', a, b, gt, eq, lt)
+        
+        Mux2(self, 'mux', lt, a, b, r)
+        
+        
+class FPComparator_SP(Logic):
+    
+    def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, gt:Wire, eq:Wire, lt:Wire):
+        super().__init__(parent, name)
+        
+        from .bitwise import Bit
+        from .bitwise import And
+        from .bitwise import Or
+        from .bitwise import Range
+        import sys
+        
+        # This is really cumbersome
+        if not('..' in sys.path):
+            sys.path.append ('..')
+            
+        import py4hw.helper
+        
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        gt = self.addOut('gt', gt)
+        eq = self.addOut('eq', eq)
+        lt = self.addOut('lt', lt)
+        
+        sa = self.wire('sa')
+        sb = self.wire('sb')
+        ea = self.wire('ea', 8)
+        eb = self.wire('eb', 8)
+        ma = self.wire('ma', 23)
+        mb = self.wire('mb', 23)
+        
+        Bit(self, 'sa',a, 31, sa)
+        Bit(self, 'sb',b, 31, sb)
+        Range(self, 'ea', a, 30, 23, ea)
+        Range(self, 'eb', b, 30, 23, eb)
+        Range(self, 'ma', a, 22, 0, ma)
+        Range(self, 'mb', b, 22, 0, mb)
+        
+        s_eq = self.wire('s_eq')
+        
+        Equal(self, 's_eq', sa, sb, s_eq)        
+        
+        e_gt = self.wire('e_gt')
+        e_eq = self.wire('e_eq')
+        e_lt = self.wire('e_lt')
+        
+        Comparator(self, 'cmp_e', ea, eb, e_gt, e_eq, e_lt)
+        
+        m_gt = self.wire('m_gt')
+        m_eq = self.wire('m_eq')
+        m_lt = self.wire('m_lt')
+        
+        Comparator(self, 'cmp_m', ma, mb, m_gt, m_eq, m_lt)
+
+        
+        # we use the helper to speed up writing combinational 
+        # expressions
+        g = py4hw.helper.Helper(self)
+        
+        gt_if0 = g.hw_and2(g.hw_not(sa), sb)
+        gt_if1 = g.hw_and2(s_eq, e_gt)
+        gt_if2 = g.hw_and3(s_eq, e_eq, m_gt)
+
+        Or(self, 'gt', [gt_if0, gt_if1, gt_if2], gt)
+        
+        And(self, 'eq', [s_eq, e_eq, m_eq], eq)
+        
+        lt_if0 = g.hw_and2(sa, g.hw_not(sb))
+        lt_if1 = g.hw_and2(s_eq, e_lt)
+        lt_if2 = g.hw_and3(s_eq, e_eq, m_lt)
+        
+        Or(self, 'lt', [lt_if0, lt_if1, lt_if2], lt)
+        
+        
+
+class Swap(Logic):
+    """
+    A circuit that computes the maximum from two inputs
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, swap:Wire, ra: Wire, rb:Wire):
+        """
+        Swaps a and b if swap is active
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        a : Wire
+            DESCRIPTION.
+        b : Wire
+            DESCRIPTION.
+        swap : Wire
+            DESCRIPTION.
+        ra : Wire
+            DESCRIPTION.
+        rb : Wire
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        from .bitwise import Mux2
+        
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        swap = self.addIn('swap', swap)
+        ra = self.addIn('ra', ra)
+        rb = self.addIn('rb', rb)
+        
+        Mux2(self, 'mux', swap, a, b, ra)
+        Mux2(self, 'mux', swap, b, a, rb)
+        
+        
