@@ -11,7 +11,7 @@ import math
 
 
 
-class ShiftLeft(Logic):
+class ShiftLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
