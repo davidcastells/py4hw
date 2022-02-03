@@ -11,34 +11,23 @@ import pytest
 
 class Test_Sign:
     
-    def test_1(self):
+    def test_random(self):
         sys = py4hw.HWSystem()
         
         a = sys.wire("a", 32)
-        b = sys.wire("b", 32)
-        c = sys.wire("c", 32)
-        r1 = sys.wire("r1")
-        r2 = sys.wire("r2")
-        r3 = sys.wire("r3")
+        r = sys.wire("r")
         
-        py4hw.Constant(sys, "a", -10, a)
-        py4hw.Constant(sys, "b", 0, b)
-        py4hw.Constant(sys, "c", 10, c)
+        py4hw.Sign(sys, "signTest1", a, r)
+
+        import random
         
-        py4hw.Sign(sys, "signTest1", a, r1)
-        py4hw.Sign(sys, "signTest2", b, r2)
-        py4hw.Sign(sys, "signTest3", c, r3)
+        for i in range(1000):
+            v = random.randint(-((1<<31)-1), (1<<31)-1)
+            a.put(v)
         
-        py4hw.Scope(sys, "r1", r1)
-        py4hw.Scope(sys, "r2", r2)
-        py4hw.Scope(sys, "r3", r3)
+            sys.getSimulator().clk(1)
         
-        print('RESET')
-        sim = sys.getSimulator()
-        
-        print()
-        print('CLK')
-        sim.clk(1)
+            assert(bool(r.get()) == (v<0))
 
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Add.py'])
+    pytest.main(args=['-q', 'Test_Sign.py'])
