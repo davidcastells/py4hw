@@ -252,6 +252,32 @@ class BitSymbol(LogicSymbol):
     def getWireSinkPos(self, wire:Wire):
         return (0, namemargin + 10)
     
+class RangeSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+
+        canvas.drawText(x, y, text='[{}:{}]'.format(self.obj.high, self.obj.low), anchor='w')
+        y = y + namemargin 
+
+        canvas.drawLine(x+10,y, x, y+20)
+        #canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
+        
+    def getHeight(self):
+        return 20
+
+    def getWidth(self):
+        return 20
+
+    def getWireSourcePos(self, wire:Wire):
+        return (10, namemargin + 10)
+    
+    def getWireSinkPos(self, wire:Wire):
+        return (0, namemargin + 10)
+    
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
