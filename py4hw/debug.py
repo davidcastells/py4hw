@@ -4,16 +4,28 @@ from .base import Wire
 from .base import Logic
 from .base import Interface
 
-def printHierarchy(sys:HWSystem):
-    
+def printHierarchy(sys:Logic):
+    """
+    Prints the hierarchy of the object
+
+    Parameters
+    ----------
+    sys : HWSystem
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
     global indent 
     
     indent = 0;
     
-    printElement(sys)
+    _printElement(sys)
     
     
-def printElement(obj:Logic):
+def _printElement(obj:Logic):
     
     global indent
     
@@ -27,7 +39,7 @@ def printElement(obj:Logic):
         
         for child in obj.children.values():
             indent = oldindent + 1
-            printElement(child)
+            _printElement(child)
         
         
         #for child in obj.children:
@@ -36,16 +48,19 @@ def printElement(obj:Logic):
         indent = oldindent 
 
 
-def printHierarchyWithValues(sys:HWSystem, include=None):
+def printHierarchyWithValues(sys:Logic, include=None, format=None):
     
     global indent 
     
     indent = 0;
     
-    printElementWithValues(sys, include=include)
+    if (format is None):
+        format = '{}'
+        
+    _printElementWithValues(sys, include=include, format=format)
     
     
-def printElementWithValues(obj:Logic, include=None):
+def _printElementWithValues(obj:Logic, include, format):
     
     global indent
     
@@ -60,29 +75,29 @@ def printElementWithValues(obj:Logic, include=None):
 
     if (doPrint):
         # no filter
-        print( indStr + type(obj).__name__ , obj.name, getPortValues(obj))
+        print( indStr + type(obj).__name__ , obj.name, _getPortValues(obj, sfmt=format))
     
     if (len(obj.children) > 0):
         oldindent = indent;
         
         for child in obj.children.values():
             indent = oldindent + 1
-            printElementWithValues(child, include=include)
+            _printElementWithValues(child, include=include, format=format)
             
         indent = oldindent
     
-def getPortValues(obj:Logic):
+def _getPortValues(obj:Logic, sfmt:str):
     ret = '('
     link = ''
     for ip in obj.inPorts:
-        ret = ret + link + ip.name + '=' + str(ip.wire.get()) 
+        ret = ret + link + ip.name + '=' + sfmt.format(ip.wire.get()) 
         link = ','
         
     ret = ret + ') -> ('
     
     link = ''
     for ip in obj.outPorts:
-        ret = ret + link + ip.name + '=' + str(ip.wire.get()) 
+        ret = ret + link + ip.name + '=' + sfmt.format(ip.wire.get()) 
         link = ','
         
     ret = ret + ') '
