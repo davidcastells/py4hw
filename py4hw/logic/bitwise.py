@@ -11,16 +11,6 @@ import math
 
 
 
-class ShiftLeftConstant(Logic):
-    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn('a', a)
-        self.r = self.addOut('r', r)
-        self.n = n
-
-    def propagate(self):
-        self.r.put(self.a.get() << self.n)
-
 
 
 class And2(Logic):
@@ -276,6 +266,27 @@ class Or(Logic):
             else:
                 auxout = self.wire('and{}'.format(i+1), w)    
 
+
+class ShiftLeftConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        self.r.put(self.a.get() << self.n)
+
+
+class ShiftRightConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        self.r.put(self.a.get() >> self.n)
                 
 class Xor2(Logic):
     """
@@ -417,7 +428,7 @@ class Repeat(Logic):
 
 
 class Select(Logic):
-    def __init__(self, parent, name: str, sels, ins, r: Wire):
+    def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
         super().__init__(parent, name)
 
         final = []
@@ -430,11 +441,11 @@ class Select(Logic):
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 
             Repeat(self, 'sel{}'.format(idx), sel, selx)
-            And(self, 'and{}'.format(idx), selx, inv, and_sel)
+            And2(self, 'and{}'.format(idx), selx, inv, and_sel)
             final.append(and_sel)
 
         self.addOut('r', r)
-        Or.fromList(self, 'or', final, r)
+        Or(self, 'or', final, r)
 
 
 
@@ -520,24 +531,33 @@ class Minterm(Logic):
         
 
 class Concatenate(Logic):
-    def __init__(self, parent: Logic, name: str, ins, r: Wire):
+    """
+    Concatenate wires circuit in MSBF order
+    """
+    def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
         super().__init__(parent, name)
 
+        total_w = 0
+        max_w = r.getWidth()
+        
         self.ins = []
 
         for idx, item in enumerate(ins):
             self.ins.append(self.addIn('in{}'.format(idx), item))
+            total_w += item.getWidth()
 
+        if (total_w > max_w):
+            raise Exception('Combined input widths larger than result width {}>{}'.format(total_w, max_w))
+            
         self.r = self.addOut('r', r)
 
     def propagate(self):
         value = 0
         last = 0
         for idx, item in enumerate(self.ins):
-            value = value << last
+            value = value << item.getWidth()
             value = value | item.get()
-            last = item.getWidth()
-
+            
         self.r.put(value)
         
 
