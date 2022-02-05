@@ -212,7 +212,7 @@ class ModuloCounter(Logic):
         Or2(self, 'e_add', reset, inc, e_add)
         #py4hw.Mux(self, 'mux', )
         Add(self, 'add', q, one, add)
-        Reg(self, 'reg', d, e_add, q)
+        Reg(self, 'reg', d, q, enable=e_add)
         EqualConstant(self, 'eq{}'.format(mod-1), q, mod-1, carryout)
         
         
@@ -267,7 +267,7 @@ class FPAdder_SP(Logic):
         ieq = self.wire('ieq')
         ilt = self.wire('ilt')
 
-        FPComparator_SP(self, 'cmp', a, b, igt, ieq, ilt)
+        FPComparator_SP(self, 'cmp', a, b, igt, ieq, ilt, absolute=True)
         
         a2 = self.wire('a2', a.getWidth())
         b2 = self.wire('b2', b.getWidth())
@@ -297,8 +297,8 @@ class FPAdder_SP(Logic):
         ma2 = self.wire('ma2', ma.getWidth()+1)
         mb2 = self.wire('mb2', ma.getWidth()+1)
         
-        Concatenate(self, 'ma2', [one, ma], ma2)
-        Concatenate(self, 'mb2', [one, mb], mb2)
+        ConcatenateMSBF(self, 'ma2', [one, ma], ma2)
+        ConcatenateMSBF(self, 'mb2', [one, mb], mb2)
         
         ma = ma2
         mb = mb2
@@ -363,4 +363,4 @@ class FPAdder_SP(Logic):
         maxe = self.wire('maxe', ea.getWidth())
         Max2(self, 'maxe', ea, eb, maxe)
         
-        Concatenate(self, 'final_r', [sr, maxe, mr], r)
+        ConcatenateMSBF(self, 'final_r', [sr, maxe, mr], r)
