@@ -43,7 +43,7 @@ class EqualConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
         super().__init__(parent, name)
 
-        from .bitwise import Bits
+        from .bitwise import BitsLSBF
         from .bitwise import Minterm
         from .bitwise import Buf
 
@@ -63,7 +63,7 @@ class EqualConstant(Logic):
                 
         else:
             bits = self.wires('b', a.getWidth(), 1)
-            Bits(self, "bits", a, bits)
+            BitsLSBF(self, "bits", a, bits)
             Minterm(self, 'm{}'.format(v), bits, v, r)
 
 
@@ -76,7 +76,7 @@ class Equal(Logic):
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
         super().__init__(parent, name)
 
-        from .bitwise import Bits
+        from .bitwise import BitsLSBF
         from .bitwise import Minterm
         from .bitwise import Buf
         from .bitwise import Xor2
@@ -106,7 +106,7 @@ class Equal(Logic):
             Xor2(self, 'xor', a, b, xor)
             
             bits = self.wires('bits', w, 1)
-            Bits(self, 'bits', xor, bits)
+            BitsLSBF(self, 'bits', xor, bits)
             
             Nor(self, 'nor', bits, r)
         
@@ -150,13 +150,17 @@ class Comparator(Logic):
         from .arithmetic import Sign
 
         super().__init__(parent, name)
+        
+        if (a.getWidth() != b.getWidth()):
+            raise Exception('a and b must have equal width')
+            
         a = self.addIn("a", a)
         b = self.addIn("b", b)
         gt = self.addOut("gt", gt)
         eq = self.addOut("eq", eq)
         lt = self.addOut("lt", lt)
 
-        sub = Wire(self, "sub", a.getWidth())
+        sub = Wire(self, "sub", a.getWidth()+1)
         notLT = Wire(self, "nLT", 1)
         notEQ = Wire(self, "nEQ", 1)
 
@@ -220,7 +224,37 @@ class Max2(Logic):
         
 class FPComparator_SP(Logic):
     
-    def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, gt:Wire, eq:Wire, lt:Wire):
+    def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, gt:Wire, eq:Wire, lt:Wire, absolute:bool=False):
+        """
+        Compares two floating point numbers.
+        It supports a normal mode than checks (a>b), (a==b), (a<b)
+        and a absolute mode that checks (|a|>|b|),(|a|==|b|),(|a|<|b|)         
+
+        Parameters
+        ----------
+        parent : Logic
+            parent circuit.
+        name : str
+            instance name.
+        a : Wire
+            first input.
+        b : Wire
+            second input.
+        gt : Wire
+            Active if a > b (normal mode) or |a| > |b| (absolute mode).
+        eq : Wire
+            Active if a == b (normal mode) or |a| == |b| (absolute mode).
+        lt : Wire
+            Active if a < b (normal mode) or |a| < |b| (absolute mode).
+.
+        absolute : bool, optional
+            Selects the absolute mode. The default is False.
+
+        Returns
+        -------
+        Returns the circuit object.
+
+        """
         super().__init__(parent, name)
         
         from .bitwise import Bit
@@ -274,21 +308,35 @@ class FPComparator_SP(Logic):
         
         # we use the helper to speed up writing combinational 
         # expressions
-        g = py4hw.helper.Helper(self)
-        
-        gt_if0 = g.hw_and2(g.hw_not(sa), sb)
-        gt_if1 = g.hw_and2(s_eq, e_gt)
-        gt_if2 = g.hw_and3(s_eq, e_eq, m_gt)
+        g = py4hw.helper.LogicHelper(self)
 
-        Or(self, 'gt', [gt_if0, gt_if1, gt_if2], gt)
-        
-        And(self, 'eq', [s_eq, e_eq, m_eq], eq)
-        
-        lt_if0 = g.hw_and2(sa, g.hw_not(sb))
-        lt_if1 = g.hw_and2(s_eq, e_lt)
-        lt_if2 = g.hw_and3(s_eq, e_eq, m_lt)
-        
-        Or(self, 'lt', [lt_if0, lt_if1, lt_if2], lt)
+        if (absolute):
+            # In absolute mode we ignore the sign
+            gt_if1 = e_gt 
+            gt_if2 = g.hw_and2(e_eq, m_gt)
+    
+            Or(self, 'gt', [gt_if1, gt_if2], gt)
+            
+            And(self, 'eq', [e_eq, m_eq], eq)
+            
+            lt_if1 = e_lt
+            lt_if2 = g.hw_and2(e_eq, m_lt)
+            
+            Or(self, 'lt', [lt_if1, lt_if2], lt)
+        else:
+            gt_if0 = g.hw_and2(g.hw_not(sa), sb)
+            gt_if1 = g.hw_and2(s_eq, g.hw_mux2(sa, e_gt, e_lt) )
+            gt_if2 = g.hw_and3(s_eq, e_eq, g.hw_mux2(sa, m_gt, m_lt))
+    
+            Or(self, 'gt', [gt_if0, gt_if1, gt_if2], gt)
+            
+            And(self, 'eq', [s_eq, e_eq, m_eq], eq)
+            
+            lt_if0 = g.hw_and2(sa, g.hw_not(sb)) 
+            lt_if1 = g.hw_and2(s_eq, g.hw_mux2(sa, e_lt, e_gt))
+            lt_if2 = g.hw_and3(s_eq, e_eq, g.hw_mux2(sa, m_lt, m_gt))
+            
+            Or(self, 'lt', [lt_if0, lt_if1, lt_if2], lt)
         
         
 
@@ -330,10 +378,10 @@ class Swap(Logic):
         a = self.addIn('a', a)
         b = self.addIn('b', b)
         swap = self.addIn('swap', swap)
-        ra = self.addIn('ra', ra)
-        rb = self.addIn('rb', rb)
+        ra = self.addOut('ra', ra)
+        rb = self.addOut('rb', rb)
         
-        Mux2(self, 'mux', swap, a, b, ra)
-        Mux2(self, 'mux', swap, b, a, rb)
+        Mux2(self, 'muxa', swap, a, b, ra)
+        Mux2(self, 'muxb', swap, b, a, rb)
         
         
