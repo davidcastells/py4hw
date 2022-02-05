@@ -42,6 +42,8 @@ class Test_FPAdder_SP:
         a = g.hw_constant(32, fp.sp_to_ieee754(av))
         b = g.hw_constant(32, fp.sp_to_ieee754(bv))
         
+        print('TESTING: ', av, bv)
+
         fpa = py4hw.FPAdder_SP(sys, 'fpa', a, b, r)
         
         sys.getSimulator().clk(1)
@@ -49,7 +51,7 @@ class Test_FPAdder_SP:
         err = fp.ieee754_to_sp(r.get()) - (av+bv)
         assert (abs(err) < 1E-7)
 
-    def test_1(self):
+    def test_3(self):
         
         sys = py4hw.HWSystem()
         g = py4hw.LogicHelper(sys)
@@ -62,6 +64,8 @@ class Test_FPAdder_SP:
         a = g.hw_constant(32, fp.sp_to_ieee754(av))
         b = g.hw_constant(32, fp.sp_to_ieee754(bv))
         
+        print('TESTING: ', av, bv)
+
         fpa = py4hw.FPAdder_SP(sys, 'fpa', a, b, r)
         
         sys.getSimulator().clk(1)
