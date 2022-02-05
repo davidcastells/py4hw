@@ -29,15 +29,15 @@ sys = HWSystem()
 
 a = sys.wire("a", 3)
 r = sys.wire("r", 3)
-vcc = sys.wire("r", 3)
 p = sys.wire("p", 3)
 
 Constant(sys, 'a', 3, a)
-Constant(sys, 'vcc', 1, vcc)
 
 m3 = Mult3(sys, "m3", a, r)
-Reg(sys, "reg", r, vcc, p)
+Reg(sys, "reg", r, p)
 
+bits = sys.wires('bits', r.getWidth(), 1)
+BitsLSBF(sys, 'bits', r, bits)
 Scope(sys, "p", p)
 #Scope(sys, "r", r)
 
