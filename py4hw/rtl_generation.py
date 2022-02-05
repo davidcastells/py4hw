@@ -232,7 +232,7 @@ def InlineEqualConstant(obj:Logic):
 def InlineRange(obj:Logic):
     return "assign {} = {}[{}:{}];\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.high, obj.low)
 
-def InlineBits(obj:Logic):
+def InlineBitsLSBF(obj:Logic):
     str = ""
     w = len(obj.bits)
     if (w == 1):
@@ -277,10 +277,24 @@ def BodyReg(obj:Logic):
     clkname = getObjectClockDriver(obj).name
     str = "reg "+getWidthInfo(obj.q) + " rq = 0;\n"
     str += "always @(posedge {})\n".format(clkname)
-    str +=  "if (e == 1)\n"
-    str += "begin\n"
+    close = ""
+    if not(obj.r is None):
+        str += "if (r == 1)\n"
+        str += "begin\n"
+        str += "   rq <= 0;\n"
+        str += "end\n";
+        str += "else\n";
+        str += "begin\n";
+        close = "end\n";
+        
+    if not(obj.e is None):
+        str += "if (e == 1)\n"
+        str += "begin\n"
+        close = "end\n" + close
+        
     str += "   rq <= d;\n"
-    str += "end\n"
+    
+    str += close
     str += "assign q = rq;\n"
     return str
 
@@ -318,7 +332,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[Or] = InlineOr
         self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Sub] = InlineSub
-        self.inlinablePrimitives[Bits] = InlineBits
+        self.inlinablePrimitives[BitsLSBF] = InlineBitsLSBF
         self.inlinablePrimitives[Xor2] = InlineXor2
         self.inlinablePrimitives[Range] = InlineRange
         
