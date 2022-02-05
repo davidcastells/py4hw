@@ -11,27 +11,69 @@ from deprecated import deprecated
 
 class Reg(Logic):
     """
-    This is a D flip flop
+    This is a D flip flop with (optional) enable and (optional) reset
     """
-    def __init__(self, parent, name:str, d:Wire, e:Wire, q:Wire, ):
+    def __init__(self, parent, name:str, d:Wire, q:Wire, enable:Wire=None, reset:Wire=None ):
+        """
+        
+        D flip flop with (optional) enable and (optional) reset
+
+        Parameters
+        ----------
+        parent : TYPE
+            parent.
+        name : str
+            name.
+        d : Wire
+            input.
+        q : Wire
+            output.
+        enable : Wire, optional
+            Enable signal. The default is None.
+        reset : Wire, optional
+            Synchronous reset signal. The default is None.
+
+        Returns
+        -------
+        the object.
+
+        """
         super().__init__(parent, name)
         self.d = self.addIn("d", d)
-        self.e = self.addIn("e", e)
         self.q = self.addOut("q", q)
+
+        if not(enable is None):
+            self.e = self.addIn("e", enable)
+        else:
+            self.e = None
+            
+        if not(reset is None):
+            self.r = self.addIn("r", reset)
+        else:
+            self.r = None
+            
         self.value = 0
         
     def clock(self):
-        if (self.e.get() == 1):
+        setValue = True
+        resetValue = False
+
+        if not(self.e is None):
+            if (self.e.get() == 0):
+                setValue = False
+        if not(self.r is None):
+            if (self.r.get() == 1):
+                resetValue = 1
+                
+        if (resetValue):
+            self.value = 0
+        elif (setValue):
             self.value = self.d.get()
-            self.q.prepare(self.value)
+        #else:
+        #   maintain the same value            
             
-            #print(self.name, 'sel', self.e.get(), self.d.get(), 'value prepared=', self.value)
-            
-            #port = self.d.getSource()
-            #print('d source', port.name, port.parent.getFullPath())
-        else:
-            #maintain the same value
-            self.q.prepare(self.value)    
+        self.q.prepare(self.value)
+
             
 class TReg(Logic):
     def __init__(self, parent, name:str, t:Wire, e:Wire, q:Wire, ):
@@ -45,5 +87,5 @@ class TReg(Logic):
         
         d = self.wire('d', 1)
         Mux2(self, 'mux', t, q, nq, d)
-        Reg(self, 'reg', d, e, q)
+        Reg(self, 'reg', d, q, enable=e)
         
