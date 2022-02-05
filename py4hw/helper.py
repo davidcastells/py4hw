@@ -53,6 +53,13 @@ class LogicHelper:
         r = self.parent.wire(name, w)
         And(self.parent, name, [a, b, c], r)
         return r
+
+    def hw_and4(self, a:Wire, b:Wire, c:Wire, d:Wire) -> Wire:
+        w = a.getWidth()
+        name = self.getNewName()
+        r = self.parent.wire(name, w)
+        And(self.parent, name, [a, b, c, d], r)
+        return r
     
     def hw_buf(self, a:Wire) -> Wire:
         w = a.getWidth()
@@ -68,6 +75,13 @@ class LogicHelper:
         Not(self.parent, name, a, r)
         return r
         
+    def hw_mux2(self, sel:Wire, s0:Wire, s1:Wire) -> Wire:
+        w = s0.getWidth()
+        name = self.getNewName()
+        r = self.parent.wire(name, w)
+        Mux2(self.parent, name, sel, s0, s1, r)
+        return r
+
     def hw_mux(self, sel:Wire, options:list) -> Wire:
         name = self.getNewName()
         w = options[0].getWidth()
