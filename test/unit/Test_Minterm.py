@@ -26,7 +26,7 @@ class Test_Minterm:
         bits = sys.wires('b', 2, 1)
         minterm = sys.wire('minterm',1)
         
-        py4hw.Bits(sys, 'bits', a, bits)
+        py4hw.BitsLSBF(sys, 'bits', a, bits)
         py4hw.Minterm(sys, 'minterm', bits, 0, minterm)
         py4hw.Constant(sys, "a", 0, a)
         
