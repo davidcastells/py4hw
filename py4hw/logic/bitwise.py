@@ -90,9 +90,10 @@ class Bit(Logic):
 
 
 
-class Bits(Logic):
+class BitsLSBF(Logic):
     """
-    splits the bits of a wire into individual wires
+    Returns a list of 1 bit wires from a wider wire 
+    in least significant bit first order
     """
 
     def __init__(self, parent: Logic, name: str, a: Wire, bits):
@@ -113,9 +114,10 @@ class Bits(Logic):
         for i in range(w):
             self.bits[i].put((v >> i) & 1)
 
+    @deprecated
     def fromWire(parent: Logic, name: str, a: Wire):
         bits = parent.wires(name + '_bits', a.getWidth(), 1)
-        Bits(parent, name, a, bits)
+        BitsLSBF(parent, name, a, bits)
         return bits
     
 class Buf(Logic):
@@ -365,7 +367,7 @@ class Mux(Logic):
         # bits contain all the bits from the selection wire
         # which will be the base for creating a logarithmic
         # selection tree
-        bits = Bits.fromWire(self, 'sel', sel)
+        bits = BitsLSBF.fromWire(self, 'sel', sel)
 
 
         if (len(bits) != int(math.log2(len(ins)))):
@@ -530,7 +532,7 @@ class Minterm(Logic):
         And(self, 'prod', parts, r)
         
 
-class Concatenate(Logic):
+class ConcatenateMSBF(Logic):
     """
     Concatenate wires circuit in MSBF order
     """
@@ -560,7 +562,38 @@ class Concatenate(Logic):
             
         self.r.put(value)
         
+class ConcatenateLSBF(Logic):
+    """
+    Concatenate wires circuit in MSBF order
+    """
+    def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
+        super().__init__(parent, name)
 
+        total_w = 0
+        max_w = r.getWidth()
+        
+        self.ins = []
+
+        for idx, item in enumerate(ins):
+            self.ins.append(self.addIn('in{}'.format(idx), item))
+            total_w += item.getWidth()
+
+        if (total_w > max_w):
+            raise Exception('Combined input widths larger than result width {}>{}'.format(total_w, max_w))
+            
+        self.ins.reverse()
+        self.r = self.addOut('r', r)
+
+    def propagate(self):
+        value = 0
+        last = 0
+
+        for idx, item in enumerate(self.ins):
+            value = value << item.getWidth()
+            value = value | item.get()
+            
+        self.r.put(value)
+        
 class Range(Logic):
     def __init__(self, parent: Logic, name: str, a: Wire, high: int, low: int, r: Wire):
         super().__init__(parent, name)
