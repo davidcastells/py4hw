@@ -28,7 +28,7 @@ class Waveform(Logic):
 
         """
         super().__init__(parent, name)
-        self.waves = {}
+        self.waves = {}  # A dictionary keyed by fullname , wavem and data
         self.prevs = {}
         self.ck = {"name": "CK", "wave": "P"}
 
@@ -36,7 +36,7 @@ class Waveform(Logic):
         for x in self.wires:
             if (isinstance(x, Wire)):
                 self.addIn(x.name, x)
-                self.waves[x] = {"name": x.name, "wave": "x", "data": []}
+                self.waves[x] = {"name": x.getFullPath(), "wave": "x", "data": []}
                 self.prevs[x] = None
             else:
                 raise Exception('We only support wires by now')
@@ -56,7 +56,7 @@ class Waveform(Logic):
                 self.waves[x]["wave"] += str(x.get())
             else:
                 self.waves[x]["wave"] += "2"
-                self.waves[x]["data"].append(x.get())
+                self.waves[x]["data"].append(hex(x.get()))
 
             self.prevs[x] = x.get()
 
