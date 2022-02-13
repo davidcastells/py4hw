@@ -86,6 +86,16 @@ def _printElementWithValues(obj:Logic, include, format):
             
         indent = oldindent
     
+def getPortWires(obj:Logic):
+    ret = []
+    for ip in obj.inPorts:
+        ret.append(ip.wire)
+
+    for ip in obj.outPorts:
+        ret.append(ip.wire)
+
+    return ret
+
 def _getPortValues(obj:Logic, sfmt:str):
     ret = '('
     link = ''
