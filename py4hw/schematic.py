@@ -109,7 +109,11 @@ class MatplotlibRender:
         el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
         self.canvas.add_artist(el)
         
+
 class Schematic:
+    """
+    Class that controls the schematic drawing
+    """
     
     def __init__(self, obj:Logic):
    
@@ -135,7 +139,7 @@ class Schematic:
         # canvas.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
         # canvas.pack(side=LEFT,expand=True,fill=BOTH)
 
-        self.objs = []      # a list of the objects displayed
+        self.objs = []      # a list of the logic symbols displayed
         self.nets = []      # a list of the nets
         self.sources = []   # a list of net sources with tuples [symbol, x, y, wire]
         self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, wire]
@@ -144,6 +148,7 @@ class Schematic:
         self.mapping[And2] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or2] = OrSymbol
+        self.mapping[Nor2] = NorSymbol
         self.mapping[Xor2] = XorSymbol
         
         self.mapping[Add] = AddSymbol
@@ -214,8 +219,8 @@ class Schematic:
 
         """    
         for net in self.nets:
-            if (isinstance(net.sink['symbol'], Mux2Symbol)):
-                if (net.sink['wire'] == net.sink['symbol'].obj.inPorts[0].wire):
+            if (isinstance(net.sink, Mux2Symbol)):
+                if (net.wire == net.sink.obj.inPorts[0].wire):
                     net.arrow = False
         
     def trackAssignment(self):
@@ -234,7 +239,7 @@ class Schematic:
         #print('cols', self.columns)
         for colidx in range(1, numCols):
             track = 0
-            netsInCol = [n for n in nets if n.sink['symbol'] in self.columns[colidx]]
+            netsInCol = [n for n in nets if n.sink in self.columns[colidx]]
             
             # temporal object to check if several nets are created from the same
             # source
@@ -250,7 +255,7 @@ class Schematic:
                 if (existingtrack == None):
                     net.track = track
                     track = track + 1
-                    channeltracks[net.source['wire']]={'num':net.track, 'nets':[net]}
+                    channeltracks[net.wire]={'num':net.track, 'nets':[net]}
                 else:
                     net.track = existingtrack['num']
                     existingtrack['nets'].append(net)
@@ -310,9 +315,11 @@ class Schematic:
         ret = []
         
         if (isinstance(obj, InPort)):
+            # an input port is a single driver
             outports = [obj]
         elif (isinstance(obj, OutPort)):
-            # no instances 
+            # an output port cannot drive anything (at the circuit level)
+            # so, no dependent instances 
             return []
         else:
             outports = obj.outPorts
@@ -323,6 +330,10 @@ class Schematic:
             for src in self.sinks:
                 if (src['wire'] == wire):
                     ret.append(src['symbol'])
+        
+        # if multiple wires connect between two symbols, there will be repetitions
+        # so remove duplicates
+        ret = list(set(ret))
         
         return ret
         
@@ -426,7 +437,11 @@ class Schematic:
     
     def passthroughCreation(self):
         """
-        Create passthrough entities
+        Create passthrough entities.
+        For connected entities that are separated by more than 1 column
+        we create passthrough entities.
+        For entities connected to previous columns we create feedback 
+        entities.
 
         Returns
         -------
@@ -449,10 +464,10 @@ class Schematic:
                     sinkcol = self.getSymbolColumn(sink)
                     
                     if (sinkcol > colidx +1):
-                        #print('WARNING: passthrough required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
+                        #print('WARNING: passthrough required between: [{}]'.format(colidx), type(obj).__name__, '[{}]'.format(sinkcol), type(sink).__name__, )
                         self.insertPassthrough(obj, colidx, sink, sinkcol)
                     if (sinkcol <= colidx):
-                        #print('WARNING: feedback required between: [{}]'.format(colidx), obj, '[{}]'.format(sinkcol), sink)
+                        #print('WARNING: feedback required between: [{}]'.format(colidx), type(obj).__name__, '[{}]'.format(sinkcol), type(sink).__name__)
                         self.insertFeedback(obj, colidx, sink, sinkcol)
 
     def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
@@ -480,15 +495,15 @@ class Schematic:
         source_wires = self.getWiresFromSource(source)
         sink_wires = self.getWiresFromSink(sink)
         intersection = Intersection(source_wires, sink_wires)
-        
-       
+              
         
         for wire in intersection:
             # remove the original net
-            removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
+            removeNets = [x for x in self.nets if x.wire== wire and x.source == source and x.sink == sink]
+
             if (len(removeNets) == 0):
-                #print('WARNING: no nets to remove')
-                continue
+                self.dumpNets()
+                raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), id(source), source.obj.getFullPath(), id(sink), sink.obj.getFullPath()))
             
             self.nets.remove(removeNets[0])
         
@@ -501,7 +516,7 @@ class Schematic:
                 self.sources.append({'symbol':pts, 'wire':wire})
                 self.sinks.append({'symbol':pts, 'wire':wire})
                 
-                net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
+                net1 = NetSymbol(wire, lastSymbol, pts)
                 net1.sourcecol = col-1
                 net1.arrow = False
                 self.nets.append(net1)
@@ -510,10 +525,13 @@ class Schematic:
                 
                 
             if (lastSymbol != None):
-                net2 = NetSymbol({'symbol':pts, 'wire':wire}, {'symbol': sink, 'wire': wire})
+                net2 = NetSymbol(wire, pts, sink)
                 self.nets.append(net2)
                                 
-                
+    def dumpNets(self):
+        for idx, net in enumerate(self.nets):
+            print('Net {} wire:{} source:{} {}  sink:{} {}'.format(idx, net.wire.getFullPath(), id(net.source), type(net.source).__name__ , id(net.sink), type(net.sink).__name__))
+            
     def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
         """
         A passthrough instance has to be inserted for every wire connecting both entities
@@ -544,7 +562,12 @@ class Schematic:
         
         for wire in intersection:
             # remove the original net
-            removeNets = [x for x in self.nets if x.source['wire'] == wire and x.source['symbol'] == source and x.sink['symbol'] == sink]
+            removeNets = [x for x in self.nets if x.wire == wire and x.source == source and x.sink == sink]
+            
+            if (len(removeNets) == 0):
+                self.dumpNets()
+                raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
+
             self.nets.remove(removeNets[0])
         
             lastSymbol = source
@@ -558,7 +581,7 @@ class Schematic:
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
-            net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':fb_start, 'wire':wire})
+            net1 = NetSymbol(wire, lastSymbol, fb_start)
             net1.sourcecol = sourcecol
             net1.arrow = False
             self.nets.append(net1)
@@ -570,7 +593,7 @@ class Schematic:
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
-            net2 = NetSymbol({'symbol':fb_end, 'wire':wire}, {'symbol':sink, 'wire':wire})
+            net2 = NetSymbol(wire, fb_end, sink)
             net2.sourcecol = sinkcol-1
             net2.arrow = True
             self.nets.append(net2)
@@ -585,7 +608,7 @@ class Schematic:
                   self.sources.append({'symbol':pts, 'wire':wire})
                   self.sinks.append({'symbol':pts, 'wire':wire})
                 
-                  net1 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol':pts, 'wire':wire})
+                  net1 = NetSymbol(wire, lastSymbol, pts)
                   net1.sourcecol = col-1
                   net1.arrow = False
                   self.nets.append(net1)
@@ -594,7 +617,7 @@ class Schematic:
                 
                 
             if (lastSymbol != None):
-                 net2 = NetSymbol({'symbol':lastSymbol, 'wire':wire}, {'symbol': fb_start, 'wire': wire})
+                 net2 = NetSymbol(wire, lastSymbol, fb_start)
                  net2.arrow = False
                  self.nets.append(net2)
 
@@ -865,10 +888,21 @@ class Schematic:
         return ret;
             
     def createNets(self):
+        """
+        Create nets for all entities in the drawing.
+        It potulates the self.nets list by analyzing the sinks
+        list which was collected in function createOutputPorts
+
+        Returns
+        -------
+        None.
+
+        """
         for sink in self.sinks:
             try:
-                source = self.findSourceTuple(sink['wire'])
-                self.nets.append(NetSymbol(source, sink))   
+                wire = sink['wire']
+                source = self.findSourceTuple(wire)
+                self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
             except Exception as err:
                 print('Exception', err)
 
@@ -905,7 +939,6 @@ class Schematic:
     def getAdjacencyMatrix(self):
         """
         
-
         Returns
         -------
         adjacency matrix : numpy 2D array with the connections between 
@@ -943,7 +976,18 @@ class Schematic:
         am = self.getAdjacencyMatrix()
         nc = am.shape[0]
 
+        timelimit = 10
 
+        import time
+        
+        t0 = time.time()
+        #print('adjacency matrix size', am.shape)
+
+        if (nc > 50):
+            # for circuits with more than 20 elements, avoid brute force
+            print('avoiding brute force')
+            return am
+        
         objs = self.objs.copy()
         cost = self.computeAdjacencyMatrixCost()
         
@@ -967,8 +1011,11 @@ class Schematic:
                             
                             #print(self.getAdjacencyMatrix())
 
-            print('iter', k, 'cost:', cost, anychange)
-                         
+            #print('iter', k, 'cost:', cost, anychange)
+                    
+            if ((time.time() - t0) > timelimit):
+                anychange = False
+                
             if (not anychange):
                 break
 
@@ -1105,12 +1152,12 @@ class Schematic:
             print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
             net.track = 0
 
-        mp = (net.source['symbol'].x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
+        mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
             
-        if (isinstance(net.source['symbol'], FeedbackStopSymbol)):
+        if (isinstance(net.source, FeedbackStopSymbol)):
             #print('Feedback-stop track:', net.track, mp[0])
             net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
-        elif (isinstance(net.sink['symbol'], FeedbackStartSymbol)):
+        elif (isinstance(net.sink, FeedbackStartSymbol)):
             #print('Feedback-start track:', net.track, mp[0])
             net.setPath([p0[0], mp[0], mp[0]], [p0[1],p0[1],pf[1]])
         else:                  
