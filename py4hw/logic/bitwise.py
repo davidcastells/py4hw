@@ -89,7 +89,32 @@ class Bit(Logic):
         self.r.put(newvalue)
 
 
+class BitsMSBF(Logic):
+    """
+    Returns a list of 1 bit wires from a wider wire 
+    in least significant bit first order
+    """
 
+    def __init__(self, parent: Logic, name: str, a: Wire, bits):
+        super().__init__(parent, name)
+
+        self.a = self.addIn('a', a)
+
+        w = a.getWidth()
+
+        self.bits = []
+        for i in range(w):
+            self.bits.append(self.addOut('b{}'.format(i), bits[i]))
+
+        self.bits.reverse()
+        
+    def propagate(self):
+        w = self.a.getWidth()
+        v = self.a.get()
+
+        for i in range(w):
+            self.bits[i].put((v >> i) & 1)
+            
 class BitsLSBF(Logic):
     """
     Returns a list of 1 bit wires from a wider wire 
