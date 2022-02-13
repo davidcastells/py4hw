@@ -278,6 +278,54 @@ class RangeSymbol(LogicSymbol):
     def getWireSinkPos(self, wire:Wire):
         return (0, namemargin + 10)
     
+class NorSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+        self.h = 40
+
+    def draw(self, canvas):
+        x = self.x
+        y = self.y
+
+        canvas.drawText(x, y, text=self.obj.name, anchor='w')
+        y = y + namemargin
+
+        # the and box would be x[0:50] y[0:30]
+        canvas.drawLine(x, y, x + 20, y)
+        canvas.drawLine(x, y + self.h, x + 20, y + self.h)
+        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+
+        #canvas.drawLine(x, y, x, y + self.h)
+        canvas.drawArc(x-30 , y, x + 50+20, y + self.h*4, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x-30 , y-self.h*3, x + 50+20, y + self.h, start=60, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+
+        canvas.drawEllipse(x + 55, y + 15, x + 65, y + 25)
+
+    def getHeight(self):
+        return namemargin + self.h
+
+    def getWidth(self):
+        return 65
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), namemargin + self.h//2)
+    
+    def getWireSinkPos(self, wire:Wire):
+        selidx = -1
+        for idx, port in enumerate(self.obj.inPorts):
+            if (port.wire == wire):
+                selidx = idx
+                
+        if (selidx == -1):
+            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+
+        if (selidx == 0):
+            y = self.h//2 - 10
+        else:
+            y = self.h//2 + 10 
+
+        return (5, namemargin + y)
+    
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
@@ -598,7 +646,17 @@ class FeedbackStartSymbol(LogicSymbol):
         return 30
     
     def draw(self, canvas):
-        pass
+        x = self.x
+        y = self.y
+        
+        canvas.setForecolor('red')  
+        canvas.setLineWidth(1)
+        
+        #canvas.drawRectangle(x, y, x+30, y+30)
+        canvas.drawLine(x, y+15, x+30, y+15)
+
+        canvas.setForecolor('k')  
+        canvas.setLineWidth(2)
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -617,7 +675,17 @@ class FeedbackStopSymbol(LogicSymbol):
         return 30
     
     def draw(self, canvas):
-        pass
+        x = self.x
+        y = self.y
+        
+        canvas.setForecolor('red')  
+        canvas.setLineWidth(1)
+        
+        #canvas.drawRectangle(x, y, x+30, y+30)
+        canvas.drawLine(x, y+15, x+30, y+15)
+
+        canvas.setForecolor('k')  
+        canvas.setLineWidth(2)
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -627,7 +695,25 @@ class FeedbackStopSymbol(LogicSymbol):
     
     
 class NetSymbol:
-    def __init__(self, source, sink):
+    def __init__(self, wire:Wire, source:LogicSymbol, sink:LogicSymbol):
+        """
+        Constructor of net symbol
+
+        Parameters
+        ----------
+        wire : Wire
+            Associated wire.
+        source : LogicSymbol
+            source logic symbol.
+        sink : LogicSymbol
+            sink logic symbol.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.wire = wire
         self.source = source
         self.sink = sink
         self.x = None
@@ -636,13 +722,13 @@ class NetSymbol:
         self.arrow = True
         
     def getStartPoint(self):
-        objsource = self.source['symbol']
-        portsource = objsource.getWireSourcePos(self.source['wire'])
+        objsource = self.source
+        portsource = objsource.getWireSourcePos(self.wire)
         return (objsource.x + portsource[0], objsource.y + portsource[1]) 
     
     def getEndPoint(self):
-        objsink = self.sink['symbol']
-        portsink = objsink.getWireSinkPos(self.source['wire'])
+        objsink = self.sink
+        portsink = objsink.getWireSinkPos(self.wire)
         return (objsink.x + portsink[0], objsink.y + portsink[1]) 
     
     def setPath(self, x, y):
