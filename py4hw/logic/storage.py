@@ -13,7 +13,7 @@ class Reg(Logic):
     """
     This is a D flip flop with (optional) enable and (optional) reset
     """
-    def __init__(self, parent, name:str, d:Wire, q:Wire, enable:Wire=None, reset:Wire=None ):
+    def __init__(self, parent, name:str, d:Wire, q:Wire, enable:Wire=None, reset:Wire=None, reset_value:int=None ):
         """
         
         D flip flop with (optional) enable and (optional) reset
@@ -52,6 +52,11 @@ class Reg(Logic):
         else:
             self.r = None
             
+        if not(reset_value is None):
+            self.reset_value = reset_value
+        else:
+            self.reset_value = 0
+            
         self.value = 0
         
     def clock(self):
@@ -66,7 +71,7 @@ class Reg(Logic):
                 resetValue = 1
                 
         if (resetValue):
-            self.value = 0
+            self.value = self.reset_value
         elif (setValue):
             self.value = self.d.get()
         #else:
