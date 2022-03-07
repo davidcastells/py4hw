@@ -214,6 +214,9 @@ def InlineNand2(obj:Logic):
 def InlineOr2(obj:Logic):
     return "assign {} = {} | {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
+def InlineNor2(obj:Logic):
+    return "assign {} = ~({} | {});\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+
 def InlineXor2(obj:Logic):
     return "assign {} = {} ^ {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
@@ -232,6 +235,9 @@ def InlineEqualConstant(obj:Logic):
 def InlineRange(obj:Logic):
     return "assign {} = {}[{}:{}];\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.high, obj.low)
 
+def InlineBit(obj:Logic):
+    return "assign {} = {}[{}];\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.bit)
+
 def InlineBitsLSBF(obj:Logic):
     str = ""
     w = len(obj.bits)
@@ -241,6 +247,33 @@ def InlineBitsLSBF(obj:Logic):
     for i in range(w):
         str += "assign {} = {}[{}];\n".format(getParentWireName(obj, obj.bits[i]), getParentWireName(obj, obj.a), i)
         
+    return str
+
+def InlineBitsMSBF(obj:Logic):
+    str = ""
+    w = len(obj.bits)
+    if (w == 1):
+        return "assign {} = {};\n".format(getParentWireName(obj, obj.bits[0]), getParentWireName(obj, obj.a))
+
+    for i in range(w):
+        str += "assign {} = {}[{}];\n".format(getParentWireName(obj, obj.bits[i]), getParentWireName(obj, obj.a), i)
+        
+    return str
+
+def InlineConcatenateMSBF(obj:Logic):
+    str = ""
+    w = len(obj.ins)
+    if (w == 1):
+        return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.ins[0]))
+
+    str = 'assign {} ='.format(getParentWireName(obj, obj.r))
+    
+    link = '{'
+    for i in range(w):
+        str += "{}".format(getParentWireName(obj, obj.ins[i]))
+        link = ','
+    str += '};\n'
+    
     return str
 
 def InlineAnd(obj:Logic):
@@ -321,20 +354,24 @@ class VerilogGenerator:
         self.inlinablePrimitives[And2] = InlineAnd2
         self.inlinablePrimitives[And] = InlineAnd
         self.inlinablePrimitives[Buf] = InlineBuf
-        self.inlinablePrimitives[ZeroExtend] = InlineZeroExtend
+        self.inlinablePrimitives[Bit] = InlineBit
+        self.inlinablePrimitives[BitsLSBF] = InlineBitsLSBF
+        self.inlinablePrimitives[BitsMSBF] = InlineBitsMSBF
+        self.inlinablePrimitives[ConcatenateMSBF] = InlineConcatenateMSBF
         self.inlinablePrimitives[Constant] = InlineConstant
         self.inlinablePrimitives[Equal] = InlineEqual
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
+        self.inlinablePrimitives[Nand2] = InlineNand2
         self.inlinablePrimitives[Not] = InlineNot
         self.inlinablePrimitives[Nor] = InlineNor
-        self.inlinablePrimitives[Nand2] = InlineNand2
-        self.inlinablePrimitives[Or2] = InlineOr2
+        self.inlinablePrimitives[Nor2] = InlineNor2
         self.inlinablePrimitives[Or] = InlineOr
+        self.inlinablePrimitives[Or2] = InlineOr2
         self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Sub] = InlineSub
-        self.inlinablePrimitives[BitsLSBF] = InlineBitsLSBF
         self.inlinablePrimitives[Xor2] = InlineXor2
         self.inlinablePrimitives[Range] = InlineRange
+        self.inlinablePrimitives[ZeroExtend] = InlineZeroExtend
         
         self.providingBody = {}
         
@@ -586,6 +623,35 @@ import inspect
 import ast
 import textwrap
     
+
+def getAstValue(obj):
+    if (isinstance(obj, ast.Constant)):
+        return getAstValue(obj.value)
+    elif (isinstance(obj, str)):
+        return obj
+    elif (isinstance(obj, int)):
+        return obj
+    if (isinstance(obj, ast.Name)):
+        return obj.id
+    else:
+        print('DECODING VALUE:', type(obj))
+        return obj
+    
+def getAstName(obj):
+    if (isinstance(obj, ast.Name)):
+        return obj.id
+    elif (isinstance(obj, ast.Attribute)):
+        return getAstName(obj.attr)
+    elif (isinstance(obj, str)):
+        return obj
+    elif (isinstance(obj, list)):
+        if (len(obj)>1):
+            raise Exception('multiple names in {}'.format(obj))
+        
+        return getAstName(obj[0])
+    else:
+        raise Exception('unknown type {}'.format(type(obj)))
+
 class Python2VerilogTranspiler:
 
     def __init__(self, obj:Logic, methodName:str):
@@ -636,7 +702,7 @@ class Python2VerilogTranspiler:
         # this will be simplyfied during synthesis if less bits are required
         # but it will cause a BUG if the required bits are higher
         for sig in extra:
-            str += "reg [7:0] " + sig + " = 0;" 
+            str += "reg [7:0] " + sig + " = 0;\n" 
             
         return str
     
@@ -654,6 +720,8 @@ class Python2VerilogTranspiler:
             return self.transpileName(line)
         if (type(line) == ast.Eq):
             return "==";
+        if (type(line) == ast.Constant):
+            return "{}".format(getAstValue(line))
         if (type(line) == ast.Num):
             return "{}".format(int(line.n))
         
@@ -684,9 +752,7 @@ class Python2VerilogTranspiler:
         if (len(targets) > 1):
             return ast.dump(line)
         
-        target:ast.Attribute = targets[0]
-        
-        var = target.attr
+        var = getAstName(targets[0])
         
         self.signals[var] = var
         
@@ -725,15 +791,6 @@ class Python2VerilogTranspiler:
     
     
     
-def getAstName(obj):
-    if (isinstance(obj, ast.Name)):
-        return obj.id
-    elif (isinstance(obj, ast.Attribute)):
-        return getAstName(obj.attr)
-    elif (isinstance(obj, str)):
-        return obj
-    else:
-        raise Exception('unknown type {}'.format(type(obj)))
 
 class ReplaceWireGets(ast.NodeTransformer):
     def visit_Call(self, node):
