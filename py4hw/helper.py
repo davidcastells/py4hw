@@ -15,82 +15,104 @@ class LogicHelper:
         self.parent = parent
         self.inum = 0   # instance number
         
-    def getNewName(self)->str:
+    def hw_and2(self, a:Wire, b:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        And2(self.parent, name, a, b, r)
+        return r
+
+    def hw_equal(self, a:Wire, b:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        Equal(self.parent, name, a, b, r)
+        return r
+ 
+    def hw_equal_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        EqualConstant(self.parent, name, a, b, r)
+        return r
+        
+    def _getNewName(self)->str:
         str = 'i{}'.format(self.inum)
         self.inum += 1
         return str
     
     def hw_constant(self, width:int, v:int) -> Wire:
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, width)
         Constant(self.parent, name, v, r)
         return r
     
-    def hw_and2(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
-        name = self.getNewName()
-        r = self.parent.wire(name, w)
-        And2(self.parent, name, a, b, r)
-        return r
 
     def hw_or2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         Or2(self.parent, name, a, b, r)
         return r
 
+    def hw_or(self, a:list) -> Wire:
+        w = a[0].getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Or(self.parent, name, a, r)
+        return r
+    
     def hw_xor2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         Xor2(self.parent, name, a, b, r)
         return r
 
     def hw_and3(self, a:Wire, b:Wire, c:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         And(self.parent, name, [a, b, c], r)
         return r
 
     def hw_and4(self, a:Wire, b:Wire, c:Wire, d:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         And(self.parent, name, [a, b, c, d], r)
         return r
     
     def hw_buf(self, a:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         Buf(self.parent, name, a, r)
         return r
     
     def hw_not(self, a:Wire) -> Wire:
         w = a.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         Not(self.parent, name, a, r)
         return r
         
     def hw_mux2(self, sel:Wire, s0:Wire, s1:Wire) -> Wire:
         w = s0.getWidth()
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, w)
         Mux2(self.parent, name, sel, s0, s1, r)
         return r
 
     def hw_mux(self, sel:Wire, options:list) -> Wire:
-        name = self.getNewName()
+        name = self._getNewName()
         w = options[0].getWidth()
         r = self.parent.wire(name, w)
         Mux(self.parent, name, sel, options, r)
         return r
     
     def sim_sequence(self, width:int, seq:list) -> Wire:
-        name = self.getNewName()
+        name = self._getNewName()
         r = self.parent.wire(name, width)
         Sequence(self.parent, name, seq, r)
         return r
