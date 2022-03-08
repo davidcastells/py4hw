@@ -4,7 +4,7 @@ Created on Fri Jun 18 09:43:48 2021
 
 @author: dcr
 """
-from .logic import Logic
+from .logic.bitwise import *
 from .base import Wire
 import math
 
@@ -329,8 +329,14 @@ class NorSymbol(LogicSymbol):
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
-        self.h = 40
+        
+        if (isinstance(obj, Or2)):
+            self.nins = 2
+        else:
+            self.nins = len(obj.ins)
 
+        self.h = 20 * self.nins
+        
     def draw(self, canvas):
         x = self.x
         y = self.y
@@ -344,8 +350,10 @@ class OrSymbol(LogicSymbol):
         canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
 
         #canvas.drawLine(x, y, x, y + self.h)
-        canvas.drawArc(x-30 , y, x + 50+20, y + self.h*4, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
-        canvas.drawArc(x-30 , y-self.h*3, x + 50+20, y + self.h, start=60, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        #canvas.drawArc(x-30 , y, x + 50+20, y + self.h + (self.nins+1)*40, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
+        #canvas.drawArc(x-30 , y - (self.nins+1)*40, x + 50+20, y + self.h, start=60, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawSpline([x+20, x+30, x+42, x+50], [y,  y+2, y+self.h//4, y+self.h//2])
+        canvas.drawSpline([x+20, x+30, x+42, x+50], [y+self.h,  y+self.h-2, y+self.h-self.h//4, y+self.h//2])
 
     def getHeight(self):
         return namemargin + self.h
@@ -365,10 +373,7 @@ class OrSymbol(LogicSymbol):
         if (selidx == -1):
             raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
 
-        if (selidx == 0):
-            y = self.h//2 - 10
-        else:
-            y = self.h//2 + 10 
+        y = 10 + selidx * 20
 
         return (5, namemargin + y)
     
