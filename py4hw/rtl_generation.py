@@ -260,6 +260,22 @@ def InlineBitsMSBF(obj:Logic):
         
     return str
 
+def InlineRepeat(obj:Logic):
+    str = ""
+    w = obj.r.getWidth()
+    if (w == 1):
+        return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.i))
+
+    str = 'assign {} ='.format(getParentWireName(obj, obj.r))
+    
+    link = '{'
+    for i in range(w):
+        str += link + "{}".format(getParentWireName(obj, obj.i))
+        link = ','
+    str += '};\n'
+    
+    return str
+
 def InlineConcatenateMSBF(obj:Logic):
     str = ""
     w = len(obj.ins)
@@ -270,7 +286,7 @@ def InlineConcatenateMSBF(obj:Logic):
     
     link = '{'
     for i in range(w):
-        str += "{}".format(getParentWireName(obj, obj.ins[i]))
+        str += link + "{}".format(getParentWireName(obj, obj.ins[i]))
         link = ','
     str += '};\n'
     
@@ -371,6 +387,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[Sub] = InlineSub
         self.inlinablePrimitives[Xor2] = InlineXor2
         self.inlinablePrimitives[Range] = InlineRange
+        self.inlinablePrimitives[Repeat] = InlineRepeat
         self.inlinablePrimitives[ZeroExtend] = InlineZeroExtend
         
         self.providingBody = {}
