@@ -109,6 +109,12 @@ class MatplotlibRender:
         el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
         self.canvas.add_artist(el)
         
+    def drawSpline(self, x, y):
+        from scipy import interpolate
+        tck,u     = interpolate.splprep( [x,y] ,s = 0 )
+        xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
+        self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
+        
 
 class Schematic:
     """
@@ -148,6 +154,7 @@ class Schematic:
         self.mapping[And2] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or2] = OrSymbol
+        self.mapping[Or] = OrSymbol
         self.mapping[Nor2] = NorSymbol
         self.mapping[Xor2] = XorSymbol
         
