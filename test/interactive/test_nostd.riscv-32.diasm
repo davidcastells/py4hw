@@ -1,0 +1,49 @@
+test_nostd.riscv-32.exe:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000080 <main>:
+  80:   fe010113                addi    sp,sp,-32
+  84:   00112e23                sw      ra,28(sp)
+  88:   00812c23                sw      s0,24(sp)
+  8c:   02010413                addi    s0,sp,32
+  90:   fea42623                sw      a0,-20(s0)
+  94:   feb42423                sw      a1,-24(s0)
+  98:   11000513                li      a0,272
+  9c:   01c000ef                jal     ra,b8 <puts>
+  a0:   00000793                li      a5,0
+  a4:   00078513                mv      a0,a5
+  a8:   01c12083                lw      ra,28(sp)
+  ac:   01812403                lw      s0,24(sp)
+  b0:   02010113                addi    sp,sp,32
+  b4:   00008067                ret
+
+000000b8 <puts>:
+  b8:   fe010113                addi    sp,sp,-32
+  bc:   00812e23                sw      s0,28(sp)
+  c0:   02010413                addi    s0,sp,32
+  c4:   fea42623                sw      a0,-20(s0)
+  c8:   0280006f                j       f0 <puts+0x38>
+  cc:   fec42783                lw      a5,-20(s0)
+  d0:   0007c783                lbu     a5,0(a5)
+  d4:   00078513                mv      a0,a5
+  d8:   0ff00793                li      a5,255
+  dc:   00078893                mv      a7,a5
+  e0:   00000073                ecall
+  e4:   fec42783                lw      a5,-20(s0)
+  e8:   00178793                addi    a5,a5,1
+  ec:   fef42623                sw      a5,-20(s0)
+  f0:   fec42783                lw      a5,-20(s0)
+  f4:   0007c783                lbu     a5,0(a5)
+  f8:   fc079ae3                bnez    a5,cc <puts+0x14>
+  fc:   00000013                nop
+ 100:   00078513                mv      a0,a5
+ 104:   01c12403                lw      s0,28(sp)
+ 108:   02010113                addi    sp,sp,32
+ 10c:   00008067                ret
+
+
+  110:   6c6c6548            'Hell'
+  114:   6f57206f            'o Wo'
+  118:   00646c72            'rld\0'
