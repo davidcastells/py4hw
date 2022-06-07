@@ -122,6 +122,21 @@ class Mul(Logic):
         self.r.put(self.a.get() * self.b.get())
 
 
+class Div(Logic):
+    """
+    Combinational Arithmetic Multiplier
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() // self.b.get())
+
+
 class Sub(Logic):
     """
     Arithmetic Add
@@ -173,7 +188,7 @@ class Counter(Logic):
         Or2(self, 'e_add', reset, inc, e_add)
         #py4hw.Mux(self, 'mux', )
         Add(self, 'add', q, one, add)
-        Reg(self, 'reg', d, e_add, q)
+        Reg(self, 'reg', d, q, e_add)
         
 class ModuloCounter(Logic):
     """
