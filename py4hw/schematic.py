@@ -116,12 +116,113 @@ class MatplotlibRender:
         self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
         
 
+class TkinterRender:
+    # check https://zetcode.com/tkinter/drawing/
+    
+    def __init__(self, parent, shape):
+        from tkinter import Canvas
+        self.canvas = Canvas()
+        w = shape[0]
+        h = shape[1]
+        dpi = 100
+        iw = w / dpi 
+        ih = h / dpi
+        pmax = max(w,h)
+        imax = max(iw, ih)
+        # f = plt.figure(figsize=(imax,imax), dpi=dpi)
+        # self.canvas = f.add_subplot()
+        # self.canvas.set_xlim(0, pmax)
+        # self.canvas.set_ylim(0, pmax)
+        # self.canvas.invert_yaxis()
+        # plt.axis('off')
+        
+        self.color = 'k'
+        self.fillcolor = 'k'
+        self.linewidth = 2
+        
+    def setForecolor(self, color):
+        self.color = color
+        
+    def setFillcolor(self, color):
+        self.fillcolor = color
+        
+    def setLineWidth(self, w):
+        self.linewidth = w
+        
+    def drawText(self, x, y, text, anchor):
+        if (anchor == 'w'):
+            ha = 'left'
+        elif (anchor == 'e'):
+            ha = 'right'
+        elif (anchor == 'c'):
+            ha = 'center'
+            
+        self.canvas.create_text(x,y, anchor=anchor, text=text)
+        
+    def drawPolygon(self, x, y, fill=False):
+        
+        # points = []
+        
+        # for i in range(len(x)):
+        #     points.append(x[i])
+        #     points.append(y[i])
+            
+        # #lines = Line2D(x,y, color=self.color, linewidth=self.linewidth)
+        # # if (fill):
+        # #    self.canvas.fill(x, y, self.fillcolor)
+
+        # self.canvas.create_polygon(points)
+        x0 = x[0]
+        y0 = y[0]
+        for i in range(1, len(x)):
+            x1 = x[i]
+            y1 = y[i]
+            self.drawLine(x0, y0, x1, y1)
+            x0 = x1
+            y0 = y1
+        #     points.append(x[i])
+        #     points.append(y[i])
+        
+
+    def drawLine(self, x0, y0, x1, y1):
+        self.canvas.create_line(x0, y0, x1, y1)
+        #self.drawPolygon([x0, x1], [y0, y1])
+        
+    def drawRectangle(self , x0, y0, x1, y1, fill=False):
+        #print('rect', x0, y0, x1, y1)
+        #self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0], fill)
+        self.canvas.create_rectangle(x0, y0, x1, y1)
+        
+    def drawRoundRectangle(self, x0, y0, x1, y1, radius=5, fill=False):
+        #box = FancyBboxPatch((x0,y0), width=x1-x0, height=y1-y0,
+        #      boxstyle=BoxStyle("Round", pad=radius), facecolor=self.fillcolor)
+        #self.canvas.add_patch(box)
+        print('[WARNING] round rectangle not supported yet')
+        
+    def drawArc(self, x0, y0, x1, y1, start, extent):
+        # arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
+        # self.canvas.add_patch(arc)
+        print('[WARNING] arc not supported yet')
+
+    def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
+        # el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
+        # self.canvas.add_artist(el)
+        self.canvas.create_oval(x0, y0, x1, y1)
+        
+    def drawSpline(self, x, y):
+        # from scipy import interpolate
+        # tck,u     = interpolate.splprep( [x,y] ,s = 0 )
+        # xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
+        # self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
+        print('[WARNING] spline not supported yet')
+
+        
 class Schematic:
     """
     Class that controls the schematic drawing
     """
     
-    def __init__(self, obj:Logic):
+    def __init__(self, obj:Logic, render='matplotlib', parent=None):
    
         if (len(obj.children.values()) == 0):
             raise Exception('Schematics are only available to structural circuits')
@@ -200,10 +301,14 @@ class Schematic:
         self.routeNets()
         
         
-        
-        self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
+        if (render == 'matplotlib'):
+            self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
+        elif (render == 'tkinter'):
+            self.canvas = TkinterRender(parent, self.getOccupancyGrid().shape)
+        else:
+            raise Exception('Unsupported render {}'.format(render))
+            
         self.canvas.setForecolor('k')
-
         self.drawAll()
         
         #mainloop()
