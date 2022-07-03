@@ -226,6 +226,9 @@ def InlineMux2(obj:Logic):
 def InlineAdd(obj:Logic):
     return "assign {} = {} + {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
+def InlineDiv(obj:Logic):
+    return "assign {} = {} / {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+
 def InlineSub(obj:Logic):
     return "assign {} = {} - {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
@@ -375,6 +378,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[BitsMSBF] = InlineBitsMSBF
         self.inlinablePrimitives[ConcatenateMSBF] = InlineConcatenateMSBF
         self.inlinablePrimitives[Constant] = InlineConstant
+        self.inlinablePrimitives[Div] = InlineDiv
         self.inlinablePrimitives[Equal] = InlineEqual
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
         self.inlinablePrimitives[Nand2] = InlineNand2
@@ -583,11 +587,22 @@ class VerilogGenerator:
         wireName = getWireNames(child.parent)
         
         for inp in child.inPorts:
-            
+            if (inp.wire is None):
+                raise Exception('Input port {} from {} not connected to any wire'.format(inp.name, child.getFullPath()));
+                
+            if (not(inp.wire in wireName)):
+                raise Exception('Input port wire {} not part of the wires of the parent {}'.format(inp.wire.getFullPath(), child.parent.getFullPath()))
+                
             str += link +  "." + getPortName(inp) + "("+wireName[inp.wire]+")"
             link = ","
 
         for outp in child.outPorts:
+            if (outp.wire is None):
+                raise Exception('Output port {} from {} not connected to any wire'.format(outp.name, child.getFullPath()));
+
+            if (not(outp.wire in wireName)):
+                raise Exception('Output port wire {} not part of the wires of the parent {}'.format(outp.wire.getFullPath(), child.parent.getFullPath()))
+
             str += link + "." + getPortName(outp) + "("+wireName[outp.wire]+")"
  
             link = ","
