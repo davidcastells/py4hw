@@ -17,13 +17,15 @@ class Workbench():
         root = tkinter.Tk()
         root.title('py4hw Interactive Workbench')
         
+        self.root = root
+        
         ttk.Style().configure("Treeview", fg="light yellow")
         font = tkinter.font.Font(size=8)
         ttk.Style().configure("Prolepsis.Treeview", font=font)
         
         self.topPane = PanedWindow(root, orient=HORIZONTAL)
         
-        self.hierarchyPane = PanedWindow(self.topPane, relief = SUNKEN, width=100, height=100)
+        self.hierarchyPane = PanedWindow(self.topPane, relief = SUNKEN, width=50, height=100)
         self.topPane.add(self.hierarchyPane)
         
         #print(ttk.Style().lookup("Prolepsis.Treeview", "font"))
@@ -37,8 +39,14 @@ class Workbench():
         self.rightPane = PanedWindow(self.topPane, orient=VERTICAL, relief = SUNKEN, width=100, height=100)
         self.topPane.add(self.rightPane)
         
-        self.detailPane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
-        self.rightPane.add(self.detailPane)
+        self.interfacePane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
+        self.schematicPane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
+        
+        
+        self.rightPane.add(self.interfacePane)
+        self.rightPane.add(self.schematicPane)
+        
+        
         #pane2.pack(fill=BOTH, expand=YES, side=RIGHT)
         
         self.circuitDetail(None)
@@ -46,6 +54,7 @@ class Workbench():
         self.topPane.pack(fill=BOTH, expand=True)
         
         sys.getSimulator().addListener(self)
+        
         
         root.mainloop()
         
@@ -68,22 +77,27 @@ class Workbench():
         
     def circuitDetail(self, obj:Logic):
         
-        
-        
-        self.detail_tv = ttk.Treeview(self.detailPane)
+        # Create the Circuit Interface pane
+        # @todo we are creating this every time we focus on a circuit, could we
+        # just create it once and clear the tree view and populate it as necessary ?
+        self.detail_tv = ttk.Treeview(self.interfacePane)
         
         detail_tv = self.detail_tv
-        self.detailPane.add(detail_tv)
+        self.interfacePane.add(detail_tv)
         
         detail_tv.pack(fill=BOTH, expand=YES)
         
-        detail_tv.config(columns=[ 'width', 'value'])
-        detail_tv.config(displaycolumns=[ 0, 1])
-        
-        detail_tv.column("#0",minwidth=0,width=100)
+        detail_tv.config(columns=[ 'direction', 'width', 'value'])
+        detail_tv.config(displaycolumns=[ 0, 1,2])
+
+        detail_tv.heading('#0', text='Name')
+        detail_tv.heading('direction', text='Direction')
         detail_tv.heading('width', text='Width')
         detail_tv.heading("value", text="Value")
+        
         detail_tv.column("#0",minwidth=0,width=100)
+        detail_tv.column("#0",minwidth=0,width=100)
+        detail_tv.column('direction', minwidth=0,width=100)
         detail_tv.column('width', minwidth=0,width=100)
         detail_tv.column("value", minwidth=0,width=100)
         
@@ -92,6 +106,8 @@ class Workbench():
         #detail_tv.tag_bind("char", "<Double-Button-1>", event)
         #tv.config(style="Prolepsis.Treeview")
         detail_tv["style"] = "Prolepsis.Treeview"
+
+        self.debugTkinterHierarchy(self.root, 0)
         
         if (obj == None):
             return
@@ -99,16 +115,26 @@ class Workbench():
         self.setCircuitDetail(obj)
         
         
+    def debugTkinterHierarchy(self, obj, ii):
+        indent = '|' * ii + '+'
+        print('[INFO] {} tkinter obj {}'.format(indent, type(obj)));
         
+        try:
+            for child in obj.children.values():
+                self.debugTkinterHierarchy(child, ii+1)
+        except:
+            pass
+                
     def setCircuitDetail(self, obj:Logic):
         
-        # if (obj != None):
-        #     for pane in self.rightPane.panes():
-        #         self.rightPane.forget(pane)
+        if (obj != None):
+            for pane in self.schematicPane.panes():
+                self.schematicPane.forget(pane)
                 
-        #     sch = Schematic(self.rightPane, obj)
-        #     self.rightPane.add(sch.frame)
-        #     self.topPane.pack()
+            sch = Schematic(obj, render='tkinter', parent=self.schematicPane)
+
+            self.schematicPane.add(sch.canvas.canvas)
+            #self.schematicPane.pack()
             
         self.detailObj = obj
         self.detail_tv.delete(*self.detail_tv.get_children())
@@ -124,7 +150,7 @@ class Workbench():
             for inp in source.ports:
                 sWidth = inp.wire.getWidth()
                 sValue = hex(inp.wire.get())
-                port_id = detail_tv.insert(in_id, tkinter.END, text=inp.name, values=[sWidth, sValue], open=True)
+                port_id = detail_tv.insert(in_id, tkinter.END, text=inp.name, values=['in', sWidth, sValue], open=True)
                 visitedPorts.append(inp)
         
         for sink in obj.sinks:
@@ -135,20 +161,20 @@ class Workbench():
             for inp in sink.ports:
                 sWidth = inp.wire.getWidth()
                 sValue = hex(inp.wire.get())
-                port_id = detail_tv.insert(in_id, tkinter.END, text=inp.name, values=[sWidth, sValue], open=True)
+                port_id = detail_tv.insert(in_id, tkinter.END, text=inp.name, values=['out', sWidth, sValue], open=True)
                 visitedPorts.append(inp)
             
         for inp in obj.inPorts:
             if (inp not in visitedPorts):
                 sWidth = inp.wire.getWidth()
                 sValue = hex(inp.wire.get())
-                in_id = detail_tv.insert("", tkinter.END, text=inp.name, values=[sWidth, sValue], open=True)
+                in_id = detail_tv.insert("", tkinter.END, text=inp.name, values=['in', sWidth, sValue], open=True)
         
         for outp in obj.outPorts:
             if (outp not in visitedPorts):
                 sWidth = outp.wire.getWidth()
                 sValue = hex(outp.wire.get())
-                in_id = detail_tv.insert("", tkinter.END, text=outp.name, values=[sWidth, sValue], open=True)
+                in_id = detail_tv.insert("", tkinter.END, text=outp.name, values=['out', sWidth, sValue], open=True)
            
         
         #tv.config(bg="light yellow")
