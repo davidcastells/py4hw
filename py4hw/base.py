@@ -138,6 +138,10 @@ class Logic:
     def isPrimitive(self):
         return self.isClockable() or self.isPropagatable();
     
+    def isStructural(self):
+        # structural circuits have children
+        return (len(self.children.values()) > 0)
+        
     def getFullPath(self, withselfnames=True)->str:
         """
         Gets the full of a hierarchy element
