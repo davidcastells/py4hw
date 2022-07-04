@@ -30,9 +30,9 @@ class Workbench():
         
         #print(ttk.Style().lookup("Prolepsis.Treeview", "font"))
         
-        btn = ttk.Button(self.hierarchyPane, text="Clock", command=self.guiClk)
-        self.hierarchyPane.add(btn)
-        btn.pack()
+        btnClock = ttk.Button(self.hierarchyPane, text="Clock", command=self.guiClk)
+        self.hierarchyPane.add(btnClock)
+        btnClock.pack()
         
         self.hierarchyTree()
         
@@ -40,12 +40,24 @@ class Workbench():
         self.topPane.add(self.rightPane)
         
         self.interfacePane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
-        self.schematicPane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
         
-        
+        self.schematicAreaPane = PanedWindow(self.rightPane,  orient=VERTICAL, relief = SUNKEN, width=100, heigh=20)
+        self.schematicToolbarPane = PanedWindow(self.schematicAreaPane,  orient=HORIZONTAL, relief = SUNKEN, width=100, heigh=20)
+                
         self.rightPane.add(self.interfacePane)
-        self.rightPane.add(self.schematicPane)
+        self.rightPane.add(self.schematicAreaPane)
+        self.schematicAreaPane.add(self.schematicToolbarPane) 
         
+        btnZoomOut = ttk.Button(self.schematicToolbarPane, text="Zoom out", command=self.guiZoomOut)
+        btnZoomIn = ttk.Button(self.schematicToolbarPane, text="Zoom in", command=self.guiZoomIn)
+
+        self.schematicToolbarPane.add(btnZoomOut)
+        self.schematicToolbarPane.add(btnZoomIn)
+
+#        btnZoomOut.pack()
+        
+        self.schematicPane = PanedWindow(self.schematicAreaPane, relief = SUNKEN, width=100, height=100)
+        self.schematicAreaPane.add(self.schematicPane)
         
         #pane2.pack(fill=BOTH, expand=YES, side=RIGHT)
         
@@ -62,6 +74,13 @@ class Workbench():
         sim = self.sys.getSimulator()
         sim.clk(1)
 
+    def guiZoomOut(self):
+        self.schematicDiagram.scale("all", 0, 0, 0.9, 0.9)
+
+    def guiZoomIn(self):
+        self.schematicDiagram.scale("all", 0, 0, 1.1, 1.1)
+
+    
     def simulatorUpdated(self):
         """
         TODO: We do the dirty trick to recreate all the table to just
@@ -131,9 +150,14 @@ class Workbench():
             for pane in self.schematicPane.panes():
                 self.schematicPane.forget(pane)
                 
+            if not(obj.isStructural()):
+                # ignore non structural circuits
+                return
+                
             sch = Schematic(obj, render='tkinter', parent=self.schematicPane)
 
-            self.schematicPane.add(sch.canvas.canvas)
+            self.schematicDiagram = sch.canvas.canvas
+            self.schematicPane.add(self.schematicDiagram)
             #self.schematicPane.pack()
             
         self.detailObj = obj
