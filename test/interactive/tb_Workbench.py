@@ -27,9 +27,14 @@ class SerialAdder(Logic):
 sys = HWSystem()
 
 a = Wire(sys, "a", 4)
+b = Wire(sys, "b", 4)
+c = Wire(sys, "c", 4)
+
 r = Wire(sys, "r", 4)
 
 Constant(sys, 'inc', 3, a)
+Constant(sys, 'b', 2, b)
 SerialAdder(sys, "sa", a, r)
+And2(sys, 'and', a, b, c)
 
 py4hw.gui.Workbench(sys)
