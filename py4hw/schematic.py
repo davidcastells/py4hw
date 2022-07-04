@@ -121,7 +121,7 @@ class TkinterRender:
     
     def __init__(self, parent, shape):
         from tkinter import Canvas
-        self.canvas = Canvas()
+        self.canvas = Canvas(parent, bg='white')
         w = shape[0]
         h = shape[1]
         dpi = 100
@@ -200,9 +200,11 @@ class TkinterRender:
         print('[WARNING] round rectangle not supported yet')
         
     def drawArc(self, x0, y0, x1, y1, start, extent):
+        import tkinter
         # arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
         # self.canvas.add_patch(arc)
-        print('[WARNING] arc not supported yet')
+        print('draw arc', x0, y0, x1, y1, start, extent)
+        self.canvas.create_arc(x0, y0, x1, y1, start=start, extent=extent-start, style=tkinter.ARC)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
         # el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
@@ -224,7 +226,7 @@ class Schematic:
     
     def __init__(self, obj:Logic, render='matplotlib', parent=None):
    
-        if (len(obj.children.values()) == 0):
+        if not(obj.isStructural()):
             raise Exception('Schematics are only available to structural circuits')
 
         self.sys = obj
@@ -409,7 +411,7 @@ class Schematic:
     def getAllInstanceSinks(self, sym:LogicSymbol):
         """
         Return all the instance objects that are connected
-        as sinks to this symbol
+        as sinks to this symbol. 
 
         Parameters
         ----------
@@ -434,6 +436,9 @@ class Schematic:
             # so, no dependent instances 
             return []
         else:
+            if (not(hasattr(obj, 'outPorts'))):
+                raise Exception('obj {} from type {} {} has not out ports'.format(obj.getFullPath(), type(obj), isinstance(obj, InPort)))
+                
             outports = obj.outPorts
         
         for outp in outports:
