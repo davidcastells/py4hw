@@ -28,6 +28,18 @@ class Logic:
         port = InPort(self, name, wire)
         self.inPorts.append(port)
         return wire;
+    
+    def getInPortByName(self, name):
+        for port in self.inPorts:
+            if (port.name == name):
+                return port
+        return None
+        
+    def reconnectIn(self, name, wire):
+        # there is already a port with this name, but we just one to change the wire assigned
+        port = self.getInPortByName(name)
+        port.wire = wire
+        
         
     def addOut(self, name, wire):
         port = OutPort(self, name, wire)
