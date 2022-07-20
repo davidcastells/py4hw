@@ -642,8 +642,8 @@ class VerilogGenerator:
         
         str += "// local declarations\n"
         str += tr.getExtraDeclarations() + "\n";
-        str += "// sequential process\n"
-        str += "always @(posedge {})\n".format(clkname)
+        str += "// combinational process\n"
+        str += "always @(*)\n".format(clkname)
         str += "begin\n"
         str += transpiled + "\n"
         str += "end\n"
@@ -706,6 +706,7 @@ class Python2VerilogTranspiler:
         
         module = ReplaceWireGets().visit(module)
         module = ReplaceWirePrepare().visit(module)
+        module = ReplaceWirePut().visit(module)
         
         func = module.body[0].body
         
@@ -746,6 +747,8 @@ class Python2VerilogTranspiler:
             return self.transpileCompare(line)
         if (type(line) == ast.Assign):
             return self.transpileAssign(line)
+        if (type(line) == ast.BinOp):
+            return self.transpileBinOp(line)
         if (type(line) == ast.Attribute):
             return self.transpileAttribute(line)
         if (isinstance(line, ast.Name)):
@@ -778,6 +781,19 @@ class Python2VerilogTranspiler:
             
     def transpileExpr(self, line:ast.Expr):
         return self.transpileUnknown(line.value)
+        
+    def transpileBinOp(self, line:ast.BinOp):
+        return "(" + self.transpileUnknown(line.left) + self.transpileOp(line.op) + self.transpileUnknown(line.right) + ")";
+
+    def transpileOp(self, op):
+        if (isinstance(op, ast.BitAnd)):
+            return '&'
+        elif (isinstance(op, ast.BitOr)):
+            return '|'
+        elif (isinstance(op, ast.BitXor)):
+            return '^'
+        else:
+            raise Exception('Op not supported: {}'.format(op))
         
     def transpileAssign(self, line:ast.Assign):
         targets = line.targets 
@@ -842,6 +858,17 @@ class ReplaceWirePrepare(ast.NodeTransformer):
         attr = getAstName(node.func)
         
         if (attr == 'prepare'):
+            #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
+            return ast.Assign([node.func.value], node.args[0])
+        
+        
+        return node
+    
+class ReplaceWirePut(ast.NodeTransformer):
+    def visit_Call(self, node):
+        attr = getAstName(node.func)
+        
+        if (attr == 'put'):
             #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
             return ast.Assign([node.func.value], node.args[0])
         
