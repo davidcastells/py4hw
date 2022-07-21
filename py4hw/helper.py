@@ -10,6 +10,10 @@ from .logic.bitwise import *
 from .logic.simulation import *
 
 class LogicHelper:
+    """
+    Helper class to create logic in a simpler way, 
+    basically automatically creating the required output wires
+    """
     
     def __init__(self, parent:Logic):
         self.parent = parent
@@ -209,4 +213,39 @@ class FloatingPointHelper:
     
     
 
+class CircuitAnalysis:
 
+    @staticmethod
+    def getAllPorts(obj:Logic) -> list:
+        ret = []
+        
+        ret.extend(obj.inPorts)
+        ret.extend(obj.outPorts)
+            
+        return ret
+
+    @staticmethod
+    def getAllPortWires(obj:Logic) -> list:
+        """
+        Returns a list of the wires connected to all the ports of a circuit
+
+        Parameters
+        ----------
+        obj : Logic
+            the object to analyze.
+
+        Returns
+        -------
+        list
+            list with all the wires connected to the circuit ports.
+
+        """
+        ret = []
+        
+        for p in obj.inPorts:
+            ret.append(p.wire)
+            
+        for p in obj.outPorts:
+            ret.append(p.wire)
+            
+        return ret
