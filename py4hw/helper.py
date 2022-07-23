@@ -223,7 +223,38 @@ class CircuitAnalysis:
         ret.extend(obj.outPorts)
             
         return ret
+    
+    @staticmethod
+    def getAllPortNames(obj:Logic) -> list:
+        """
+        Get all port names of an object
 
+        Parameters
+        ----------
+        obj : Logic
+            DESCRIPTION.
+
+        Returns
+        -------
+        list
+            DESCRIPTION.
+
+        """
+        ret = []
+        
+        for p in obj.inPorts:
+            ret.append(p.name)
+            
+        for p in obj.outPorts:
+            ret.append(p.name)
+            
+        return ret
+
+    @staticmethod
+    def has_clk_enable(obj:Logic) -> bool:
+        input_port_names = [p.name for p in obj.inPorts]
+        return 'clk_enable' in input_port_names
+        
     @staticmethod
     def getAllPortWires(obj:Logic) -> list:
         """
