@@ -34,7 +34,7 @@ class Workbench():
         self.hierarchyPane.add(btnClock)
         btnClock.pack()
         
-        self.hierarchyTree()
+        self.createHierarchyTree()
         
         self.rightPane = PanedWindow(self.topPane, orient=VERTICAL, relief = SUNKEN, width=100, height=100)
         self.topPane.add(self.rightPane)
@@ -95,6 +95,9 @@ class Workbench():
             self.setCircuitDetail(self.detailObj)
         
     def circuitDetail(self, obj:Logic):
+
+        # this is called just once now (?)        
+        print('Circuit detail on ', obj)
         
         # Create the Circuit Interface pane
         # @todo we are creating this every time we focus on a circuit, could we
@@ -136,7 +139,7 @@ class Workbench():
         
     def debugTkinterHierarchy(self, obj, ii):
         indent = '|' * ii + '+'
-        print('[INFO] {} tkinter obj {}'.format(indent, type(obj)));
+        print('[INFO] {} tkinter obj {} {}'.format(indent, type(obj), obj._name if (hasattr(obj, '_name')) else ''));
         
         try:
             for child in obj.children.values():
@@ -150,15 +153,14 @@ class Workbench():
             for pane in self.schematicPane.panes():
                 self.schematicPane.forget(pane)
                 
-            if not(obj.isStructural()):
+            if (obj.isStructural()):
                 # ignore non structural circuits
-                return
-                
-            sch = Schematic(obj, render='tkinter', parent=self.schematicPane)
-
-            self.schematicDiagram = sch.canvas.canvas
-            self.schematicPane.add(self.schematicDiagram)
-            #self.schematicPane.pack()
+                sch = Schematic(obj, render='tkinter', parent=self.schematicPane)
+    
+                sch.drawAll()
+                self.schematicDiagram = sch.canvas.canvas
+                self.schematicPane.add(self.schematicDiagram)
+                #self.schematicPane.pack()
             
         self.detailObj = obj
         self.detail_tv.delete(*self.detail_tv.get_children())
@@ -225,7 +227,7 @@ class Workbench():
             self.map_id_obj[childid] = child
             self.populateTree(tv, childid, child)
 
-    def hierarchyTree(self):
+    def createHierarchyTree(self):
         self.hierarchyTree = ttk.Treeview(self.hierarchyPane)
     
         tv = self.hierarchyTree  
