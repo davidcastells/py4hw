@@ -24,6 +24,8 @@ class Logic:
         self.children = {}          # children are keyed by name
         self.clockDriver = None     # every circuit has a clock driver, if None it is inherited from parent
         
+        self._wires = {}        # dictionary of wires created by the object
+        
     def addIn(self, name , wire):
         port = InPort(self, name, wire)
         self.inPorts.append(port)
@@ -31,6 +33,12 @@ class Logic:
     
     def getInPortByName(self, name):
         for port in self.inPorts:
+            if (port.name == name):
+                return port
+        return None
+
+    def getOutPortByName(self, name):
+        for port in self.outPorts:
             if (port.name == name):
                 return port
         return None
@@ -111,10 +119,35 @@ class Logic:
         
         return interface;
         
+    def appendWire(self, wire):
+        #print('checking if ', wire.name, 'is already in', [x for x in self._wires.keys()])
+        if (wire.name in self._wires.keys()):
+            raise Exception('a wire named {} already exist'.format(wire.name))
+            
+        self._wires[wire.name] = wire
+        
     def wire(self, name, width=1):
         return Wire(self, name, width);
     
-    def wires(self, name:str, num:int, width:int):
+    def wires(self, name:str, num:int, width:int) -> list:
+        """
+        Creates a number of wires
+
+        Parameters
+        ----------
+        name : str
+            prefix of the wire names, it will be suffixed by _0, _1, etc.
+        num : int
+            numer of wires to create.
+        width : int
+            width of the wires to create.
+
+        Returns
+        -------
+        list
+            a list with the created wires.
+
+        """
         ret = []
         for i in range(num):
             ret.append(self.wire('{}_{}'.format(name,i), width))
@@ -235,6 +268,7 @@ class Wire:
         self.value = 0 # should be None      # reset state
         self.sinks = []
         self.source = None
+        parent.appendWire(self)
         
     def getFullPath(self)->str:
         return self.parent.getFullPath() + '[{}]'.format(self.name)
@@ -259,7 +293,7 @@ class Wire:
     
     def setSource(self, source):
         if (self.source != None):
-            raise Exception('Source already connected to ' + self.source.parent.getFullPath())
+            raise Exception('Source of wire {} already connected to {}'.format(self.getFullPath(), self.source.parent.getFullPath()))
 
         self.source = source
         
@@ -320,7 +354,21 @@ class Wire:
         # empty list
         Wire.prepared = []
     
-    
+    def rename(self, newname):
+        del self.parent._wires[self.name]
+        self.name = newname
+        self.parent.appendWire(self)
+        
+    def reparent(self, newparent):
+        del self.parent._wires[self.name]
+        self.parent = newparent
+        newparent.appendWire(self)
+
+    def reparentAndRename(self, newparent, newname):
+        del self.parent._wires[self.name]
+        self.name = newname
+        self.parent = newparent
+        newparent.appendWire(self)
 
 class InPort:
     """
