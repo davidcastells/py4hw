@@ -130,22 +130,32 @@ class FloatingPointHelper:
         vo = v
         s=0
         if (v < 0):
+            # if v is negative activate the sign, and change the value
             s = 1
             v = -v
     
-        while (v >= 2):
-            v = v / 2
-            e += 1
-            #print('e:', e, 'v:', v)
-        while (v < 1):
-            v = v * 2
-            e -= 1
-            #print('e:', e, 'v:', v)
+        if (v > 0.0):
+            while (v >= 2):
+                # iterate until v is < 2 to determine the exponent
+                v = v / 2
+                e += 1
+                #print('e:', e, 'v:', v)
+            while (v < 1):
+                v = v * 2
+                e -= 1
+                #print('e:', e, 'v:', v)
     
-        m = v - 1
+            m = v - 1
+
+            re = 127 + e
+            rm = int(round(m * (1<<23)))
+
+        else:
+            s = 0
+            re = 0
+            rm = 0
+            
         #print('m:', m)
-        re = 127 + e
-        rm = int(round(m * (1<<23)))
     
         return s, re, rm
 
@@ -161,6 +171,14 @@ class FloatingPointHelper:
     @staticmethod
     def ieee754_parts_to_sp(s, e, m):
         import math
+        
+        # zero is a special case
+        if (e == 0 and m == 0):
+            if (s == 1):
+                return -0.0
+            else:
+                return 0.0
+            
         ef = math.pow(2, e-127)
         f = m / (1<<23)
         
@@ -173,6 +191,9 @@ class FloatingPointHelper:
     
     @staticmethod
     def ieee754_to_sp(v):
+        if (v == 0):
+            return 0.0
+        
         s = v >> 31
         e = (v >> 23) & 0xFF
         m = (v & ((1<<23)-1)) | (1<<23) 
@@ -212,7 +233,25 @@ class FloatingPointHelper:
         return ('0' * (vl-len(str))) + str
     
     
+class BitManipulation:
+    @staticmethod
+    def getFirstBit(v:int) -> int:
+        # returns the position of the first active bit
+        n = 0
+        while (True):
+            if (v == 0):
+                return n
+            n += 1
+            v = v >> 1
+    
+    @staticmethod
+    def countLeadingZeros(v:int, w:int) -> int:
+        return w - BitManipulation.getFirstBit(v)
 
+    @staticmethod
+    def getBit(v:int, bit:int) -> int:
+        return (v >> bit) & 0x1
+    
 class CircuitAnalysis:
 
     @staticmethod
@@ -223,6 +262,22 @@ class CircuitAnalysis:
         ret.extend(obj.outPorts)
             
         return ret
+    
+    def getAllWireNames(obj:Logic) -> list:
+        """
+        Return the list of wire names
+
+        Parameters
+        ----------
+        obj : Logic
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        return [x for x in obj._wires.keys()]
     
     @staticmethod
     def getAllPortNames(obj:Logic) -> list:
