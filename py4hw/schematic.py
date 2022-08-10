@@ -139,6 +139,8 @@ class TkinterRender:
         self.color = 'k'
         self.fillcolor = 'k'
         self.linewidth = 2
+        self.xmargin = 50
+        self.ymargin = 50
         
     def setForecolor(self, color):
         self.color = color
@@ -157,7 +159,7 @@ class TkinterRender:
         elif (anchor == 'c'):
             ha = 'center'
             
-        self.canvas.create_text(x,y, anchor=anchor, text=text)
+        self.canvas.create_text(x + self.xmargin, y+self.ymargin, anchor=anchor, text=text)
         
     def drawPolygon(self, x, y, fill=False):
         
@@ -177,7 +179,7 @@ class TkinterRender:
         for i in range(1, len(x)):
             x1 = x[i]
             y1 = y[i]
-            self.drawLine(x0, y0, x1, y1)
+            self.drawLine(x0 , y0 , x1 , y1 )
             x0 = x1
             y0 = y1
         #     points.append(x[i])
@@ -185,13 +187,13 @@ class TkinterRender:
         
 
     def drawLine(self, x0, y0, x1, y1):
-        self.canvas.create_line(x0, y0, x1, y1)
+        self.canvas.create_line(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
         #self.drawPolygon([x0, x1], [y0, y1])
         
     def drawRectangle(self , x0, y0, x1, y1, fill=False):
         #print('rect', x0, y0, x1, y1)
         #self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0], fill)
-        self.canvas.create_rectangle(x0, y0, x1, y1)
+        self.canvas.create_rectangle(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
         
     def drawRoundRectangle(self, x0, y0, x1, y1, radius=5, fill=False):
         #box = FancyBboxPatch((x0,y0), width=x1-x0, height=y1-y0,
@@ -204,12 +206,12 @@ class TkinterRender:
         # arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
         # self.canvas.add_patch(arc)
         print('draw arc', x0, y0, x1, y1, start, extent)
-        self.canvas.create_arc(x0, y0, x1, y1, start=start, extent=extent-start, style=tkinter.ARC)
+        self.canvas.create_arc(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, start=start, extent=extent-start, style=tkinter.ARC)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
         # el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
         # self.canvas.add_artist(el)
-        self.canvas.create_oval(x0, y0, x1, y1)
+        self.canvas.create_oval(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
         
     def drawSpline(self, x, y):
         # from scipy import interpolate
@@ -223,6 +225,8 @@ class Schematic:
     """
     Class that controls the schematic drawing
     """
+
+    step_timeout = 10 # any step of the schematic rendering cannot take more than this value (seconds)
     
     def __init__(self, obj:Logic, render='matplotlib', parent=None):
    
@@ -274,7 +278,7 @@ class Schematic:
 
         self.mapping[Waveform] = ScopeSymbol # Temp solution
         
-        
+
         self.placeInputPorts()
         self.placeInstances()
         self.placeOutputPorts()
@@ -311,7 +315,11 @@ class Schematic:
             raise Exception('Unsupported render {}'.format(render))
             
         self.canvas.setForecolor('k')
-        self.drawAll()
+        
+        # schematics are created but not directly drawn to allow 
+        # the manipulation of the graphical objects
+        
+        #self.drawAll()
         
         #mainloop()
         
@@ -1037,6 +1045,9 @@ class Schematic:
     
     def drawAll(self):
         # Draw Instances
+        
+        # @todo the color and line properties should be assigned during creation 
+        # so that they can later be manipulated by applications before drawing
         for obj in self.getNonNets():
             self.canvas.setForecolor('k')  
             self.canvas.setFillcolor('k')
@@ -1131,6 +1142,7 @@ class Schematic:
             #print('iter', k, 'cost:', cost, anychange)
                     
             if ((time.time() - t0) > timelimit):
+                print('WARNING: time limit reached in sort')
                 anychange = False
                 
             if (not anychange):
