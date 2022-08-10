@@ -269,7 +269,7 @@ class WaveformWindow:
         htrans = 3
         
         for idx, wav in enumerate(wd.keys()):
-            if isinstance(wav, py4hw.Wire):
+            if isinstance(wav, Wire):
                 w = wav.getWidth()
             else:
                 w = wav.wire.getWidth()
