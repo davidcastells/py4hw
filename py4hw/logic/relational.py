@@ -62,7 +62,7 @@ class EqualConstant(Logic):
                 Buf(self, 'not', a, r)
                 
         else:
-            bits = self.wires('b', a.getWidth(), 1)
+            bits = self.wires('b', a.getWidth(), 1)   
             BitsLSBF(self, "bits", a, bits)
             Minterm(self, 'm{}'.format(v), bits, v, r)
 
