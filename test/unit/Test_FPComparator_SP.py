@@ -16,6 +16,7 @@ class Test_FPComparator_SP:
         
         a = sys.wire('a', 32)
         b = sys.wire('b', 32)
+
         gt = sys.wire('gt')
         eq= sys.wire('eq')
         lt = sys.wire('lt')
@@ -36,6 +37,31 @@ class Test_FPComparator_SP:
         assert(bool(eq.get()) == (av == bv))
         assert(bool(lt.get()) == (av < bv))
             
+    def test_3(self):
+        
+        sys = py4hw.HWSystem()
+        g = py4hw.LogicHelper(sys)
+        fp = py4hw.FloatingPointHelper()
+        
+        r = sys.wire('r', 32)
+        
+        av = -4.2
+        bv = 3.5
+        a = g.hw_constant(32, fp.sp_to_ieee754(av))
+        b = g.hw_constant(32, fp.sp_to_ieee754(bv))
+        
+        gt = sys.wire('gt')
+        eq= sys.wire('eq')
+        lt = sys.wire('lt')
+        
+        py4hw.FPComparator_SP(sys, 'cmp', a, b, gt, eq, lt)
+        
+        sys.getSimulator().clk(1)
+        
+        assert (gt.get() == 0)
+        assert (eq.get() == 0)
+        assert (lt.get() == 1)
+        
     def test_abs(self):
         sys = py4hw.HWSystem()
         
@@ -79,7 +105,7 @@ class Test_FPComparator_SP:
         
         py4hw.FPComparator_SP(sys, 'cmp', a, b, gt, eq, lt)
         
-        for i in range(100):
+        for i in range(1000):
             av = (random.random()-0.5) * 2000 
             bv = (random.random()-0.5) * 2000
             
