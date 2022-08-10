@@ -66,6 +66,9 @@ class Sign(Logic):
         
 
 class SignExtend(Logic):
+    """
+    Behaviouraly modeled sign extend
+    """
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
@@ -81,6 +84,9 @@ class SignExtend(Logic):
 
 
 class ZeroExtend(Logic):
+    """
+    Behaviouraly modeled zero extend
+    """
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
@@ -250,6 +256,26 @@ class ShiftRight(Logic):
             ins.append(shifted)
             
         Mux(self, 'mux', b, ins, r)
+
+class ShiftLeft(Logic):
+    def __init__(self, parent:Logic, name:str, a, b, r):
+        super().__init__(parent, name)
+
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+            
+        wb = b.getWidth()
+        
+        num = int(math.pow(2, wb))
+        ins = []
+        
+        for i in range(num):
+            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            ShiftLeftConstant(self, 'shifted{}'.format(i), a, i, shifted)
+            ins.append(shifted)
+            
+        Mux(self, 'mux', b, ins, r)
         
 class BinaryToBCD(Logic):
     """
@@ -262,120 +288,141 @@ class BinaryToBCD(Logic):
         a = self.addIn('a', a)
         r = self.addOut('r', r)
     
-class FPAdder_SP(Logic):
-    
-    def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, r:Wire):
+        raise Exception('Not implemented')
+        
+
+class _FFunction(Logic):
+    """
+    F function described in the paper DOI: 10.1109/TVLSI.2008.2000458
+    """
+    def __init__(self, parent, name : str, a: list, r:Wire):
+        super().__init__(parent, name)
+
+        w = len(a)
+        an = []
+        
+        for i in range(w):
+            self.addIn('in{}'.format(i), a[i])
+            ann = self.wire('an{}'.format(i))
+            Not(self, 'an{}'.format(i), a[i], ann)
+            an.append(ann)
+            
+        self.addOut('r', r)
+        
+        products = []
+        notcount = 0
+        idx = w-1
+        negidx_start = w-2
+        negidx_stop = w-2
+        
+        while (True):
+            prodsig = [a[idx]]
+            #print('positive:', idx, 'negative:', end='')
+            
+            for j in range(negidx_start, negidx_stop, -2):
+                #print(j, end=',')
+                prodsig.append(an[j])
+                
+            #print()
+            prod = self.wire('prod{}'.format(idx))
+            
+            if (len(prodsig) > 1):
+                And(self, 'and{}'.format(idx), prodsig, prod)
+                products.append(prod)
+            else:
+                products.append(prodsig[0])
+                
+            idx -= 2
+            negidx_stop -= 2
+            
+            if (idx < 0):
+                break;
+        
+        if (len(products) > 1):
+            Or(self, 'or', products, r)
+        else:
+            Buf(self, 'r', products[0], r)
+        
+class CountLeadingZeros(Logic):
+    """
+    Count leading zero bits
+    We implement the design described in 
+    Dimitrakopoulos, Giorgos, Kostas Galanopoulos, Christos Mavrokefalidis, 
+    and Dimitris Nikolos. "Low-power leading-zero counting and anticipation 
+    logic for high-speed floating point units." IEEE transactions on very large 
+    scale integration (VLSI) systems 16, no. 7 (2008): 837-850.
+    https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4539802    
+    DOI: 10.1109/TVLSI.2008.2000458
+    """
+    def __init__(self, parent, name : str, a: Wire, r:Wire, z:Wire):
         super().__init__(parent, name)
         
-        # This is really cumbersome
-        import sys
-        if not('..' in sys.path):
-            sys.path.append ('..')
-            
-        import py4hw.helper
-        
         a = self.addIn('a', a)
-        b = self.addIn('b', b)
         r = self.addOut('r', r)
-        
-        igt = self.wire('igt')
-        ieq = self.wire('ieq')
-        ilt = self.wire('ilt')
+        z = self.addOut('z', z)
 
-        FPComparator_SP(self, 'cmp', a, b, igt, ieq, ilt, absolute=True)
+        aw = a.getWidth()
+        rw = r.getWidth()
         
-        a2 = self.wire('a2', a.getWidth())
-        b2 = self.wire('b2', b.getWidth())
+        r_intern_w = int(math.ceil(math.log2(aw)))
+        if (r_intern_w > rw):
+            raise Exception('r with too small for a input')
+            
+        # we must extend the input to a power of 2
+        # if we do that, we should subtract the extra bits from the result
+        a_intern_w = int(math.pow(2, r_intern_w))
+        a_intern = self.wire('a_intern', a_intern_w)
         
-        Swap(self, 'swap', a, b, ilt, a2, b2)
+        ZeroExtend(self, 'zexta', a, a_intern)
+            
+        r_intern = self.wire('r_intern', r_intern_w)
         
-        a = a2
-        b = b2
+        r_preout = self.wire('r_preout', r.getWidth())
         
-        sa = self.wire('sa')
-        sb = self.wire('sb')
-        ea = self.wire('ea', 8)
-        eb = self.wire('eb', 8)
-        ma = self.wire('ma', 23)
-        mb = self.wire('mb', 23)
+        # we support bigger than necessary outputs by automatically
+        # zero extending
+        ZeroExtend(self, 'zextr', r_intern, r_preout)
         
-        Bit(self, 'sa',a, 31, sa)
-        Bit(self, 'sb',b, 31, sb)
-        Range(self, 'ea', a, 30, 23, ea)
-        Range(self, 'eb', b, 30, 23, eb)
-        Range(self, 'ma', a, 22, 0, ma)
-        Range(self, 'mb', b, 22, 0, mb)
+        # Work with individual a wires
+        a_bits = self.wires('a', a_intern_w, 1)
+        BitsLSBF(self, 'a_bits', a_intern, a_bits)
         
-        one = self.wire('one', 1)
-        Constant(self, 'one', 1, one)
+        # Work with indidual wires , and concatenate them into the r_intern
+        r_bits = self.wires('r_intern', r_intern_w, 1)
         
-        ma2 = self.wire('ma2', ma.getWidth()+1)
-        mb2 = self.wire('mb2', ma.getWidth()+1)
+        ConcatenateLSBF(self, 'concat', r_bits, r_intern)
         
-        ConcatenateMSBF(self, 'ma2', [one, ma], ma2)
-        ConcatenateMSBF(self, 'mb2', [one, mb], mb2)
+        f_bits = a_bits
         
-        ma = ma2
-        mb = mb2
+        #print('len f_bits:', len(f_bits))
         
-        # Maximum possible shifting is 23 bits (of the mantisa), so
-        # it is enough with 5 bits for ediff
-        # Also we know ediff will be always positive
+        for i in range(r_intern_w):
+            fvalue = self.wire('f{}'.format(i))
+            _FFunction(self, 'f_{}'.format(i), f_bits, fvalue)
+            Not(self, 'z_{}'.format(i), fvalue, r_bits[i])
+            
+            next_f_bits_w = len(f_bits)//2
+            next_f_bits = self.wires('f{}'.format(i), next_f_bits_w, 1)
+            
+            #print('level', i, next_f_bits_w)
+            for j in range(next_f_bits_w):
 
-        ediff = self.wire('ediff', 5)
-        Sub(self, 'ediff', ea, eb, ediff)
+                Or2(self, 'o{}_{}'.format(i,j), f_bits[j*2], f_bits[j*2+1], next_f_bits[j])
+            
+            f_bits = next_f_bits
+            
+        # we should end with a single wire in f_bits
+        Not(self, 'not_z', f_bits[0], z)
         
-        mb3 = self.wire('mb3', mb.getWidth())
+        allZeroK = self.wire('allZeroK', r.getWidth())
+        Constant(self, 'allZeroK', a.getWidth(), allZeroK)
+
+        if (a_intern_w > aw):
+            r_preout2 = self.wire('preout2', rw)
+            extra = self.wire('extra', rw)
+            Constant(self, 'extra', a_intern_w-aw, extra)
+            Sub(self, 'sub', r_preout, extra, r_preout2)
+            r_preout = r_preout2
+
+        Mux2(self, 'final', z, r_preout, allZeroK, r)
         
-        ShiftRight(self, 'preshift', mb, ediff, mb3)
-        
-        mb = mb3
-        
-        s_eq = self.wire('s_eq')
-        Equal(self, 's_eq', sa, sb, s_eq)
-        
-        m_a_plus_b = self.wire('m_a_plus_b', ma.getWidth()+1)
-        m_a_minus_b = self.wire('m_a_minus_b', ma.getWidth()+1)
-        m_b_minus_a = self.wire('m_b_minus_a', ma.getWidth()+1)
-        
-        Add(self, 'm_a_plus_b', ma, mb, m_a_plus_b)
-        Sub(self, 'm_a_minus_b', ma, mb, m_a_minus_b)
-        Sub(self, 'm_b_minus_a', mb, ma, m_b_minus_a)
-        
-        samb = self.wire('samb')
-        sbma = self.wire('sbma')
-        
-        Sign(self, 'samb', m_a_minus_b, samb)
-        Sign(self, 'sbma', m_b_minus_a, sbma)
-        
-        
-        mr = self.wire('mr', m_a_plus_b.getWidth())
-        sr = self.wire('sr')
-        
-        g = py4hw.helper.LogicHelper(self)
-        sel_apb = g.hw_buf(s_eq)
-        sel_amb = g.hw_and2(sa, g.hw_not(sb))
-        sel_bma = g.hw_and2(g.hw_not(sa), sb)
-        
-        Select(self, 'select_mr', [sel_apb, sel_amb, sel_bma], [m_a_plus_b, m_a_minus_b, m_b_minus_a], mr)
-        Select(self, 'select_sr', [sel_apb, sel_amb, sel_bma], [sa, sb, sa], sr)
-        
-        # invert result
-        inverted = self.wire('inverted')
-        mr2 = self.wire('mr2', mr.getWidth())
-        Abs(self, 'abs', mr, mr2, inverted)
-        
-        mr = mr2
-        
-        # invert the sign if necessary
-        sr = g.hw_xor2(inverted, sr)
-        
-        # shrink wire
-        mr3 = self.wire('mr3', 23)
-        Buf(self, 'mr3', mr, mr3)
-        mr = mr3
-        
-        maxe = self.wire('maxe', ea.getWidth())
-        Max2(self, 'maxe', ea, eb, maxe)
-        
-        ConcatenateMSBF(self, 'final_r', [sr, maxe, mr], r)
