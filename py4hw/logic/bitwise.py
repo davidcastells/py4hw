@@ -270,7 +270,7 @@ class Or(Logic):
         num = len(ins)
 
         if (num == 2):
-            Or2(self, 'and2', ins[0], ins[1], r)
+            Or2(self, 'or2', ins[0], ins[1], r)
             return
             
         if (num < 3):
@@ -377,6 +377,9 @@ class Mux(Logic):
     def __init__(self, parent, name: str, sel: Wire, ins, r: Wire):
         super().__init__(parent, name)
         
+        if (sel.getWidth() != int(math.log2(len(ins)))):
+            raise Exception('Invalid length sel bits: {} # ins: {}'.format(sel.getWidth(), int(math.log2(len(ins)))))
+
         sel = self.addIn('sel', sel)
         r = self.addOut('r', r)
 
@@ -395,8 +398,6 @@ class Mux(Logic):
         bits = BitsLSBF.fromWire(self, 'sel', sel)
 
 
-        if (len(bits) != int(math.log2(len(ins)))):
-            raise Exception('Invalid length sel bits: {} # ins: {}'.format(len(bits), int(math.log2(len(ins)))))
             
         fp, ip = math.modf(math.log2(len(ins)))
         
