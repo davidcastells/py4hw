@@ -7,6 +7,7 @@ Created on Wed Jan 19 12:40:41 2022
 
 from .bitwise import *
 from .arithmetic import *
+from .arithmetic_fp import *
 from .relational import *
 from .simulation import *
 from .clock import *
