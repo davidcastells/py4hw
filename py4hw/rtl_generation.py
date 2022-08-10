@@ -325,6 +325,9 @@ def InlineNor(obj:Logic):
 def InlineEqual(obj:Logic):
     return "assign {} = ({} == {})? 1:0;\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a), getParentWireName(obj, obj.b))
 
+def InlineVerilogCommnent(obj:Logic):
+    return '// {}\n'.format(obj.comment)
+    
 def BodyReg(obj:Logic):
     clkname = getObjectClockDriver(obj).name
     str = "reg "+getWidthInfo(obj.q) + " rq = 0;\n"
@@ -393,6 +396,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[Range] = InlineRange
         self.inlinablePrimitives[Repeat] = InlineRepeat
         self.inlinablePrimitives[ZeroExtend] = InlineZeroExtend
+        self.inlinablePrimitives[VerilogComment] = InlineVerilogCommnent
         
         self.providingBody = {}
         
@@ -408,13 +412,19 @@ class VerilogGenerator:
         None.
 
         """
+        
         if (obj is None):
             obj = self.obj
+        
+        #print('generating {}'.format(obj.getFullPath()))
             
         str = self.getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity)
         
         for child in obj.children.values():
-            if (not(self.isInlinable(child))):
+            if (self.isInlinable(child)):
+                #print('inlining {}'.format(child.name))
+                pass
+            else:
                 # skip inlinable modules from verilog generation
                 str += "\n"
                 str += self.getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
@@ -556,8 +566,10 @@ class VerilogGenerator:
         str = "\n"
         
         for child in obj.children.values():
-            
             if (self.isInlinable(child)):
+                #print('create inlinable instance {}'.format(child.name))
+                #print('>>', self.inlinePrimitive(child))
+
                 str += self.inlinePrimitive(child)
             else:
                 str += self.instantiateStructural(child)
@@ -874,3 +886,9 @@ class ReplaceWirePut(ast.NodeTransformer):
         
         
         return node
+    
+    
+class VerilogComment(Logic):
+    def __init__(self, parent, name: str, comment:str):
+        super().__init__(parent, name)
+        self.comment = comment
