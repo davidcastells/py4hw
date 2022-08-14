@@ -31,6 +31,22 @@ class Test_Equal:
         sys.getSimulator().clk(1)
         
         assert (r.get() == 1)
+
+    def test_1(self):
+
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 2)
+        r = sys.wire("r", 1)
+        
+        py4hw.Constant(sys, "a", 3, a)
+        
+        py4hw.NotEqualConstant(sys, 'equal', a, 0, r)
+        
+        sys.getSimulator().clk(1)
+        
+        assert (r.get() == 1)
+
         
     def test_notEqual(self):
 
