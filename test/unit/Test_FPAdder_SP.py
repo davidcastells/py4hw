@@ -77,6 +77,37 @@ class Test_FPAdder_SP:
 
         assert (abs(err) < 1E-6)
 
+    def test_random(self):
+        import random
+        sys = py4hw.HWSystem()
+        g = py4hw.LogicHelper(sys)
+        fp = py4hw.FloatingPointHelper()
+        
+        r = sys.wire('r', 32)
+        
+        a = sys.wire('a', 32)
+        b = sys.wire('b', 32)
+        
+        ca = py4hw.Constant(sys, 'a', 0, a)
+        cb = py4hw.Constant(sys, 'b', 0, b)
+        
+        fpa = py4hw.FPAdder_SP(sys, 'fpa', a, b, r)
+
+        for i in range(100):
+            av = random.uniform(-100, 100)
+            bv = random.uniform(-100, 100)
+            
+            ca.value = fp.sp_to_ieee754(av);
+            cb.value = fp.sp_to_ieee754(bv)
+            
+            sys.getSimulator().clk(1)
+            
+            err = abs(fp.ieee754_to_sp(r.get()) - (av+bv)) / abs(max(av, bv))
+            
+            print('TESTING: ', hex(a.get()), '+', hex(b.get()), '=', hex(r.get()), 'err:', err)
+    
+            assert (abs(err) < 1E-5)
+
 
     def test_3_deep(self):
         import math
