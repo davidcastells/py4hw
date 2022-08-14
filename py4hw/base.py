@@ -10,6 +10,9 @@ class Logic:
         self.name = instanceName
         
         if (not(parent is None)):
+            if not(isinstance(parent, Logic)):
+                raise Exception('parent object must be a Logic object not a {}'.format(type(parent)))
+                
             # Add this object as a parent's child
             if (instanceName in parent.children.keys()):
                 raise Exception('there is already a child named {} in {}'.format(instanceName, parent.getFullPath() ))
@@ -262,6 +265,10 @@ class Wire:
     prepared = []
     
     def __init__(self, parent, name : str, width: int = 1 ):
+        # the following should not be necessary if python checks types
+        assert(isinstance(name, str))
+        assert(isinstance(width, int))
+        
         self.parent = parent
         self.name = name
         self.width = width
