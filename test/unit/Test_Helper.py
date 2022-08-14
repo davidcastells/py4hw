@@ -49,5 +49,28 @@ class Test_Helper:
             #print('DIFF:', diff)
             assert(diff < 1e-7)
             
+    def test_fp_2(self):
+        import math
+        import random
+        fp = py4hw.helper.FloatingPointHelper()
+        
+        large = math.pow(2,30)
+        max_error = 40
+
+        for i in range(1000):
+            av = random.uniform(-large, large)            
+            rav = fp.ieee754_stored_internally(av)
+
+            s,e,m = fp.sp_to_ieee754_parts(av)
+            iv = fp.ieee754_parts_to_sp(s, e, m)
+           
+            #print('initial:',av, 'adjusted:', rav, 'diff:', abs(av-rav))
+            
+            assert(abs(av-rav) < max_error)
+        #print('parts {:01b}-{:08b}-{:023b}'.format( s, e, m))        
+        #print('recomposed', iv)
+        
+        
+            
 if __name__ == '__main__':
     pytest.main(args=['-s', '-q', 'Test_Helper.py'])
