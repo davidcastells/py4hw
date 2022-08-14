@@ -9,6 +9,20 @@ from .bitwise import *
 from deprecated import deprecated
 
 
+class Add(Logic):
+    """
+    Combinational Arithmetic Add
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() + self.b.get())
+
 class Abs(Logic):
     """
     Absolute value
@@ -46,9 +60,22 @@ class Abs(Logic):
 
         zero = self.wire('zero', r.getWidth())
         neg = self.wire('neg', a.getWidth())
+        Constant(self, 'zero', 0, zero)
         Sign(self, 'sign', a, s)
         Sub(self, 'sub', zero, a, neg)
         Mux2(self, 'mux', s, a, neg, r)
+
+
+class Neg(Logic):
+    def __init__(self, parent, name: str, a: Wire, r: Wire):
+        super().__init__(parent, name)
+
+        self.addIn("a", a)
+        self.addOut("r", r)
+
+        zero = self.wire('zero', r.getWidth())
+        Constant(self, 'zero', 0, zero)    
+        Sub(self, 'sub', zero, a, r)
 
 class Sign(Logic):
     """
@@ -98,19 +125,6 @@ class ZeroExtend(Logic):
 
 
 
-class Add(Logic):
-    """
-    Combinational Arithmetic Add
-    """
-
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
-
-    def propagate(self):
-        self.r.put(self.a.get() + self.b.get())
 
 
 class Mul(Logic):
