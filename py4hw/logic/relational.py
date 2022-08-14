@@ -34,6 +34,23 @@ class AnyEqual(Logic):
                     checks.append(rp)
 
         Or(self, 'anyEqual', checks, r)
+
+class NotEqualConstant(Logic):
+    """
+    An Equal comparator circuit
+    """
+
+    def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
+        super().__init__(parent, name)
+
+        from .bitwise import Not
+
+        self.addIn("a", a)
+        self.addOut("r", r)
+        
+        eq = self.wire('eq')
+        EqualConstant(self, 'eq', a, v, eq)
+        Not(self, 'r', eq, r)
                 
 class EqualConstant(Logic):
     """
