@@ -565,6 +565,7 @@ class ConcatenateMSBF(Logic):
     def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
         super().__init__(parent, name)
 
+        ind_w = []
         total_w = 0
         max_w = r.getWidth()
         
@@ -573,9 +574,10 @@ class ConcatenateMSBF(Logic):
         for idx, item in enumerate(ins):
             self.ins.append(self.addIn('in{}'.format(idx), item))
             total_w += item.getWidth()
+            ind_w.append(item.getWidth())
 
         if (total_w > max_w):
-            raise Exception('Combined input widths larger than result width {}>{}'.format(total_w, max_w))
+            raise Exception('Combined input widths {} larger than result width {}>{}'.format(ind_w, total_w, max_w))
             
         self.r = self.addOut('r', r)
 
