@@ -60,26 +60,32 @@ class Test_CountLeadingZeros:
         import random
         import math
         
-        for i in range(10):
+        # @todo simulation is very slow, investigate the cause.
+        # it seems to be related to excessive width
+        for i in range(3):
             print('Creating ', i)
             sys = py4hw.HWSystem()
-            w = int(random.uniform(2, 128))
+            w = int(random.uniform(2, 64))
             a = sys.wire("a", w)
             r = sys.wire("r", w)
             z = sys.wire("z")
     
-            v = int(random.uniform(0, int(math.pow(2, w))))
             
-            py4hw.Constant(sys, "a", v, a)
+            ca = py4hw.Constant(sys, "a", 0, a)
             py4hw.CountLeadingZeros(sys, "clz", a, r, z)
-            sys.getSimulator().clk(1);
-            
-            print('Testing w:', w, 'v:', hex(v), 'expected clz:', 
-                  BitManipulation.countLeadingZeros(v, w),
-                  'result:', r.get())
-            
-            assert(r.get() == BitManipulation.countLeadingZeros(v, w))
-            assert(z.get() == int(v == 0))
+            print('Simulating')
+
+            for j in range(10):
+                v = int(random.uniform(0, int(math.pow(2, w))))
+                ca.value = v
+                sys.getSimulator().clk(1);
+                
+                print('Testing w:', w, 'v:', hex(v), 'expected clz:', 
+                      BitManipulation.countLeadingZeros(v, w),
+                      'result:', r.get())
+                
+                assert(r.get() == BitManipulation.countLeadingZeros(v, w))
+                assert(z.get() == int(v == 0))
             
             del sys
         
