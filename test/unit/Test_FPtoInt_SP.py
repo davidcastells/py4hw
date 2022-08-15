@@ -7,7 +7,7 @@ Created on Sat Aug 13 11:24:00 2022
 
 import py4hw
 import pytest
-from py4hw.helper import BitManipulation
+from py4hw.helper import *
 import random 
 import math
 
@@ -16,8 +16,8 @@ class Test_FPtoInt_SP:
     def test_1(self):
         
         sys = py4hw.HWSystem()
-        g = py4hw.LogicHelper(sys)
-        fp = py4hw.FloatingPointHelper()
+        g = LogicHelper(sys)
+        fp = FloatingPointHelper()
         
         r = sys.wire('r', 32)
         p_lost = sys.wire('p_lost')
@@ -39,8 +39,8 @@ class Test_FPtoInt_SP:
     def test_negative(self):
         
         sys = py4hw.HWSystem()
-        g = py4hw.LogicHelper(sys)
-        fp = py4hw.FloatingPointHelper()
+        g = LogicHelper(sys)
+        fp = FloatingPointHelper()
         
         r = sys.wire('r', 32)
         p_lost = sys.wire('p_lost')
@@ -61,8 +61,8 @@ class Test_FPtoInt_SP:
 
     def test_random(self):
         sys = py4hw.HWSystem()
-        g = py4hw.LogicHelper(sys)
-        fp = py4hw.FloatingPointHelper()
+        g = LogicHelper(sys)
+        fp = FloatingPointHelper()
         
         r = sys.wire('r', 32)
         p_lost = sys.wire('p_lost')
