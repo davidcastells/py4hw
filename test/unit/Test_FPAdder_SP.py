@@ -7,6 +7,7 @@ Created on Wed Feb  2 11:41:01 2022
 import py4hw
 import pytest
 from py4hw.helper import BitManipulation
+import random
 
 class Test_FPAdder_SP:
     
@@ -78,7 +79,6 @@ class Test_FPAdder_SP:
         assert (abs(err) < 1E-6)
 
     def test_random(self):
-        import random
         sys = py4hw.HWSystem()
         g = py4hw.LogicHelper(sys)
         fp = py4hw.FloatingPointHelper()
@@ -102,11 +102,12 @@ class Test_FPAdder_SP:
             
             sys.getSimulator().clk(1)
             
-            err = abs(fp.ieee754_to_sp(r.get()) - (av+bv)) / abs(max(av, bv))
+            rv = fp.ieee754_to_sp(r.get())
+            rerr = abs(rv - (av+bv)) / abs(av+bv)
             
-            print('TESTING: ', hex(a.get()), '+', hex(b.get()), '=', hex(r.get()), 'err:', err)
+            print('TESTING: ', hex(a.get()), '+', hex(b.get()), '=', hex(r.get()), 'rerr:', rerr)
     
-            assert (abs(err) < 1E-5)
+            assert (rerr < 1E-5)
 
 
     def test_3_deep(self):
@@ -126,18 +127,18 @@ class Test_FPAdder_SP:
         a = g.hw_constant(32, fp.sp_to_ieee754(av))
         b = g.hw_constant(32, fp.sp_to_ieee754(bv))
         
-        sa, ea, ma = fp.sp_to_ieee754_parts(av)
-        sb, eb, mb = fp.sp_to_ieee754_parts(bv)
+        sa, ea, ma = fp.sp_to_fixed_point_parts(av)
+        sb, eb, mb = fp.sp_to_fixed_point_parts(bv)
         
         fpa = py4hw.FPAdder_SP(sys, 'fpa', a, b, r)
         
         sys.getSimulator().clk(1)
         
         # 
-        assert(fpa.children['ea'].getOutPortByName('r').wire.get() == ea)
-        assert(fpa.children['eb'].getOutPortByName('r').wire.get() == eb)
-        assert(fpa.children['ma'].getOutPortByName('r').wire.get() == ma)
-        assert(fpa.children['mb'].getOutPortByName('r').wire.get() == mb)
+        assert(fpa.children['parts_a'].getOutPortByName('e').wire.get() == ea + 127)
+        assert(fpa.children['parts_b'].getOutPortByName('e').wire.get() == eb + 127)
+        assert(fpa.children['parts_a'].getOutPortByName('m').wire.get() == ma)
+        assert(fpa.children['parts_b'].getOutPortByName('m').wire.get() == mb)
 
         print()        
         print('a = {},{:0X},{:06X}'.format(sa, ea, ma), av)
@@ -217,7 +218,7 @@ class Test_FPAdder_SP:
         er = ea + 1 - clz
 
         print('After shift m:' , hex(after_shift_value), 'e:', er)
-        assert(fpa.children['er'].getOutPortByName('r').wire.get() == er)
+        assert(fpa.children['er'].getOutPortByName('r').wire.get() == er + 127)
         
         
         print('A: ', (ma + (1<<23)) / (1<<23) * math.pow(2, ea-127))
