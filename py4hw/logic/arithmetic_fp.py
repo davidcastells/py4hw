@@ -10,6 +10,44 @@ from .arithmetic import *
 from deprecated import deprecated
 
 
+class _FP_parts(Logic):
+    def __init__(self, parent:Logic, name:str, a:Wire, s:Wire, e:Wire, m:Wire, isZero:Wire, fixExponent=True):
+        super().__init__(parent, name)
+
+        from ..helper import LogicHelper
+    
+        assert(s.getWidth() == 1)
+        assert(e.getWidth() == 8)
+        assert(m.getWidth() == 24)
+        
+        self.addIn('a', a)
+        self.addOut('s', s)
+        self.addOut('e', e)
+        self.addOut('m', m)
+        self.addOut('isZero', isZero)
+
+        pre_e = self.wire('pre_e', 8)
+        pre_m = self.wire('pre_m', 23)
+        
+        Bit(self, 's',a, 31, s)
+        Range(self, 'pre_e', a, 30, 23, pre_e)
+        Range(self, 'm', a, 22, 0, pre_m)
+        
+        one = self.wire('one', 1)
+        Constant(self, 'one', 1, one)
+
+        ConcatenateMSBF(self, 'ma', [one, pre_m], m)
+
+        g = LogicHelper(self)
+
+        if (fixExponent):
+            Sub(self, 'e', pre_e , g.hw_constant(8, 127), e)
+        else:
+            Buf(self, 'e', pre_e, e)
+
+        Buf(self, 'isZero', g.hw_or2(g.hw_equal_constant(pre_e, 0),
+                                     g.hw_equal_constant(pre_m, 0)), isZero)        
+        
 class FPAdder_SP(Logic):
     # This design is a very basic one, inspired in algorithm described in 
     # the 2.1 section of the paper 
@@ -22,12 +60,8 @@ class FPAdder_SP(Logic):
         
         
         # This is really cumbersome
-        import sys
-        if not('..' in sys.path):
-            sys.path.append ('..')
-            
-        import py4hw.helper
-        
+        from ..helper import LogicHelper
+                    
         a = self.addIn('a', a)
         b = self.addIn('b', b)
         r = self.addOut('r', r)
@@ -50,27 +84,13 @@ class FPAdder_SP(Logic):
         sb = self.wire('sb')
         ea = self.wire('ea', 8)
         eb = self.wire('eb', 8)
-        ma = self.wire('ma', 23)
-        mb = self.wire('mb', 23)
+        ma = self.wire('ma', 24)
+        mb = self.wire('mb', 24)
+        isZeroa = self.wire('isZeroa')
+        isZerob = self.wire('isZerob')
         
-        Bit(self, 'sa',a, 31, sa)
-        Bit(self, 'sb',b, 31, sb)
-        Range(self, 'ea', a, 30, 23, ea)
-        Range(self, 'eb', b, 30, 23, eb)
-        Range(self, 'ma', a, 22, 0, ma)
-        Range(self, 'mb', b, 22, 0, mb)
-        
-        one = self.wire('one', 1)
-        Constant(self, 'one', 1, one)
-        
-        ma2 = self.wire('ma2', ma.getWidth()+1)
-        mb2 = self.wire('mb2', ma.getWidth()+1)
-        
-        ConcatenateMSBF(self, 'ma2', [one, ma], ma2)
-        ConcatenateMSBF(self, 'mb2', [one, mb], mb2)
-        
-        ma = ma2
-        mb = mb2
+        _FP_parts(self, 'parts_a', a, sa, ea, ma, isZeroa, fixExponent=False)
+        _FP_parts(self, 'parts_b', b, sb, eb, mb, isZerob, fixExponent=False)
         
         # Maximum possible shifting is 23 bits (of the mantisa), so
         # it is enough with 5 bits for ediff
@@ -107,7 +127,7 @@ class FPAdder_SP(Logic):
         mr = self.wire('mr', m_a_plus_b.getWidth())
         sr = self.wire('sr')
         
-        g = py4hw.helper.LogicHelper(self)
+        g = LogicHelper(self)
         #sel_apb = g.hw_buf(s_eq)
         sel_amb = g.hw_xor2(sa, sb)
         #sel_bma = g.hw_and2(g.hw_not(sa), sb)
@@ -131,7 +151,7 @@ class FPAdder_SP(Logic):
         er = self.wire('er', 8)
                 
         Sub(self, 'pre_er', ea, clz, pre_er)
-        Add(self, 'er', pre_er, one, er)
+        Add(self, 'er', pre_er, g.hw_constant(8, 1), er)
         
         # Detect round up bit
         round_up = self.wire('round_up')
@@ -169,13 +189,15 @@ class FPtoInt_SP(Logic):
     def __init__(self, parent:Logic, name:str, a:Wire, r:Wire, p_lost:Wire, denorm:Wire, invalid:Wire):
         super().__init__(parent, name)
 
+        # This is really cumbersome
+        from ..helper import LogicHelper
+
         self.addIn('a', a)
         self.addOut('r', r)
         self.addOut('p_lost', r)
         self.addOut('denorm', denorm)
         self.addOut('invalid', invalid)
 
-        from ..helper import LogicHelper
         g = LogicHelper(self)
         e = g.hw_range(a, 30, 23)
         m = g.hw_range(a,22,0)
@@ -254,6 +276,9 @@ class InttoFP_SP(Logic):
     def __init__(self, parent:Logic, name:str, a:Wire, r:Wire, p_lost:Wire):
         super().__init__(parent, name)
 
+        # This is really cumbersome
+        from ..helper import LogicHelper
+
         assert(a.getWidth() == 32)        
         assert(r.getWidth() == 32)        
 
@@ -261,7 +286,6 @@ class InttoFP_SP(Logic):
         self.addOut('r', r)
         self.addOut('p_lost', p_lost)
 
-        from ..helper import LogicHelper
         g = LogicHelper(self)
         
         sign = self.wire('sign')
@@ -289,3 +313,55 @@ class InttoFP_SP(Logic):
         pre_r = self.wire('pre_r', 32)
         ConcatenateMSBF(self, 'pre_r', [sign, exponent, fraction], pre_r)
         Mux2(self, 'r', is_zero, pre_r, g.hw_constant(32, 0), r)
+        
+        
+class FPMult_SP(Logic):
+    # 
+    def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, r:Wire):
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addIn('b', b)
+        self.addOut('r', r)
+        
+        sa = self.wire('sa')
+        sb = self.wire('sb')
+        ea = self.wire('ea', 8)
+        eb = self.wire('eb', 8)
+        ma = self.wire('ma', 24)
+        mb = self.wire('mb', 24)
+        isZeroa = self.wire('isZeroa')
+        isZerob = self.wire('isZerob')
+        
+        _FP_parts(self, 'pa', a, sa, ea, ma, isZeroa, fixExponent=False)
+        _FP_parts(self, 'pb', b, sb, eb, mb, isZerob, fixExponent=False)
+
+        from ..helper import LogicHelper        
+        g = LogicHelper(self)
+        
+        # a * b = sa * sb * 2^ea * 2^eb * ma * mb
+        # a * b = (sa*sb) * 2 ^(ea+eb) + (ma*mb)
+        
+        isZeror = g.hw_or2(isZeroa, isZerob)
+        
+        sr = g.hw_xor2(sa, sb)
+        
+        pre_mr = self.wire('pre_mr', ma.getWidth() + mb.getWidth())
+        Mul(self, 'mult', ma, mb, pre_mr)
+        
+        pre_er = self.wire('pre_er', 9)
+        Add(self, 'add', ea, eb, pre_er)
+        pre_er2 = self.wire('pre_er2', 8)
+        pre_er3 = self.wire('pre_er3', 8)
+        Sub(self, 'pre_er2', pre_er, g.hw_constant(9, 127-1), pre_er2)
+        Sub(self, 'pre_er3', pre_er2, g.hw_constant(9,1), pre_er3)
+        
+        # result of ma*mb must be 0 <= mr < 4, it seems the first bit will be always 1
+        select_mr = g.hw_bit(pre_mr, 47)
+        pre_mr2 = g.hw_range(pre_mr, 46, 24)
+        pre_mr3 = g.hw_range(pre_mr, 45, 23)
+        
+        pre_mr4 = g.hw_mux2(select_mr, pre_mr3, pre_mr2)
+        pre_er4 = g.hw_mux2(select_mr, pre_er3, pre_er2)
+        
+        ConcatenateMSBF(self, 'r', [sr, pre_er4, pre_mr4], r)
