@@ -9,6 +9,7 @@ from .base import Wire
 from .logic.arithmetic import *
 from .logic.bitwise import *
 from .logic.simulation import *
+import math
 
 class LogicHelper:
     """
@@ -208,39 +209,69 @@ class LogicHelper:
 class FloatingPointHelper:
 
     @staticmethod
-    def sp_to_ieee754_parts(v):
+    def sp_to_parts(v):
         e = 0
-        vo = v
         s=0
-        if (v < 0):
+        m = v
+        if (m < 0):
             # if v is negative activate the sign, and change the value
             s = 1
-            v = -v
+            m = -m
     
-        if (v > 0.0):
-            while (v >= 2):
+        if (m > 0.0):
+            while (m >= 2):
                 # iterate until v is < 2 to determine the exponent
-                v = v / 2
+                m = m / 2
                 e += 1
                 #print('e:', e, 'v:', v)
-            while (v < 1):
-                v = v * 2
+            while (m < 1):
+                m = m * 2
                 e -= 1
                 #print('e:', e, 'v:', v)
-    
-            m = v - 1
+            
+        return s, e, m
 
-            re = 127 + e
+    @staticmethod
+    def sp_to_fixed_point_parts(v):
+        s,e,m = FloatingPointHelper.sp_to_parts(v)
+
+        if (m == 0):
+            return 0,0,0
+        else:
+            re = e
             rm = int(round(m * (1<<23)))
 
-        else:
-            s = 0
-            re = 0
-            rm = 0
-            
-        #print('m:', m)
+            return s, re, rm
     
-        return s, re, rm
+    @staticmethod
+    def sp_to_ieee754_parts(v):
+        """
+        Return the parts of the IEEE 754 representation of v
+
+        Parameters
+        ----------
+        v : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        int
+            sign.
+        int
+            biased representation of exponent (e+127)
+        int
+            representation of mantissa int((m-1)<<23) 
+
+        """
+        s,e,m = FloatingPointHelper.sp_to_parts(v)
+
+        if (m == 0):
+            return 0,0,0
+        else:
+            re = 127 + e
+            rm = int(round((m-1) * (1<<23)))
+
+            return s, re, rm
 
     @staticmethod
     def sp_to_ieee754(v):
@@ -252,8 +283,30 @@ class FloatingPointHelper:
         return r
 
     @staticmethod
+    def parts_to_sp(s, e, m):
+        return math.pow(-1, s) * math.pow(2, e) * m
+
+    @staticmethod
     def ieee754_parts_to_sp(s, e, m):
-        import math
+        """
+        We build a floating point number from is sign/exponent/mantisa representation
+        as it is store in the IEEE754 format
+
+        Parameters
+        ----------
+        s : int
+            sign.
+        e : int
+            exponent.
+        m : TYPE
+            mantisa.
+
+        Returns
+        -------
+        float
+            floating point number r = (-1)^s * 2^e * m
+
+        """
         
         # zero is a special case
         if (e == 0 and m == 0):
@@ -262,15 +315,10 @@ class FloatingPointHelper:
             else:
                 return 0.0
             
-        ef = math.pow(2, e-127)
-        f = ((1 << 23) | m) / (1<<23)
+        ef = e-127
+        mf = ((1 << 23) | m) / (1<<23)
         
-        if (s > 0):
-            s = -1
-        else:
-            s = 1
-            
-        return s * ef * f;
+        return FloatingPointHelper.parts_to_sp(s , ef , mf)
     
     @staticmethod
     def ieee754_to_sp(v):
@@ -279,7 +327,7 @@ class FloatingPointHelper:
         
         s = v >> 31
         e = (v >> 23) & 0xFF
-        m = (v & ((1<<23)-1)) | (1<<23) 
+        m = (v & ((1<<23)-1))  
         
         return FloatingPointHelper.ieee754_parts_to_sp(s, e, m)
 
