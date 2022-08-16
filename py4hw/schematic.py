@@ -101,8 +101,8 @@ class MatplotlibRender:
               boxstyle=BoxStyle("Round", pad=radius), facecolor=self.fillcolor)
         self.canvas.add_patch(box)
         
-    def drawArc(self, x0, y0, x1, y1, start, extent):
-        arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
+    def drawArc(self, x0, y0, x1, y1, start, stop):
+        arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=stop, linewidth=self.linewidth)
         self.canvas.add_patch(arc)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
@@ -201,12 +201,12 @@ class TkinterRender:
         #self.canvas.add_patch(box)
         print('[WARNING] round rectangle not supported yet')
         
-    def drawArc(self, x0, y0, x1, y1, start, extent):
+    def drawArc(self, x0, y0, x1, y1, start, stop):
         import tkinter
         # arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
         # self.canvas.add_patch(arc)
-        print('draw arc', x0, y0, x1, y1, start, extent)
-        self.canvas.create_arc(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, start=start, extent=extent-start, style=tkinter.ARC)
+        print('draw arc', x0, y0, x1, y1, start, stop)
+        self.canvas.create_arc(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, start=start, extent=stop-start, style=tkinter.ARC)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
         # el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
@@ -219,6 +219,10 @@ class TkinterRender:
         # xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
         # self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
         print('[WARNING] spline not supported yet')
+        from scipy import interpolate
+        tck,u     = interpolate.splprep( [x,y] ,s = 0 )
+        xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
+        self.drawPolygon( xnew ,ynew)
 
         
 class Schematic:
@@ -259,6 +263,7 @@ class Schematic:
         
         self.mapping = {}
         self.mapping[And2] = AndSymbol
+        self.mapping[And] = AndSymbol
         self.mapping[Not] = NotSymbol
         self.mapping[Or2] = OrSymbol
         self.mapping[Or] = OrSymbol
@@ -325,6 +330,7 @@ class Schematic:
         
         
     def draw(self):
+        self.drawAll()
         import matplotlib.pyplot as plt
         return plt.show()
     
