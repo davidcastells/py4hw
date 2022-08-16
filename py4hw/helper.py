@@ -49,6 +49,13 @@ class LogicHelper:
         And(self.parent, name, [a, b, c, d], r)
         return r
 
+    def hw_and(self, a:list) -> Wire:
+        w = a[0].getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        And(self.parent, name, a, r)
+        return r
+
     def hw_bit(self, a:Wire, bit:int) -> Wire:
         name = self._getNewName()
         r = self.parent.wire(name)
