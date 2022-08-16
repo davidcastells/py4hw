@@ -132,7 +132,13 @@ class MulSymbol(BinaryOperatorSymbol):
 class AndSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
-        self.h = 40
+
+        if (isinstance(obj, And2)):
+            self.nins = 2
+        else:
+            self.nins = len(obj.ins)
+
+        self.h = 20 * self.nins
 
     def draw(self, canvas):
         x = self.x
@@ -145,7 +151,7 @@ class AndSymbol(LogicSymbol):
         canvas.drawLine(x, y, x + 25, y)
         canvas.drawLine(x, y + self.h, x + 25, y + self.h)
         canvas.drawLine(x, y, x, y + self.h)
-        canvas.drawArc(x , y+2, x + 50, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x , y+2, x + 50, y + self.h, start=-90, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
 
     def getHeight(self):
         return namemargin + self.h
@@ -165,12 +171,9 @@ class AndSymbol(LogicSymbol):
         if (selidx == -1):
             raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
 
-        if (selidx == 0):
-            y = self.h//2 - 10
-        else:
-            y = self.h//2 + 10 
+        y = 10 + selidx * 20
 
-        return (0, namemargin + y)
+        return (5, namemargin + y)
 
 class NotSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -347,7 +350,7 @@ class OrSymbol(LogicSymbol):
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x, y, x + 20, y)
         canvas.drawLine(x, y + self.h, x + 20, y + self.h)
-        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
 
         #canvas.drawLine(x, y, x, y + self.h)
         #canvas.drawArc(x-30 , y, x + 50+20, y + self.h + (self.nins+1)*40, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
@@ -392,11 +395,13 @@ class XorSymbol(LogicSymbol):
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x+10, y, x + 20+10, y)
         canvas.drawLine(x+10, y + self.h, x + 20+10, y + self.h)
-        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
-        canvas.drawArc(x , y, x + 20, y + self.h, start=-90, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x-10 , y, x + 10, y + self.h, start=-90, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawArc(x , y, x + 20, y + self.h, start=-90, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
 
-        canvas.drawArc(x-30 +10, y, x + 50+20+10, y + self.h*4, start=-90, extent=-60) #, style=tkinter.ARC, outline='black', fill='white')
-        canvas.drawArc(x-30 +10, y-self.h*3, x + 50+20+10, y + self.h, start=60, extent=90) #, style=tkinter.ARC, outline='black', fill='white')
+        #canvas.drawArc(x-30 +10, y, x + 50+20+10, y + self.h*4, start=-90, stop=-60) #, style=tkinter.ARC, outline='black', fill='white')
+        #canvas.drawArc(x-30 +10, y-self.h*3, x + 50+20+10, y + self.h, start=60, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
+        canvas.drawSpline([x+20+10, x+30+10, x+42+10, x+50+10], [y,  y+2, y+self.h//4, y+self.h//2])
+        canvas.drawSpline([x+20+10, x+30+10, x+42+10, x+50+10], [y+self.h,  y+self.h-2, y+self.h-self.h//4, y+self.h//2])
 
 
 
