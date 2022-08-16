@@ -9,6 +9,7 @@ import numpy as np
         
 from matplotlib.lines import Line2D
 from matplotlib.patches import *
+from matplotlib import colors
 from .base import *
 from .logic import *
 from .logic.bitwise import *
@@ -38,15 +39,17 @@ class MatplotlibRender:
         self.canvas.invert_yaxis()
         plt.axis('off')
         
-        self.color = 'k'
-        self.fillcolor = 'k'
+        self.setForecolor('k')
+        self.setFillcolor('k')
         self.linewidth = 2
         
     def setForecolor(self, color):
-        self.color = color
+        print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        self.color = colors.rgb2hex(colors.to_rgb(color))
         
     def setFillcolor(self, color):
-        self.fillcolor = color
+        print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        self.fillcolor = colors.rgb2hex(colors.to_rgb(color))
         
     def setLineWidth(self, w):
         self.linewidth = w
@@ -136,17 +139,19 @@ class TkinterRender:
         # self.canvas.invert_yaxis()
         # plt.axis('off')
         
-        self.color = 'k'
-        self.fillcolor = 'k'
+        self.setForecolor('k')
+        self.setFillcolor('k')
         self.linewidth = 2
         self.xmargin = 50
         self.ymargin = 50
         
     def setForecolor(self, color):
-        self.color = color
+        #print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        self.color = colors.rgb2hex(colors.to_rgb(color))
         
     def setFillcolor(self, color):
-        self.fillcolor = color
+        #print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        self.fillcolor = colors.rgb2hex(colors.to_rgb(color))
         
     def setLineWidth(self, w):
         self.linewidth = w
@@ -163,37 +168,40 @@ class TkinterRender:
         
     def drawPolygon(self, x, y, fill=False):
         
-        # points = []
-        
-        # for i in range(len(x)):
-        #     points.append(x[i])
-        #     points.append(y[i])
+        if (fill):
+            points = []
+            
+            for i in range(len(x)):
+                points.append(self.xmargin + x[i])
+                points.append(self.ymargin + y[i])
             
         # #lines = Line2D(x,y, color=self.color, linewidth=self.linewidth)
         # # if (fill):
         # #    self.canvas.fill(x, y, self.fillcolor)
 
-        # self.canvas.create_polygon(points)
-        x0 = x[0]
-        y0 = y[0]
-        for i in range(1, len(x)):
-            x1 = x[i]
-            y1 = y[i]
-            self.drawLine(x0 , y0 , x1 , y1 )
-            x0 = x1
-            y0 = y1
+            self.canvas.create_polygon(points, outline=self.color, fill=self.fillcolor, width=self.linewidth)
+            
+        else:            
+            x0 = x[0]
+            y0 = y[0]
+            for i in range(1, len(x)):
+                x1 = x[i]
+                y1 = y[i]
+                self.drawLine(x0 , y0 , x1 , y1 )
+                x0 = x1
+                y0 = y1
         #     points.append(x[i])
         #     points.append(y[i])
         
 
     def drawLine(self, x0, y0, x1, y1):
-        self.canvas.create_line(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
+        self.canvas.create_line(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, fill=self.color, width=self.linewidth)
         #self.drawPolygon([x0, x1], [y0, y1])
         
     def drawRectangle(self , x0, y0, x1, y1, fill=False):
         #print('rect', x0, y0, x1, y1)
         #self.drawPolygon([x0, x1, x1, x0, x0],[y0,y0, y1,y1, y0], fill)
-        self.canvas.create_rectangle(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
+        self.canvas.create_rectangle(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, width=self.linewidth)
         
     def drawRoundRectangle(self, x0, y0, x1, y1, radius=5, fill=False):
         #box = FancyBboxPatch((x0,y0), width=x1-x0, height=y1-y0,
@@ -205,20 +213,14 @@ class TkinterRender:
         import tkinter
         # arc = Arc(((x0+x1)//2, (y0+y1)//2), x1-x0, y1-y0, angle=0, theta1=start, theta2=extent, linewidth=self.linewidth)
         # self.canvas.add_patch(arc)
-        print('draw arc', x0, y0, x1, y1, start, stop)
-        self.canvas.create_arc(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, start=start, extent=stop-start, style=tkinter.ARC)
+        self.canvas.create_arc(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, start=start, extent=stop-start, style=tkinter.ARC, width=self.linewidth)
 
     def drawEllipse (self, x0, y0, x1, y1, outline=None, fill=None):
         # el = Ellipse(((x0+x1)/2, (y0+y1)/2), x1-x0, y1-y0, edgecolor=self.color, facecolor='none', linewidth=self.linewidth)
         # self.canvas.add_artist(el)
-        self.canvas.create_oval(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin)
+        self.canvas.create_oval(x0 + self.xmargin, y0 + self.ymargin, x1 + self.xmargin, y1 + self.ymargin, width=self.linewidth)
         
     def drawSpline(self, x, y):
-        # from scipy import interpolate
-        # tck,u     = interpolate.splprep( [x,y] ,s = 0 )
-        # xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
-        # self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
-        print('[WARNING] spline not supported yet')
         from scipy import interpolate
         tck,u     = interpolate.splprep( [x,y] ,s = 0 )
         xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
