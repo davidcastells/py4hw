@@ -100,6 +100,7 @@ class Waveform(Logic):
         for obj in self.wires:
             w = Waveform.getwire(obj)
             wavedata = 'x'
+            wavedatadata = []
             
             data = self.data[obj]
             last = 'x'
@@ -107,13 +108,17 @@ class Waveform(Logic):
             for i in range(numclks):
                 v = data[i]
                 if (v != last):
-                    wavedata += '{}'.format(v)
+                    if (w.getWidth() == 1):
+                        wavedata += '{}'.format(v)
+                    else:
+                        wavedata += '{}'.format(2)
+                        wavedatadata += '{:X}'.format(v)
                 else:
                     wavedata += '.'
                 last = v
                     
             wavedata += 'x'
-            signals.append({'name': obj.getFullPath(), 'wave':wavedata})
+            signals.append({'name': obj.getFullPath(), 'wave':wavedata, 'data':wavedatadata})
 
         wavedata = 'P'
         for i in range(numclks):
