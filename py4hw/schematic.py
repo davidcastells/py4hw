@@ -44,11 +44,11 @@ class MatplotlibRender:
         self.linewidth = 2
         
     def setForecolor(self, color):
-        print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        #print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
         self.color = colors.rgb2hex(colors.to_rgb(color))
         
     def setFillcolor(self, color):
-        print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
+        #print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
         self.fillcolor = colors.rgb2hex(colors.to_rgb(color))
         
     def setLineWidth(self, w):
@@ -234,7 +234,7 @@ class Schematic:
 
     step_timeout = 10 # any step of the schematic rendering cannot take more than this value (seconds)
     
-    def __init__(self, obj:Logic, render='matplotlib', parent=None):
+    def __init__(self, obj:Logic, render='matplotlib', parent=None, placeAndRoute=True):
    
         if not(obj.isStructural()):
             raise Exception('Schematics are only available to structural circuits')
@@ -284,8 +284,21 @@ class Schematic:
         self.mapping[Range] = RangeSymbol
 
         self.mapping[Waveform] = ScopeSymbol # Temp solution
-        
 
+        self.render = render        
+
+        if (placeAndRoute):
+            self.placeAndRoute()
+        
+        
+        # schematics are created but not directly drawn to allow 
+        # the manipulation of the graphical objects
+        
+        #self.drawAll()
+        
+        #mainloop()
+
+    def placeAndRoute(self):
         self.placeInputPorts()
         self.placeInstances()
         self.placeOutputPorts()
@@ -312,23 +325,6 @@ class Schematic:
         
 
         self.routeNets()
-        
-        
-        if (render == 'matplotlib'):
-            self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
-        elif (render == 'tkinter'):
-            self.canvas = TkinterRender(parent, self.getOccupancyGrid().shape)
-        else:
-            raise Exception('Unsupported render {}'.format(render))
-            
-        self.canvas.setForecolor('k')
-        
-        # schematics are created but not directly drawn to allow 
-        # the manipulation of the graphical objects
-        
-        #self.drawAll()
-        
-        #mainloop()
         
         
     def draw(self):
@@ -460,9 +456,11 @@ class Schematic:
         for outp in outports:
             wire = outp.wire
             
-            for src in self.sinks:
-                if (src['wire'] == wire):
-                    ret.append(src['symbol'])
+            if not(wire in self.maxfanoutwires):
+                # avoid to report elements connected by pruned wires
+                for src in self.sinks:
+                    if (src['wire'] == wire):
+                        ret.append(src['symbol'])
         
         # if multiple wires connect between two symbols, there will be repetitions
         # so remove duplicates
@@ -490,12 +488,62 @@ class Schematic:
                 return colidx
             
         return -1
-                            
+                          
+    def columnManualAssignment(self, inlist, inslist, outlist):
+        self.columns = []
+        
+        
+        # Process inputs
+        unsorted = {}
+        currentCol = []
+        for idx, obj in enumerate(self.objs):
+            if (idx < self.numInputs):
+                unsorted[obj.obj.name] = obj
+                
+        for name in inlist:
+            currentCol.append(unsorted[name])
+        self.columns.append(currentCol)
+        
+        # Process instances
+        for inskeys in inslist:
+            unsorted = {}
+            currentCol = []
+            for idx, obj in enumerate(self.objs):
+                if (idx < self.numInputs):
+                    pass
+                elif (idx < self.firstOutput):
+                    if (obj.obj.name in inskeys):
+                        unsorted[obj.obj.name] = obj
+            
+            for name in inskeys:
+                currentCol.append(unsorted[name])
+            self.columns.append(currentCol)    
+        
+        # Process outputs
+        unsorted = {}
+        currentCol = []
+        for idx, obj in enumerate(self.objs):
+            if (idx >= self.firstOutput):
+                unsorted[obj.obj.name] = obj
+        for name in outlist:
+            currentCol.append(unsorted[name])
+        self.columns.append(currentCol)
+        
     def columnAssignment(self):
+        """
+        Creates the columns structure and assigns inputs, instances and outputs 
+        to a column
+
+        Returns
+        -------
+        None.
+
+        """
         self.columns = []
         currentCol = []
         
-        # append inputs
+        # append inputs. We know that inputs are always at the start
+        # of the object list
         for idx, obj in enumerate(self.objs):
             if (idx < self.numInputs):
                 currentCol.append(obj)
@@ -954,6 +1002,28 @@ class Schematic:
         return ret(obj, x, y)
         
 
+    def placeInstance(self, child):
+        isym = self.getSymbol(child, self.x, self.y)
+        
+        if (isym is None):
+            isym = InstanceSymbol(child, self.x, self.y)
+        
+        self.objs.append(isym)
+        self.y = self.y + isym.getHeight() + cellmargin * 2 
+
+        i = 0
+        for inp in child.inPorts:
+            #print('adding inport ', child, inp.name)
+            self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
+            i = i+1
+        i = 0
+        for inp in child.outPorts:
+            #print('adding outport ', child, inp.name)
+            self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
+            i = i+1
+                
+        return isym
+    
     def placeInstances(self):
         maxx = 0
         self.y = gridsize*3
@@ -961,27 +1031,7 @@ class Schematic:
         #print('placeInstances', self.sys)
         
         for child in self.sys.children.values():
-            #print('child', child)
-            isym = self.getSymbol(child, self.x, self.y)
-            
-            if (isym is None):
-                isym = InstanceSymbol(child, self.x, self.y)
-            
-            self.objs.append(isym)
-            self.y = self.y + isym.getHeight() + cellmargin * 2 
- 
-            i = 0
-            for inp in child.inPorts:
-                #print('adding inport ', child, inp.name)
-                self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
-                i = i+1
-            i = 0
-            for inp in child.outPorts:
-                #print('adding outport ', child, inp.name)
-                self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
-                i = i+1
-                    
-    
+            isym = self.placeInstance(child)
             maxx = max(maxx, isym.getWidth())
             
         self.x = self.x + maxx + gridsize*10 + cellmargin
@@ -1023,7 +1073,7 @@ class Schematic:
     def createNets(self):
         """
         Create nets for all entities in the drawing.
-        It potulates the self.nets list by analyzing the sinks
+        It populates the self.nets list by analyzing the sinks
         list which was collected in function createOutputPorts
 
         Returns
@@ -1038,7 +1088,47 @@ class Schematic:
                 self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
             except Exception as err:
                 print('Exception', err)
+                
+        self.maxfanoutwires = []
 
+    def createNetsWithMaxFanout(self, maxfanout):
+        """
+        Create nets for all entities in the drawing.
+        It populates the self.nets list by analyzing the sinks
+        list which was collected in function createOutputPorts
+    
+        Returns
+        -------
+        None.
+    
+        """
+        sourceWires = {}
+        for src in self.sinks:
+            wire = src['wire']
+            try:
+                symlist = sourceWires[wire]
+            except:
+                symlist = []
+            symlist.append(src['symbol'])
+            sourceWires[wire] = symlist
+            
+        self.maxfanoutwires = [x for x in sourceWires.keys() if len(sourceWires[x]) > maxfanout] 
+            
+        for sink in self.sinks:
+            try:
+                wire = sink['wire']
+                
+                fanout = len(sourceWires[wire])
+                
+                if (fanout <= maxfanout):
+                    source = self.findSourceTuple(wire)
+                    self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
+                else:
+                    print('skip wire {} fanout: {}'.format(wire.getFullPath(), fanout))
+                    
+            except Exception as err:
+                print('Exception', err)
+                
     def getNets(self):
         #oa = np.array(self.objs)
         #ba = np.array([isinstance(x, NetSymbol) for x in self.objs])
@@ -1052,6 +1142,16 @@ class Schematic:
         return self.objs
     
     def drawAll(self):
+        render = self.render
+        if (render == 'matplotlib'):
+            self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
+        elif (render == 'tkinter'):
+            self.canvas = TkinterRender(parent, self.getOccupancyGrid().shape)
+        else:
+            raise Exception('Unsupported render {}'.format(render))
+            
+        self.canvas.setForecolor('k')
+
         # Draw Instances
         
         # @todo the color and line properties should be assigned during creation 
@@ -1064,8 +1164,9 @@ class Schematic:
 
         # Draw Nets
         for obj in self.getNets():
-            self.canvas.setForecolor('blueviolet')  
-            self.canvas.setFillcolor('blueviolet')
+            
+            self.canvas.setForecolor(obj.color)  
+            self.canvas.setFillcolor(obj.color)
             self.canvas.setLineWidth(1)
             
             obj.draw(self.canvas)
@@ -1109,6 +1210,15 @@ class Schematic:
         self.objs[a], self.objs[b] = self.objs[b], self.objs[a] 
 
     def bruteForceSort(self):
+        """
+        Sort the object list
+
+        Returns
+        -------
+        am : TYPE
+            DESCRIPTION.
+
+        """
         am = self.getAdjacencyMatrix()
         nc = am.shape[0]
 
