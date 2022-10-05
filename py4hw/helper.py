@@ -28,6 +28,24 @@ class LogicHelper:
         Abs(self.parent, name, a, r)
         return r
 
+    def hw_add(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)+1
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Add(self.parent, name, a, b, r)
+        return r
+
+    def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Add(self.parent, name, a, b, r)
+        return r
+    
     def hw_and2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
@@ -94,6 +112,24 @@ class LogicHelper:
         r = self.parent.wire(name, width)
         Constant(self.parent, name, v, r)
         return r
+
+    def hw_div(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Div(self.parent, name, a, b, r)
+        return r
+    
+    def hw_signed_div(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        SignedDiv(self.parent, name, a, b, r)
+        return r    
 
     def hw_equal(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
@@ -163,6 +199,14 @@ class LogicHelper:
         return r
 
     
+    def hw_mul(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = wa+wb
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Mul(self.parent, name, a, b, r)
+        return r
         
     def hw_mux2(self, sel:Wire, s0:Wire, s1:Wire) -> Wire:
         w = s0.getWidth()
@@ -211,7 +255,31 @@ class LogicHelper:
         r = self.parent.wire(name, width)
         Sequence(self.parent, name, seq, r)
         return r
- 
+
+class IntegerHelper:
+    @staticmethod
+    def sign(v):
+        if (v < 0):
+            return -1
+        else:
+            return 1
+        
+    @staticmethod
+    def signed_to_c2(v, w):
+        mask = (1<<w)-1
+        return v & mask
+
+    @staticmethod
+    def c2_to_signed(v, w):
+        sign = 1 << (w-1)
+        if ((v & sign) > 0):
+            # negative
+            return (v - (1 << w))
+        else:
+            return v
+        
+class FixedPointHelper:
+    pass
 
 class FloatingPointHelper:
 
