@@ -94,3 +94,42 @@ class TReg(Logic):
         Mux2(self, 'mux', t, q, nq, d)
         Reg(self, 'reg', d, q, enable=e)
         
+class DelayLine(Logic):
+    def __init__(self, parent, name:str, a:Wire, en:Wire, r:Wire, delay:int):
+        """
+        Daisy-chained number of registers, typically used to create a 
+        fixed-length delay line
+        
+        Parameters
+        ----------
+        parent : Logic
+            Parent entity.
+        name : str
+            instance name.
+        a : Wire
+            input.
+        en : Wire
+            enable signal.
+        r : Wire
+            output.
+        delay : int
+            number of registers in the delay line.
+
+        Returns
+        -------
+        None.
+
+        """
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addIn('en', en)
+        self.addOut('r', r)
+
+        last = a
+        for i in range(delay):
+            newlast = self.wire('r{}'.format(i), a.getWidth())
+            Reg(self, 'r{}'.format(i), last, newlast, enable=en)
+            last = newlast
+            
+        Buf(self, 'buf', last, r)
