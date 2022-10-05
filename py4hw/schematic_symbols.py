@@ -730,6 +730,7 @@ class NetSymbol:
         self.y = None
         self.routed = False
         self.arrow = True
+        self.color = 'blueviolet'
         
     def getStartPoint(self):
         objsource = self.source
