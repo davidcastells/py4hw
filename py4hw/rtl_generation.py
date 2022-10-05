@@ -226,6 +226,9 @@ def InlineMux2(obj:Logic):
 def InlineAdd(obj:Logic):
     return "assign {} = {} + {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
+def InlineMul(obj:Logic):
+    return "assign {} = {} * {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+
 def InlineDiv(obj:Logic):
     return "assign {} = {} / {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
@@ -373,6 +376,7 @@ class VerilogGenerator:
         self.inlinablePrimitives = {}
         
         self.inlinablePrimitives[Add] = InlineAdd
+        self.inlinablePrimitives[Mul] = InlineMul
         self.inlinablePrimitives[And2] = InlineAnd2
         self.inlinablePrimitives[And] = InlineAnd
         self.inlinablePrimitives[Buf] = InlineBuf
@@ -403,7 +407,7 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
-    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=False):
+    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True):
         """
         Generates Verilog for all entities of the object hierarchy
 
