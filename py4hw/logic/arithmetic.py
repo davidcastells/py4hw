@@ -144,7 +144,7 @@ class Mul(Logic):
 
 class Div(Logic):
     """
-    Combinational Arithmetic Multiplier
+    Combinational Arithmetic Divider
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
@@ -156,6 +156,41 @@ class Div(Logic):
     def propagate(self):
         self.r.put(self.a.get() // self.b.get())
 
+
+class SignedDiv(Logic):
+    """
+    Combinational Arithmetic Divider
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+        abs_a = self.wire('abs_a', a.getWidth())
+        abs_b = self.wire('abs_b', b.getWidth())
+        
+        Abs(self, 'abs_a', a, abs_a)
+        Abs(self, 'abs_b', b, abs_b)
+        
+        sign_a = self.wire('sign_a')
+        sign_b = self.wire('sign_b')
+        
+        Sign(self, 'sign_a', a, sign_a)
+        Sign(self, 'sign_b', b, sign_b)
+       
+        q = self.wire('q', r.getWidth())        
+        neg_q = self.wire('neg_q', r.getWidth())
+        
+        Div(self, 'div', abs_a, abs_b, q)
+        Neg(self, 'neg', q, neg_q)
+        
+        sign_r = self.wire('sign_r')
+        Xor2(self, 'sign_r', sign_a, sign_b, sign_r) 
+        
+        Mux2(self, 'r', sign_r, q, neg_q, r)        
+        
 
 class Sub(Logic):
     """
