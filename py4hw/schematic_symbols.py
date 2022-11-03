@@ -619,6 +619,7 @@ class Mux2Symbol(LogicSymbol):
 class PassthroughSymbol(LogicSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
+        self.debug = False
         
     def getHeight(self):
         return 30
@@ -629,15 +630,18 @@ class PassthroughSymbol(LogicSymbol):
     def draw(self, canvas):
         x = self.x
         y = self.y
-        
-        canvas.setForecolor('blueviolet')  
-        canvas.setLineWidth(1)
-        
-        #canvas.drawRectangle(x, y, x+30, y+30)
-        canvas.drawLine(x, y+15, x+30, y+15)
 
-        canvas.setForecolor('k')  
-        canvas.setLineWidth(2)
+        if (self.debug):       
+            canvas.setFillcolor('yellow')  
+            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+        else:
+            canvas.setForecolor('blueviolet')  
+            canvas.setLineWidth(1)
+            
+            canvas.drawLine(x, y+15, x+30, y+15)
+    
+            canvas.setForecolor('k')  
+            canvas.setLineWidth(2)
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -648,6 +652,7 @@ class PassthroughSymbol(LogicSymbol):
 class FeedbackStartSymbol(LogicSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
+        self.debug = False
         
     def getHeight(self):
         return 30
@@ -658,15 +663,19 @@ class FeedbackStartSymbol(LogicSymbol):
     def draw(self, canvas):
         x = self.x
         y = self.y
-        
-        canvas.setForecolor('red')  
-        canvas.setLineWidth(1)
-        
-        #canvas.drawRectangle(x, y, x+30, y+30)
-        canvas.drawLine(x, y+15, x+30, y+15)
 
-        canvas.setForecolor('k')  
-        canvas.setLineWidth(2)
+        if (self.debug):       
+            canvas.setFillcolor('lightgreen')  
+            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+        else:            
+            # canvas.setForecolor('red')  
+            # canvas.setLineWidth(1)
+            
+            # canvas.drawLine(x, y+15, x+30, y+15)
+        
+            # canvas.setForecolor('k')  
+            # canvas.setLineWidth(2)
+            pass
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -677,6 +686,7 @@ class FeedbackStartSymbol(LogicSymbol):
 class FeedbackStopSymbol(LogicSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
+        self.debug = False
         
     def getHeight(self):
         return 30
@@ -687,15 +697,20 @@ class FeedbackStopSymbol(LogicSymbol):
     def draw(self, canvas):
         x = self.x
         y = self.y
-        
-        canvas.setForecolor('red')  
-        canvas.setLineWidth(1)
-        
-        #canvas.drawRectangle(x, y, x+30, y+30)
-        canvas.drawLine(x, y+15, x+30, y+15)
 
-        canvas.setForecolor('k')  
-        canvas.setLineWidth(2)
+        if (self.debug):       
+            canvas.setFillcolor('red')  
+            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+        else:
+            # canvas.setForecolor('red')  
+            # canvas.setLineWidth(1)
+            
+            # #canvas.drawRectangle(x, y, x+30, y+30)
+            # canvas.drawLine(x, y+15, x+30, y+15)
+    
+            # canvas.setForecolor('k')  
+            # canvas.setLineWidth(2)
+            pass
         
     def getWireSinkPos(self, wire:Wire):
         return (0, 15);
@@ -707,7 +722,7 @@ class FeedbackStopSymbol(LogicSymbol):
 class NetSymbol:
     def __init__(self, wire:Wire, source:LogicSymbol, sink:LogicSymbol):
         """
-        Constructor of net symbol
+        A net symbol connects two entities.
 
         Parameters
         ----------
