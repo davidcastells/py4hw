@@ -24,18 +24,27 @@ netspacing = 10
 nettrackspacing = 10
 
 class MatplotlibRender:
-    def __init__(self, shape):
-        w = shape[0]
-        h = shape[1]
-        dpi = 100
-        iw = w / dpi 
-        ih = h / dpi
+    def __init__(self, shape, physical_shape=None, dpi=None):
+        w = shape[1]
+        h = shape[0]
+        if (physical_shape is None):
+            if (dpi is None):
+                dpi = 100
+            iw = w / dpi 
+            ih = h / dpi
+            #print('w/h = ',w,h, 'iw/ih', iw,ih)
+        else:
+            iw = physical_shape[1]
+            ih = physical_shape[0]
+            if (dpi is None):
+                dpi = max(w / iw, h / ih)
+            
         pmax = max(w,h)
         imax = max(iw, ih)
-        f = plt.figure(figsize=(imax,imax), dpi=dpi)
+        f = plt.figure(figsize=(iw,ih), dpi=dpi)
         self.canvas = f.add_subplot()
-        self.canvas.set_xlim(0, pmax)
-        self.canvas.set_ylim(0, pmax)
+        self.canvas.set_xlim(0, w)
+        self.canvas.set_ylim(0, h)
         self.canvas.invert_yaxis()
         plt.axis('off')
         
@@ -286,6 +295,7 @@ class Schematic:
         self.mapping[Waveform] = ScopeSymbol # Temp solution
 
         self.render = render        
+        self.canvas = None
 
         if (placeAndRoute):
             self.placeAndRoute()
@@ -306,7 +316,7 @@ class Schematic:
         self.bruteForceSort()
         self.columnAssignment()
         
-        self.createNets()
+        self.createNets()                   
         self.passthroughCreation()
         self.removeArrowsSpecialCases()
         
@@ -616,7 +626,7 @@ class Schematic:
             if (colidx < len(self.channels)):
                 self.channels[colidx]['sourcewidth'] = maxw
     
-    def passthroughCreation(self):
+    def passthroughCreation(self, debug=False):
         """
         Create passthrough entities.
         For connected entities that are separated by more than 1 column
@@ -646,12 +656,12 @@ class Schematic:
                     
                     if (sinkcol > colidx +1):
                         #print('WARNING: passthrough required between: [{}]'.format(colidx), type(obj).__name__, '[{}]'.format(sinkcol), type(sink).__name__, )
-                        self.insertPassthrough(obj, colidx, sink, sinkcol)
+                        self.insertPassthrough(obj, colidx, sink, sinkcol, debug)
                     if (sinkcol <= colidx):
                         #print('WARNING: feedback required between: [{}]'.format(colidx), type(obj).__name__, '[{}]'.format(sinkcol), type(sink).__name__)
-                        self.insertFeedback(obj, colidx, sink, sinkcol)
+                        self.insertFeedback(obj, colidx, sink, sinkcol, debug)
 
-    def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
+    def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int, debug=False):
         """
         A passthrough instance has to be inserted for every wire connecting both entities
 
@@ -692,6 +702,7 @@ class Schematic:
             
             for col in range(sourcecol+1, sinkcol):
                 pts = PassthroughSymbol()
+                pts.debug = debug
                 self.objs.append(pts)
                 self.columns[col].append(pts)
                 self.sources.append({'symbol':pts, 'wire':wire})
@@ -713,7 +724,7 @@ class Schematic:
         for idx, net in enumerate(self.nets):
             print('Net {} wire:{} source:{} {}  sink:{} {}'.format(idx, net.wire.getFullPath(), id(net.source), type(net.source).__name__ , id(net.sink), type(net.sink).__name__))
             
-    def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int):
+    def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int, debug=False):
         """
         A passthrough instance has to be inserted for every wire connecting both entities
 
@@ -757,33 +768,35 @@ class Schematic:
             
             #self.channels[sourcecol+1]
             fb_start = FeedbackStartSymbol()
+            fb_start.debug = debug
             self.objs.append(fb_start)
-            self.columns[sourcecol+1].append(fb_start)
+            self.columns[sourcecol].append(fb_start)
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
             net1 = NetSymbol(wire, lastSymbol, fb_start)
             net1.sourcecol = sourcecol
             net1.arrow = False
-            self.nets.append(net1)
-            
+            self.nets.append(net1)            
             
             fb_end = FeedbackStopSymbol()
+            fb_end.debug = debug
             self.objs.append(fb_end)
-            self.columns[sinkcol-1].append(fb_end)
+            self.columns[sinkcol].append(fb_end)
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
             net2 = NetSymbol(wire, fb_end, sink)
-            net2.sourcecol = sinkcol-1
+            net2.sourcecol = sinkcol
             net2.arrow = True
             self.nets.append(net2)
             
             lastSymbol = fb_end
             
             
-            for col in range(sinkcol, sourcecol+1):
+            for col in range(sinkcol+1, sourcecol):
                   pts = PassthroughSymbol()
+                  pts.debug = debug
                   self.objs.append(pts)
                   self.columns[col].append(pts)
                   self.sources.append({'symbol':pts, 'wire':wire})
@@ -1140,15 +1153,39 @@ class Schematic:
         #ba = np.array([not isinstance(x, NetSymbol) for x in self.objs])
         #return list(oa[ba])
         return self.objs
-    
-    def drawAll(self):
+
+    def createRender(self, physical_shape=None, dpi=None) :
+        """
+        Creates the renderer object
+
+        Parameters
+        ----------
+        physical_shape : tuple, optional
+            Dimension of the physical canvas (in inches). The default is None.
+        dpi : dots per inch, optional
+            Dots per inch of the drawing canvas. The default is None, and it is calculated.
+
+        Raises
+        ------
+        Exception
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         render = self.render
         if (render == 'matplotlib'):
-            self.canvas = MatplotlibRender(self.getOccupancyGrid().shape)
+            self.canvas = MatplotlibRender(self.getOccupancyGrid().shape, physical_shape, dpi)
         elif (render == 'tkinter'):
             self.canvas = TkinterRender(parent, self.getOccupancyGrid().shape)
         else:
             raise Exception('Unsupported render {}'.format(render))
+
+    def drawAll(self):
+        if (self.canvas is None):
+            self.createRender()
             
         self.canvas.setForecolor('k')
 
@@ -1375,7 +1412,21 @@ class Schematic:
         
         return v == 0
         
-    def routeNet(self, net:NetSymbol):
+    def routeNetSquare(self, net:NetSymbol):
+        """
+        Route a single net. The process consist in assigning 
+        a collection of points (path) to go from a source to a destination
+
+        Parameters
+        ----------
+        net : NetSymbol
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         p0 = net.getStartPoint()
         pf = net.getEndPoint()
         
@@ -1399,29 +1450,111 @@ class Schematic:
             print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
             net.track = 0
 
-        mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
             
         if (isinstance(net.source, FeedbackStopSymbol)):
-            #print('Feedback-stop track:', net.track, mp[0])
-            net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
+            # In stop symbols, the source and sink are in the same column
+            if (isinstance(net.sink, FeedbackStartSymbol) or isinstance(net.sink, PassthroughSymbol)):
+                # Normal case, midpoint is between both elements
+                mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)                
+                net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+            else:
+                mp = (net.source.x  - netspacing - net.track * nettrackspacing, -1)
+    
+                #print('Feedback-stop track:', net.track, mp[0])
+                #net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
+                net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1], p0[1], pf[1], pf[1]])
         elif (isinstance(net.sink, FeedbackStartSymbol)):
+            # In start symbols, the source and sink are in the same column, 
+            # midpoint is similar to normal case (in x)
+            mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, -1)                
+            
             #print('Feedback-start track:', net.track, mp[0])
-            net.setPath([p0[0], mp[0], mp[0]], [p0[1],p0[1],pf[1]])
-        else:                  
+            net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1], p0[1], pf[1], pf[1]])
+        else:                 
+            # Normal case, midpoint is between both elements
+            mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)                
             net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
 
         #mp[0] = p0[0] + net.track * nettrackspacing
         
         net.routed = True
     
+    def routeNetDirect(self, net:NetSymbol):
+        """
+        Route a single net. The process consist in assigning 
+        a collection of points (path) to go from a source to a destination
+
+        Parameters
+        ----------
+        net : NetSymbol
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        p0 = net.getStartPoint()
+        pf = net.getEndPoint()
+        
+
+        # sw = 0
+        # try:
+        #     sw = self.channels[net.sourcecol]['sourcewidth'] 
+        #     #sw = sw - net.source['symbol'].getWidth() + netspacing
+        #     #print('sw[{}]={}'.format(net.sourcecol, sw))
+        # except:
+        #     if (hasattr(net, 'sourcecol') == False):
+        #         # this net was not assigned a sourcecol
+        #         print('WARNING: net', net.source['wire'].getFullPath(), 'without source column')
+        #         net.track = 0
+        #     else:
+        #         print('error sourcecol=', net.sourcecol)
+        #         print('channels[{}]'.format(net.sourcecol), self.channels[net.sourcecol])
+        #         print('source sym', net.source)
+        
+        # if (hasattr(net, 'track') == False):
+        #     print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
+        #     net.track = 0
+
+        # mp = (net.source.x + sw + netspacing + net.track * nettrackspacing, (p0[1]+pf[1])//2)    
+            
+        # if (isinstance(net.source, FeedbackStopSymbol)):
+        #     #print('Feedback-stop track:', net.track, mp[0])
+        #     net.setPath([mp[0], mp[0], pf[0]], [p0[1],pf[1],pf[1]])
+        # elif (isinstance(net.sink, FeedbackStartSymbol)):
+        #     #print('Feedback-start track:', net.track, mp[0])
+        #     net.setPath([p0[0], mp[0], mp[0]], [p0[1],p0[1],pf[1]])
+        # else:                  
+        #     net.setPath([p0[0], mp[0], mp[0], pf[0]], [p0[1],p0[1],pf[1],pf[1]])
+
+        net.setPath([p0[0], pf[0]], [p0[1],pf[1]])
+
+        #mp[0] = p0[0] + net.track * nettrackspacing
+        
+        net.routed = True
     
-    def routeNets(self):
+    def routeNets(self, mode='square'):
+        """
+        Route all the nets
+
+        Returns
+        -------
+        None.
+
+        """
         nets = self.getNets()
         
-        for net in nets:
-            # route net
-            self.routeNet(net)
-                        
+        if (mode == 'square'):
+            for net in nets:
+                # route net
+                self.routeNetSquare(net)
+        elif (mode == 'direct'):
+            for net in nets:
+                # route net
+                self.routeNetDirect(net)
+        else:
+            raise Exception('Unsupported net routing mode {}'.format(mode))
 
         # for inp in self.obj.outPorts:
         #     canvas.create_text(x+15-2, y, text=inp.name , anchor='e')
