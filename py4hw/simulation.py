@@ -39,6 +39,8 @@ class Simulator:
         None.
 
         """
+        self.total_clks = 0
+        
         if sys.simulator != None:
             return
 
@@ -178,7 +180,12 @@ class Simulator:
         None.
 
         """
+        self.do_run = True
         for i in range(cycles):
+            if not(self.do_run):
+                # simulation was cancelled by stop
+                return
+            
             self._clk_cycle();
             
             
@@ -204,7 +211,11 @@ class Simulator:
             obj.propagate();
             
         self._notifyListeners()
-            
+        self.total_clks += 1
+
+    def stop(self):
+        self.do_run = False
+           
     def addListener(self, listener):
         self.listeners.append(listener)
         
