@@ -284,7 +284,9 @@ class FixedPointHelper:
 class FloatingPointHelper:
 
     @staticmethod
-    def sp_to_parts(v):
+    def fp_to_parts(v):
+        if (math.isinf(v) or math.isnan(v)):
+            raise Exception('invalid value {}'.format(v))
         e = 0
         s=0
         m = v
@@ -308,7 +310,7 @@ class FloatingPointHelper:
 
     @staticmethod
     def sp_to_fixed_point_parts(v):
-        s,e,m = FloatingPointHelper.sp_to_parts(v)
+        s,e,m = FloatingPointHelper.fp_to_parts(v)
 
         if (m == 0):
             return 0,0,0
@@ -338,14 +340,87 @@ class FloatingPointHelper:
             representation of mantissa int((m-1)<<23) 
 
         """
-        s,e,m = FloatingPointHelper.sp_to_parts(v)
+        if (math.isinf(v)):
+            s = 0 if v > 0 else 1
+            e = 255
+            m = 0
+            return s,e,m
+            
+        s,e,m = FloatingPointHelper.fp_to_parts(v)
 
         if (m == 0):
             return 0,0,0
         else:
-            re = 127 + e
-            rm = int(round((m-1) * (1<<23)))
+            if (e >= 128):
+                return s,255,0  # infinity
+                
+            if (e <= -127):
+                # denormalized values
+                div = math.pow(2, (-127-e))
+                #print('e',e,'div', div)
+                m = m / div
+                re = 0
+                rm = int(round(m * (1 << 22)))
+            else:
+                im = int(round((m-1) * (1<<23)))
+                if (im >= (1<<23)):
+                    e += 1
+                    m /= 2
+                    
+                re = 127 + e
+                rm = int(round((m-1) * (1<<23)))
+    
+            return s, re, rm
 
+    def dp_to_ieee754_parts(v):
+        """
+        Return the parts of the IEEE 754 representation of v
+
+        Parameters
+        ----------
+        v : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        int
+            sign.
+        int
+            biased representation of exponent (e+1023)
+        int
+            representation of mantissa int((m-1)<<52) 
+
+        """
+        if (math.isinf(v)):
+            s = 0 if v > 0 else 1
+            e = 2047
+            m = 0
+            return s,e,m
+            
+        s,e,m = FloatingPointHelper.fp_to_parts(v)
+
+        if (m == 0):
+            return 0,0,0
+        else:
+            if (e >= 1024):
+                return s,2047,0  # infinity
+                
+            if (e <= -1023):
+                # denormalized values
+                div = math.pow(2, (-1023-e))
+                #print('e',e,'div', div)
+                m = m / div
+                re = 0
+                rm = int(round(m * (1 << 51)))
+            else:
+                im = int(round((m-1) * (1<<52)))
+                if (im >= (1<<52)):
+                    e += 1
+                    m /= 2
+                    
+                re = 1023 + e
+                rm = int(round((m-1) * (1<<52)))
+    
             return s, re, rm
 
     @staticmethod
@@ -356,9 +431,18 @@ class FloatingPointHelper:
         r = r | (e << 23)
         r = r | (m)
         return r
+    
+    @staticmethod
+    def dp_to_ieee754(v):
+        s,e,m = FloatingPointHelper.dp_to_ieee754_parts(v)
+        
+        r = s << 63
+        r = r | (e << 52)
+        r = r | (m)
+        return r
 
     @staticmethod
-    def parts_to_sp(s, e, m):
+    def parts_to_fp(s, e, m):
         return math.pow(-1, s) * math.pow(2, e) * m
 
     @staticmethod
@@ -390,10 +474,52 @@ class FloatingPointHelper:
             else:
                 return 0.0
             
-        ef = e-127
-        mf = ((1 << 23) | m) / (1<<23)
+        if (e == 0):
+            ef = -126
+            mf = m / (1<<23)
+        else:
+            ef = e-127
+            mf = ((1 << 23) | m) / (1<<23)
         
-        return FloatingPointHelper.parts_to_sp(s , ef , mf)
+        return FloatingPointHelper.parts_to_fp(s , ef , mf)
+    
+    @staticmethod
+    def ieee754_parts_to_dp(s, e, m):
+        """
+        We build a floating point number from is sign/exponent/mantisa representation
+        as it is store in the IEEE754 format
+
+        Parameters
+        ----------
+        s : int
+            sign.
+        e : int
+            exponent.
+        m : TYPE
+            mantisa.
+
+        Returns
+        -------
+        float
+            floating point number r = (-1)^s * 2^e * m
+
+        """
+        
+        # zero is a special case
+        if (e == 0 and m == 0):
+            if (s == 1):
+                return -0.0
+            else:
+                return 0.0
+            
+        if (e == 0):
+            ef = -1022
+            mf = m / (1<<52)
+        else:
+            ef = e-1023
+            mf = ((1 << 52) | m) / (1<<52)
+        
+        return FloatingPointHelper.parts_to_fp(s , ef , mf)
     
     @staticmethod
     def ieee754_to_sp(v):
@@ -404,7 +530,24 @@ class FloatingPointHelper:
         e = (v >> 23) & 0xFF
         m = (v & ((1<<23)-1))  
         
+        if (e == 255):
+            return -math.inf if (s == 1) else math.inf 
+        
         return FloatingPointHelper.ieee754_parts_to_sp(s, e, m)
+
+    @staticmethod
+    def ieee754_to_dp(v):
+        if (v == 0):
+            return 0.0
+        
+        s = v >> 63
+        e = (v >> 52) & 0x7FF
+        m = (v & ((1<<52)-1))  
+        
+        if (e == 0x7FF):
+            return -math.inf if (s == 1) else math.inf 
+        
+        return FloatingPointHelper.ieee754_parts_to_dp(s, e, m)
 
     @staticmethod
     def ieee754_stored_internally(v):
