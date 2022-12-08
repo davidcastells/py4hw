@@ -294,6 +294,7 @@ class Schematic:
 
         self.mapping[Waveform] = ScopeSymbol # Temp solution
 
+        self.parent = parent
         self.render = render        
         self.canvas = None
 
@@ -373,32 +374,38 @@ class Schematic:
         self.channels = [] 
         
         #print('cols', self.columns)
-        for colidx in range(1, numCols):
+        for colidx in range(0, numCols):
             track = 0
-            netsInCol = [n for n in nets if n.sink in self.columns[colidx]]
+            netsInCol = [n for n in nets if n.sourcecol == colidx]
             
-            # temporal object to check if several nets are created from the same
-            # source
+            # temporal object to check if several nets are created from the 
+            # same source
             channeltracks = {}
             
             #print('Nets is column', colidx, netsInCol )
             for net in netsInCol:
                 try:
-                    existingtrack = channeltracks[net.source['wire']]
+                    existingtrack = channeltracks[net.wire]
+                    
                 except:
                     existingtrack = None
                     
+                
                 if (existingtrack == None):
+                    # There is not track for this wire
                     net.track = track
                     track = track + 1
                     channeltracks[net.wire]={'num':net.track, 'nets':[net]}
+                    #print('track:', net.track, 'channel tracks:', channeltracks)
                 else:
                     net.track = existingtrack['num']
                     existingtrack['nets'].append(net)
+                 
+                # do not update the sourcecol
+                #net.sourcecol = colidx - 1
                     
-                net.sourcecol = colidx - 1
-                    
-                
+            print('col:', colidx, ['{}->{}'.format(type(x.source).__name__, type(x.sink).__name__)  for x in netsInCol])
+            #print('track:', track, 'channel tracks:', channeltracks)
             self.channels.append({'tracks':track, 'track':channeltracks})
         
     def getAllInstanceSources(self, sym:LogicSymbol):
@@ -718,6 +725,7 @@ class Schematic:
                 
             if (lastSymbol != None):
                 net2 = NetSymbol(wire, pts, sink)
+                net2.sourcecol = sinkcol-1
                 self.nets.append(net2)
                                 
     def dumpNets(self):
@@ -812,6 +820,7 @@ class Schematic:
                 
             if (lastSymbol != None):
                  net2 = NetSymbol(wire, lastSymbol, fb_start)
+                 net2.sourcecol = sourcecol
                  net2.arrow = False
                  self.nets.append(net2)
 
@@ -1098,11 +1107,57 @@ class Schematic:
             try:
                 wire = sink['wire']
                 source = self.findSourceTuple(wire)
-                self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
+                sourcecol = self.getSymbolColumn(source['symbol'])
+                sinkcol = self.getSymbolColumn(sink['symbol'])
+
+                net = NetSymbol(wire, source['symbol'], sink['symbol'])
+                net.sourcecol = sourcecol
+                net.sinkcol = sinkcol
+                self.nets.append(net)   
             except Exception as err:
                 print('Exception', err)
                 
         self.maxfanoutwires = []
+
+    # def createNetsWithJoints(self):
+    #     """
+    #     Create nets for all entities in the drawing.
+    #     It populates the self.nets list by analyzing the sinks
+    #     list which was collected in function createOutputPorts
+
+    #     Returns
+    #     -------
+    #     None.
+
+    #     """
+        
+    #     # build a list for all the sinks of a wire
+    #     netSinks = {}
+    #     for src in self.sinks:
+    #         wire = src['wire']
+    #         try:
+    #             symlist = netSinks[wire]
+    #         except:
+    #             symlist = []
+    #         symlist.append(src['symbol'])
+    #         netSinks[wire] = symlist
+
+
+    #     for sink in self.sinks:
+    #         try:
+    #             wire = sink['wire']
+                
+    #             wireSinks = netSinks[wire]
+                
+    #             if (len(wireSinks) == 1):
+    #                 source = self.findSourceTuple(wire)
+    #                 self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
+    #             else:
+                    
+    #         except Exception as err:
+    #             print('Exception', err)
+                
+    #     self.maxfanoutwires = []
 
     def createNetsWithMaxFanout(self, maxfanout):
         """
@@ -1179,7 +1234,7 @@ class Schematic:
         if (render == 'matplotlib'):
             self.canvas = MatplotlibRender(self.getOccupancyGrid().shape, physical_shape, dpi)
         elif (render == 'tkinter'):
-            self.canvas = TkinterRender(parent, self.getOccupancyGrid().shape)
+            self.canvas = TkinterRender(self.parent, self.getOccupancyGrid().shape)
         else:
             raise Exception('Unsupported render {}'.format(render))
 
@@ -1447,7 +1502,7 @@ class Schematic:
                 print('source sym', net.source)
         
         if (hasattr(net, 'track') == False):
-            print('WARNING: net', net.source['wire'].getFullPath(), 'with not track')
+            print('WARNING: net', net.source, 'with not track')
             net.track = 0
 
             
