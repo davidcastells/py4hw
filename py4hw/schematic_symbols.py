@@ -746,6 +746,8 @@ class NetSymbol:
         self.routed = False
         self.arrow = True
         self.color = 'blueviolet'
+        self.sourcecol = -1
+        # self.sinkcol will be assigned later
         
     def getStartPoint(self):
         objsource = self.source
