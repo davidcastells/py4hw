@@ -38,14 +38,21 @@ class Waveform(Logic):
         self.wires = wires if isinstance(wires, list) else [wires]
         self.data = {}  # this is a dictionary of obj (wire or port) -> data, list of wire values 
 
+        uniqueWires = []
+        
         for x in self.wires:
+            
             if isinstance(x, Wire):
-                self.addIn(x.name, x)
+                if not(x in uniqueWires):
+                    self.addIn(x.name, x)
+                    uniqueWires.append(x)
             elif isinstance(x, InPort) or isinstance(x, OutPort):
                 w = x.wire
                 if (w is None):
                     raise Exception('Wire is null for port', x.getFullPath())
-                self.addIn(w.name, w)
+                if not (w in uniqueWires):
+                    self.addIn(w.name, w)
+                    uniqueWires.append(w)
             else:
                 raise Exception('Unsupported object class to watch ' + type(x))
                 
@@ -90,11 +97,41 @@ class Waveform(Logic):
         
         return fig, axs
     
-    def draw_wavedrom(self):
+    def draw_wavedrom(self, shortNames=False):
+        """
+        
+
+        Parameters
+        ----------
+        shortNames : bool, optional
+            Indicates that the names of the wires should be short (instead of the full
+            path). The default is False.
+
+        Returns
+        -------
+        TYPE
+            a widget.
+
+        """
         import nbwavedrom as wave
-        return wave.draw(self.get_wavedrom())
+        return wave.draw(self.get_wavedrom(shortNames))
     
-    def get_wavedrom(self):
+    def get_wavedrom(self, shortNames=False):
+        """
+        
+
+        Parameters
+        ----------
+        shortNames : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        ret : TYPE
+            DESCRIPTION.
+
+        """
+        
         signals = [{"name": "clk", 'wave': 'P'}]
         
         for obj in self.wires:
@@ -112,13 +149,19 @@ class Waveform(Logic):
                         wavedata += '{}'.format(v)
                     else:
                         wavedata += '{}'.format(2)
-                        wavedatadata += '{:X}'.format(v)
+                        wavedatadata.append( '{:X}'.format(v))
                 else:
                     wavedata += '.'
                 last = v
                     
             wavedata += 'x'
-            signals.append({'name': obj.getFullPath(), 'wave':wavedata, 'data':wavedatadata})
+            
+            if (shortNames):
+                name = obj.name
+            else:
+                name = obj.getFullPath()
+                
+            signals.append({'name': name, 'wave':wavedata, 'data':wavedatadata})
 
         wavedata = 'P'
         for i in range(numclks):
