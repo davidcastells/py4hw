@@ -477,7 +477,26 @@ class Select(Logic):
 
 
 
+
+class SelectDefault(Logic):
+    def __init__(self, parent, name, sels, ins, default, r):
+        super().__init__(parent, name)
         
+        self.addIn('default', default)
+        self.addOut('r', r)
+        
+        nextoutput = r
+        
+        for idx, sel in enumerate(sels):
+            inv = ins[idx]
+            self.addIn('sel{}'.format(idx), sel)
+            self.addIn('in{}'.format(idx), inv)
+            previnput = self.wire('t{}'.format(idx), r.getWidth())
+            Mux2(self, 'mux{}'.format(idx), sel, previnput, inv, nextoutput)
+            
+            nextoutput = previnput
+            
+        Buf(self, 'buf', default, previnput)
 
 
 
