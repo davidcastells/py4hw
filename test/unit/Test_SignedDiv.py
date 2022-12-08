@@ -6,7 +6,6 @@ from py4hw.helper import *
 class Test_SignedDiv:
 
     def test_integrity(self):
-
         sys = py4hw.HWSystem()
         
         a = sys.wire("a", 4)
