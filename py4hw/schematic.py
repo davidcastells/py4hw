@@ -404,7 +404,7 @@ class Schematic:
                 # do not update the sourcecol
                 #net.sourcecol = colidx - 1
                     
-            print('col:', colidx, ['{}->{}'.format(type(x.source).__name__, type(x.sink).__name__)  for x in netsInCol])
+            #print('col:', colidx, ['{}->{}'.format(type(x.source).__name__, type(x.sink).__name__)  for x in netsInCol])
             #print('track:', track, 'channel tracks:', channeltracks)
             self.channels.append({'tracks':track, 'track':channeltracks})
         
