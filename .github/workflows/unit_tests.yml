@@ -1,6 +1,6 @@
 yaml
 Copy code
-name: Python CI
+name: unit_tests
 
 on:
   push:
