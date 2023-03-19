@@ -21,7 +21,7 @@ jobs:
       #  run: pip install -r requirements.txt # Replace 'requirements.txt' with the name of your requirements file, if you have one
 
       - name: Setup package
-        run: ls
+        run: python setup.py install
         
       - name: Run Python script
         run: python test/allTests.py 
