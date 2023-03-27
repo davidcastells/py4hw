@@ -42,7 +42,9 @@ class Test_Helper:
                   [2.00000023842,     0x40000001],
                   [-2.00000023842,    0xc0000001],
                   [1.9999999403953552, 0x40000000],
-                  [-math.inf, 0xff800000]]
+                  [-math.inf, 0xff800000],
+                  [math.inf,  0x7f800000],
+                  [math.nan,  0x7fffffff]]
         
         for v in values:
             sp = v[0]
@@ -56,6 +58,8 @@ class Test_Helper:
                 assert(sp == c_sp)
             elif (math.isinf(sp)):
                 assert(sp == c_sp)
+            elif (math.isnan(sp)):
+                assert(math.isnan(c_sp))
             else:
                 assert(abs(sp - c_sp)/max(abs(sp), abs(c_sp)) < 1e-7)
 
@@ -67,11 +71,20 @@ class Test_Helper:
         # this is a list of pairs of double precision floating point and its ieee 754 representation value
         values = [[0.0, 0x00000000],
                   [5.0000000000000000e-324, 0x0000000000000001],
-                  [-math.inf,               0xfff0000000000000]]
+                  [5.87747175411e-39, 0x0004000000000000],
+                  [1.17549449095e-38, 0x0008000000000001],
+                  [2.00000023842,     0x4000000000000001],
+                  [-2.00000023842,    0xc000000000000001],
+                  [1.9999999403953552, 0x4000000000000000],
+                  [math.nan,            0x7fffffffffffffff],
+                  [math.inf,            0x7f80000000000000],
+                  [-math.inf,           0xfff0000000000000]]
         
         for v in values:
             dp = v[0]
             ie =v[1]
+            
+            print('Testing ', dp)
             
             c_ie = py4hw.helper.FloatingPointHelper.dp_to_ieee754(dp)
             assert('{:016X}'.format(ie) == '{:016X}'.format(c_ie))
