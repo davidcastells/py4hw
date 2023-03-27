@@ -6,6 +6,7 @@ Created on Wed Jan 19 12:53:47 2022
 """
 from .. import *
 from .bitwise import *
+
 from deprecated import deprecated
 
 
@@ -141,7 +142,25 @@ class Mul(Logic):
     def propagate(self):
         self.r.put(self.a.get() * self.b.get())
 
+class SignedMul(Logic):
+    """
+    Arithmetic Signed Multiplier
+    """
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
 
+    def propagate(self):
+        from ..helper import IntegerHelper    
+        
+        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
+        mask = (1 << self.r.getWidth()) - 1
+        newValue = (sa * sb) & mask
+        self.r.put(newValue)
+        
 class Div(Logic):
     """
     Combinational Arithmetic Divider
@@ -194,7 +213,7 @@ class SignedDiv(Logic):
 
 class Sub(Logic):
     """
-    Arithmetic Add
+    Arithmetic Sub
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
@@ -209,7 +228,27 @@ class Sub(Logic):
         self.r.put(newValue)
 
 
+class SignedSub(Logic):
+    """
+    Arithmetic Sub
+    """
+    
 
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        from ..helper import IntegerHelper    
+        
+        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
+        mask = (1 << self.r.getWidth()) - 1
+        newValue = (sa - sb) & mask
+        self.r.put(newValue)
+        
 class Counter(Logic):
     """
     Counts up to the value mod and returns to zero
