@@ -202,6 +202,9 @@ def InlineNot(obj:Logic):
 def InlineBuf(obj:Logic):
     return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
 
+def InlineSignExtend(obj:Logic):
+    return "assign {} = {{ {{ {} {{ {}[{}] }} }}, {} }};\n".format(getParentWireName(obj, obj.r), obj.r.getWidth() - obj.a.getWidth(),  getParentWireName(obj, obj.a), obj.a.getWidth()-1, getParentWireName(obj, obj.a))
+
 def InlineZeroExtend(obj:Logic):
     return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
     
@@ -283,12 +286,28 @@ def InlineRepeat(obj:Logic):
     return str
 
 def InlineConcatenateMSBF(obj:Logic):
-    str = ""
+    str = '' # "# MSBF \n"
     w = len(obj.ins)
     if (w == 1):
         return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.ins[0]))
 
-    str = 'assign {} ='.format(getParentWireName(obj, obj.r))
+    str += 'assign {} ='.format(getParentWireName(obj, obj.r))
+    
+    link = '{'
+    for i in range(w):
+        str += link + "{}".format(getParentWireName(obj, obj.ins[i]))
+        link = ','
+    str += '};\n'
+    
+    return str
+
+def InlineConcatenateLSBF(obj:Logic):
+    str = '' # "# LSBF \n"
+    w = len(obj.ins)
+    if (w == 1):
+        return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.ins[0]))
+
+    str += 'assign {} ='.format(getParentWireName(obj, obj.r))
     
     link = '{'
     for i in range(w):
@@ -384,23 +403,25 @@ class VerilogGenerator:
         self.inlinablePrimitives[BitsLSBF] = InlineBitsLSBF
         self.inlinablePrimitives[BitsMSBF] = InlineBitsMSBF
         self.inlinablePrimitives[ConcatenateMSBF] = InlineConcatenateMSBF
+        self.inlinablePrimitives[ConcatenateLSBF] = InlineConcatenateLSBF
         self.inlinablePrimitives[Constant] = InlineConstant
         self.inlinablePrimitives[Div] = InlineDiv
         self.inlinablePrimitives[Equal] = InlineEqual
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
+        self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Nand2] = InlineNand2
         self.inlinablePrimitives[Not] = InlineNot
         self.inlinablePrimitives[Nor] = InlineNor
         self.inlinablePrimitives[Nor2] = InlineNor2
         self.inlinablePrimitives[Or] = InlineOr
         self.inlinablePrimitives[Or2] = InlineOr2
-        self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Sub] = InlineSub
-        self.inlinablePrimitives[Xor2] = InlineXor2
         self.inlinablePrimitives[Range] = InlineRange
         self.inlinablePrimitives[Repeat] = InlineRepeat
+        self.inlinablePrimitives[SignExtend] = InlineSignExtend
         self.inlinablePrimitives[ZeroExtend] = InlineZeroExtend
         self.inlinablePrimitives[VerilogComment] = InlineVerilogCommnent
+        self.inlinablePrimitives[Xor2] = InlineXor2
         
         self.providingBody = {}
         
