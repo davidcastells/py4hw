@@ -9,6 +9,7 @@ from .base import Wire
 from .logic.arithmetic import *
 from .logic.bitwise import *
 from .logic.simulation import *
+from .logic.storage import *
 import math
 
 class LogicHelper:
@@ -78,6 +79,27 @@ class LogicHelper:
         name = self._getNewName()
         r = self.parent.wire(name)
         Bit(self.parent, name, a, bit, r)
+        return r
+
+    def hw_bits_msbf(self, a:Wire) -> list:
+        w = a.getWidth()
+        name = self._getNewName() + '_'
+        r = self.parent.wires(name, w, 1)
+        BitsMSBF(self.parent, name, a, r)
+        return r
+        
+    def hw_bits_lsbf(self, a:Wire) -> list:
+        w = a.getWidth()
+        name = self._getNewName() + '_'
+        r = self.parent.wires(name, w, 1)
+        BitsLSBF(self.parent, name, a, r)
+        return r
+
+    def hw_reg(self, a:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Reg(self.parent, name, d=a, q=r)
         return r
 
     def hw_buf(self, a:Wire) -> Wire:
@@ -278,11 +300,127 @@ class IntegerHelper:
         else:
             return v
         
+def signExtend(v, w, nw):
+    s = (v >> (w-1)) & 1
+    ns = 0
+    if (s == 1):
+        ns = (1 << (nw-w)) - 1
+    return v | (ns << w)
+
+class FixedPoint:
+    def __init__(self, sign_bit, int_bits, frac_bits, v):
+        self.sw = sign_bit
+        self.iw = int_bits
+        self.fw = frac_bits
+        self.v = 0
+        
+        if (type(v) == int):
+            self.intToFixedPoint(v)
+        elif (type(v) == float):
+            self.floatToFixedPoint(v)
+        else:
+            raise Exception('Unsupported type {}'.format(type(v)))
+        
+    def getWidths(self):
+        return (self.sw, self.iw, self.fw)
+        
+    def intToFixedPoint(self, v):
+        if (v < 0 and self.sw == 0):
+            raise Exception('negative values not supported')
+            
+        w = self.sw + self.iw + self.fw
+        
+        maxv = 1 << (self.iw -1)
+        
+        if (v > maxv):
+            raise Exception('Value {} greater than max value: {}'.format(v, maxv))
+        
+        self.v = (v << self.fw) & ((1<<w)-1)
+            
+    def floatToFixedPoint(self, v):
+        if (v < 0 and self.sw == 0):
+            raise Exception('negative values not supported')
+        
+        w = self.sw + self.iw + self.fw
+        self.v = int(v * (1 << self.fw)) & ((1<<w)-1)
+        
+    def add(self, b):
+        if (not(isinstance(b, FixedPoint))):
+            b = FixedPoint(self.sw, self.iw, self.fw, b)
+            
+        r = FixedPoint(self.sw, self.iw, self.fw , 0)
+        w = self.sw + self.iw + self.fw
+        r.v = (self.v + b.v) & ((1<<w)-1)
+        return r
+
+    def sub(self, b):
+        if (not(isinstance(b, FixedPoint))):
+            b = FixedPoint(self.sw, self.iw, self.fw, b)
+
+        r = FixedPoint(self.sw, self.iw, self.fw , 0)
+        w = self.sw + self.iw + self.fw
+        r.v = (self.v - b.v) & ((1<<w)-1)
+        return r
+
+    def mult(self, b):
+        if (not(isinstance(b, FixedPoint))):
+            oldb = b
+            b = FixedPoint(self.sw, self.iw, self.fw, b)
+            #print('old b is ', oldb, 'new b is {:08X}'.format( b.v))
+    
+        r = FixedPoint(self.sw, self.iw, self.fw , 0)
+        w = self.sw + self.iw + self.fw
+        av = signExtend(self.v, w, w*2)
+        bv = signExtend(b.v, w, w*2)
+        r.v = ((av * bv)>>self.fw)  & ((1<<w)-1)
+        return r
+
+    def toFloatingPoint(self):
+        if (((self.v >> (self.iw+self.fw)) & 1) == 1):
+            w = self.sw + self.iw + self.fw
+            mask = ((1<<w)-1)
+            v = ((self.v ^ mask) + 1) & mask
+            return -v / (1<<self.fw)
+        return self.v / (1<<self.fw)
+        
+    def copy():
+        return FixedPoint(self.sw, self.iw, self.fw , self.v)
+    
+    @staticmethod
+    def fromRawValue(sw, iw, fw, v):
+        r = FixedPoint(sw,iw,fw,0)
+        r.v = v
+        return r
+    
 class FixedPointHelper:
     pass
 
 class FloatingPointHelper:
 
+    @staticmethod
+    def min(a, b):
+        if (a == 0.0 and b == 0.0):
+            sa = math.copysign(1, a)
+            sb = math.copysign(1, b)
+            
+            if (sa < sb):
+                return a
+            else:
+                return b
+        return min(a, b)
+
+    @staticmethod
+    def max(a, b):
+        if (a == 0.0 and b == 0.0):
+            sa = math.copysign(1, a)
+            sb = math.copysign(1, b)
+            
+            if (sa > sb):
+                return a
+            else:
+                return b
+        return max(a, b)
+    
     @staticmethod
     def fp_to_parts(v):
         if (math.isinf(v) or math.isnan(v)):
@@ -345,7 +483,13 @@ class FloatingPointHelper:
             e = 255
             m = 0
             return s,e,m
-            
+        
+        if (math.isnan(v)):
+            s = 0 
+            e = 255
+            m = (1<<23)-1
+            return s,e,m
+        
         s,e,m = FloatingPointHelper.fp_to_parts(v)
 
         if (m == 0):
@@ -396,11 +540,20 @@ class FloatingPointHelper:
             e = 2047
             m = 0
             return s,e,m
+
+        if (math.isnan(v)):
+            s = 0 
+            e = 2047
+            m = (1<<51)-1
+            return s,e,m
+
             
         s,e,m = FloatingPointHelper.fp_to_parts(v)
 
         if (m == 0):
-            return 0,0,0
+            v = math.copysign(1, v)
+            s = 0 if v > 0 else 1
+            return s,0,0
         else:
             if (e >= 1024):
                 return s,2047,0  # infinity
@@ -531,7 +684,10 @@ class FloatingPointHelper:
         m = (v & ((1<<23)-1))  
         
         if (e == 255):
-            return -math.inf if (s == 1) else math.inf 
+            if (m == 0):
+                return -math.inf if (s == 1) else math.inf
+            else:
+                return math.nan
         
         return FloatingPointHelper.ieee754_parts_to_sp(s, e, m)
 
@@ -545,8 +701,11 @@ class FloatingPointHelper:
         m = (v & ((1<<52)-1))  
         
         if (e == 0x7FF):
-            return -math.inf if (s == 1) else math.inf 
-        
+            if (m == 0):
+                return -math.inf if (s == 1) else math.inf 
+            else:
+                return math.nan
+
         return FloatingPointHelper.ieee754_parts_to_dp(s, e, m)
 
     @staticmethod
