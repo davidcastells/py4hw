@@ -401,4 +401,75 @@ class Swap(Logic):
         Mux2(self, 'muxa', swap, a, b, ra)
         Mux2(self, 'muxb', swap, b, a, rb)
         
+
+class FixedPointComparator(Logic):
+    """
+    A Greater Than, Equal and Less Than comparator circuit
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, af, b: Wire, bf, gt: Wire, eq: Wire, lt: Wire):
+        """
+        Constructor of the comparator circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            parent circuit.
+        name : str
+            instance name.
+        a : Wire
+            operand a.
+        b : Wire
+            operand b.
+        gt : Wire
+            1 if a > b.
+        eq : Wire
+            1 if a == b.
+        lt : Wire
+            1 if a < b.
+
+        Returns
+        -------
+        the object.
+
+        """
+        
+        from .bitwise import Equal
+        from .bitwise import And2
+        from .bitwise import Not
+        from .bitwise import Mux2
+        from .arithmetic_fxp import FixedPointSub
+        from .arithmetic_fxp import FixedPointSign
+
+        super().__init__(parent, name)
+        
+        if (a.getWidth() != b.getWidth()):
+            raise Exception('a and b must have equal width')
+            
+        a = self.addIn("a", a)
+        b = self.addIn("b", b)
+        gt = self.addOut("gt", gt)
+        eq = self.addOut("eq", eq)
+        lt = self.addOut("lt", lt)
+
+        sub = Wire(self, "sub", a.getWidth())
+        notLT = Wire(self, "nLT", 1)
+        notEQ = Wire(self, "nEQ", 1)
+
+        FixedPointSub(self, "Comparison", a, af, b, bf, sub, af)
+
+        # LT
+        if (not(lt is None)):
+            FixedPointSign(self, "LessThan", sub, af, lt)
+
+        # EQ
+        if (not(eq is None)):
+            EqualConstant(self, "Equal", sub, 0, eq)
+
+        # GT
+        if (not(gt is None)):
+            Not(self, "nLT", lt, notLT)
+            Not(self, "nEQ", eq, notEQ)
+            And2(self, "GT", notEQ, notLT, gt)
+
         
