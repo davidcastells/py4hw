@@ -7,6 +7,7 @@ from .logic.bitwise import *
 from .logic.storage import *
 from .logic.arithmetic import *
 from .logic.arithmetic_fp import *
+from .logic.arithmetic_fxp import *
 from .logic.relational import *
 from .logic.simulation import *
 from .schematic import *
