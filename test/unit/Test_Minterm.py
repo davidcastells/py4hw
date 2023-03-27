@@ -68,5 +68,26 @@ class Test_Minterm:
             assert (a2v == exp_a2[i])
         #self.assertEqual(first, second)
         
+    def test_sum_of_minterms(self):
+        print('testing sum of minterms')
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 4)
+        v = sys.wire('v')
+        ev = sys.wire('ev')
+        eq = sys.wire('eq')
+        sa = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+        sev =  [0,1,1,1,0,1,0,1,0,0, 0, 1, 0, 1, 0, 0]
+        py4hw.Sequence(sys, "a", sa, a)
+        py4hw.Sequence(sys, "ev", sev, ev)
+
+        py4hw.SumOfMinterms(sys, 'som', a, [1,2,3,5,7,11,13], v)
+        
+        py4hw.Equal(sys, 'eq', ev, v, eq)
+        
+        for i in range(32):
+            sys.getSimulator().clk(1)
+            assert(eq.get() == 1)
+        
 if __name__ == '__main__':
     pytest.main(args=['-q', 'Test_Minterm.py'])
