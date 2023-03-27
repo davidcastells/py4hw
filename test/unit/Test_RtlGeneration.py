@@ -106,5 +106,16 @@ class Test_RtlGeneration:
     
         pytest.fail('Exception not thrown')
         
+    def test_SignExtend(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire('a', 8)
+        sa = sys.wire('sa', 16)
+        py4hw.Constant(sys, 'a', 0xFF, a)
+        block = py4hw.SignExtend(sys, 'sa', a, sa)
+        
+        rtlgen = py4hw.VerilogGenerator(sys)
+        print(rtlgen.getVerilogForHierarchy())
+        
 if __name__ == '__main__':
     pytest.main(args=['-s', '-q', 'Test_RtlGeneration.py'])
