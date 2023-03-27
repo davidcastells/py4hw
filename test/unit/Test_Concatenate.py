@@ -175,6 +175,24 @@ class Test_Concatenate:
             exception = True
             
         assert(exception)
-
+        
+        
+    def test_rtl_inlining(self):
+        # concatenating larger wires should raise an error
+        sys = py4hw.HWSystem()
+        hw = py4hw.LogicHelper(sys)
+        r1 = sys.wire("r1", 32)
+        r2 = sys.wire("r2", 32)
+        
+        a = hw.hw_constant(8, 5)
+        b = hw.hw_constant(8, 21)
+        c = hw.hw_constant(3, 2)
+        
+        py4hw.ConcatenateMSBF(sys, "concat1", [a,b,c], r1)
+        py4hw.ConcatenateLSBF(sys, "concat2", [a,b,c], r2)
+            
+        rtl = py4hw.VerilogGenerator(sys)
+        print(rtl.getVerilogForHierarchy())        
+        
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Concatenate.py'])
+    pytest.main(args=['-s', 'Test_Concatenate.py'])
