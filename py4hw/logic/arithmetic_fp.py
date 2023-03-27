@@ -2,6 +2,8 @@
 """
 Created on Tue Aug  9 06:15:25 2022
 
+Arithmetic Floating-Point blocks
+
 @author: dcr
 """
 from .. import *
