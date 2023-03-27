@@ -577,6 +577,25 @@ class Minterm(Logic):
         And(self, 'prod', parts, r)
         
 
+class SumOfMinterms(Logic):
+    def __init__(self, parent, name, a, minterms:list, r):
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addOut('r', r)
+        
+        bits = self.wires('bits', a.getWidth(), 1)
+        BitsLSBF(self, 'bits', a, bits)
+        
+        acum = []
+        for idx, minterm in enumerate(minterms):
+            v = self.wire('s{}'.format(idx))
+            
+            Minterm(self, 'minterm{}'.format(idx), bits, minterm, v)
+            acum.append(v)
+            
+        Or(self, 'sum', acum, r)
+        
 class ConcatenateMSBF(Logic):
     """
     Concatenate wires circuit in MSBF order
