@@ -37,6 +37,28 @@ class Test_Div:
         
         assert(r.get() == (7//3))    
         
+        
+    def test_neg_den(self):
+
+        sys = py4hw.HWSystem()
+        w = 32
+        va = 21
+        vb = -3
+        vr = va // vb
+        
+        a = sys.wire("a", w)
+        b = sys.wire("b", w)
+        r = sys.wire("r", w)
+        
+        py4hw.Constant(sys, "a", va, a)
+        py4hw.Constant(sys, "b", vb, b)
+        
+        py4hw.SignedDiv(sys, 'equal', a, b, r)
+        
+        sys.getSimulator().clk(1)
+        
+        assert(r.get() == (vr & ((1<<w)-1)))
+        
 
     def test_random(self):
         import random
