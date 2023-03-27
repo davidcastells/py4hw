@@ -1,0 +1,27 @@
+name: Run Python Script
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x' # Replace '3.x' with the Python version you need
+
+      #- name: Install dependencies
+      #  run: pip install -r requirements.txt # Replace 'requirements.txt' with the name of your requirements file, if you have one
+
+      - name: Setup package
+        run: python setup.py install
+        
+      - name: Run Python script
+        run: python test/allTests.py 

@@ -3,3 +3,4 @@ ipywidgets
 matplotlib
 deprecated
 scipy
+pytest
