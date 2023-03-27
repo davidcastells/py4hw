@@ -9,24 +9,62 @@ import pytest
 
 class Test_Sub:
     
-    def test_sub1(self):
+    def get_result_unsigned(self, w, va, vb):
         sys = py4hw.HWSystem()
 
-        a = sys.wire('a', 23)
-        b = sys.wire('b', 23)
-        r = sys.wire('r', 24)
+        a = sys.wire('a', w)
+        b = sys.wire('b', w)
+        r = sys.wire('r', w)
         
-        va = 1623049
-        vb = 6146853
-        vr  = (va - vb) & ((1<<24)-1)
         py4hw.Constant(sys, 'a', va, a)
         py4hw.Constant(sys, 'b', vb, b )
         
         py4hw.Sub(sys, 'r', a, b, r)
         
         sys.getSimulator().clk(1)
+        return r.get()
+    
+    def get_result_signed(self, w, va, vb):
+        sys = py4hw.HWSystem()
+
+        a = sys.wire('a', w)
+        b = sys.wire('b', w)
+        r = sys.wire('r', w)
         
-        assert(r.get() == vr)
+        py4hw.Constant(sys, 'a', va, a)
+        py4hw.Constant(sys, 'b', vb, b )
+        
+        py4hw.SignedSub(sys, 'r', a, b, r)
+        
+        sys.getSimulator().clk(1)
+        return r.get()
+    
+    def test_sub_unsigned(self):
+        battery = [[32, 1, 1, 0],
+                   [32, 2, 1, 1],
+                   [32, 0, 1, -1],
+                   [8, 1<<7, 127, 1]]
+        
+        for t in battery:
+            w = t[0]
+            va = t[1]
+            vb = t[2]
+            vr = t[3] & ((1<<w)-1) # (va-vb) & ((1<<w)-1)
+        
+            assert(self.get_result_unsigned(w, va, vb) == vr)
+            
+    def test_sub_signed(self):
+        battery = [[32, 1, 1, 0],
+                   [32, 2, 1, 1],
+                   [8, 1<<7, -1, -127]]
+        
+        for t in battery:
+            w = t[0]
+            va = t[1]
+            vb = t[2]
+            vr = t[3] & ((1<<w)-1)
+        
+            assert(self.get_result_signed(w, va, vb) == vr)
         
 if __name__ == '__main__':
     pytest.main(args=['-q', 'Test_Sub.py'])
