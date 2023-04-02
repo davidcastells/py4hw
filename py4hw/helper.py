@@ -135,6 +135,15 @@ class LogicHelper:
         Constant(self.parent, name, v, r)
         return r
 
+    def hw_mod(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Mod(self.parent, name, a, b, r)
+        return r
+
     def hw_div(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
         wb = b.getWidth()
