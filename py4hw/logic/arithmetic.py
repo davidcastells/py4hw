@@ -175,6 +175,20 @@ class Div(Logic):
     def propagate(self):
         self.r.put(self.a.get() // self.b.get())
 
+class Mod(Logic):
+    """
+    Combinational Arithmetic Modulo (reminder of div)
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() % self.b.get())
+
 
 class SignedDiv(Logic):
     """
