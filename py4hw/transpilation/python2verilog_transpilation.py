@@ -8,6 +8,8 @@ Created on Sun Apr  2 13:59:30 2023
 from .. import *
 from deprecated import deprecated
 
+import ast
+
 def getMethod(obj, methodname):
     methods = inspect.getmembers(obj, inspect.ismethod)
     method = [x[1] for x in methods if x[0] == methodname ][0]
@@ -41,28 +43,31 @@ class Python2VerilogTranspiler:
     
         node = getBody(module)
     
+        assert(isinstance(node, ast.AST))
+        
         node = ReplaceWireGets().visit(node)
         node= ReplaceWirePrepare().visit(node)
         node= ReplaceWirePut().visit(node)
-         
-        return self.toVerilog(node)
+        node = ReplaceExpr().visit(node)
+        node = ReplaceBinOp().visit(node)
+ 
+        return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
         
-    def toVerilog(self, node):
-        print('transpiling', type(node))
+    @staticmethod
+    def toVerilog(node):
+        # print('transpiling', type(node))
+                
+        toV = getattr(node, 'toVerilog')
         
-        str = ''
-        if (isinstance(node, VerilogBody)):
-            for obj in node.body:
-                str += self.toVerilog(obj) + '\n'
-        elif (isinstance(node, ast.Expr)):
-            str += self.toVerilog(node.value) + '\n'             
+        if (toV is None):
+            print('No toVerilog for', type(node))
         else:
-            return 'unknown {}'.format(type(node))
-        
-        return str;
+            return toV()
     
     def getExtraDeclarations(self):
+        from py4hw.rtl_generation import getValidVerilogName
+
         str = ""
         
         portNames = []
@@ -126,15 +131,19 @@ class Python2VerilogTranspiler:
             
             return str
         
+    # @deprecated
     def transpileAttribute(self, line:ast.Attribute):
         return line.attr
             
+    # @deprecated
     def transpileExpr(self, line:ast.Expr):
         return self.transpileUnknown(line.value)
         
+    # @deprecated
     def transpileBinOp(self, line:ast.BinOp):
         return "(" + self.transpileUnknown(line.left) + self.transpileOp(line.op) + self.transpileUnknown(line.right) + ")";
 
+    # @deprecated
     def transpileOp(self, op):
         if (isinstance(op, ast.BitAnd)):
             return '&'
@@ -145,17 +154,20 @@ class Python2VerilogTranspiler:
         else:
             raise Exception('Op not supported: {}'.format(op))
         
+    # @deprecated
     def transpileAssign(self, line:ast.Assign):
-        targets = line.targets 
-        if (len(targets) > 1):
-            return ast.dump(line)
+        raise Exception('deprecated')
+        # targets = line.targets 
+        # if (len(targets) > 1):
+        #     return ast.dump(line)
         
-        var = getAstName(targets[0])
+        # var = getAstName(targets[0])
         
-        self.signals[var] = var
+        # self.signals[var] = var
         
-        return var + " <= " + self.transpileUnknown(line.value) + ";\n" + self.getIndent()  ;
+        # return var + " <= " + self.transpileUnknown(line.value) + ";\n" + self.getIndent()  ;
     
+    # @deprecated
     def transpileIf(self, line:ast.If):
         str = "if " + self.transpileUnknown(line.test) + "\n"
         str += self.getIndent() + "begin\n"
@@ -174,6 +186,7 @@ class Python2VerilogTranspiler:
 
         return str
     
+    # @deprecated
     def transpileCompare(self, line:ast.Compare):
         str = "("
         str += self.transpileUnknown(line.left)
@@ -193,9 +206,11 @@ class Python2VerilogTranspiler:
 class ReplaceWireGets(ast.NodeTransformer):
         
     def visit_Call(self, node):
+        from py4hw.rtl_generation import getAstName
+
         attr = getAstName(node.func)
         
-        print('checking call', attr)
+        #print('checking call', attr)
         if (attr == 'get'):
             #if isinstance(node.func.value, ast.Attribute):
             wirename = getAstName(node.func.value)
@@ -209,6 +224,8 @@ class ReplaceWireGets(ast.NodeTransformer):
     
 class ReplaceWirePrepare(ast.NodeTransformer):
     def visit_Call(self, node):
+        from py4hw.rtl_generation import getAstName
+
         attr = getAstName(node.func)
         
         #print('checking call', attr)
@@ -234,17 +251,71 @@ class ReplaceWirePut(ast.NodeTransformer):
         node = ast.NodeTransformer.generic_visit(self, node)
         
         return node
-    
 
+class ReplaceBinOp(ast.NodeTransformer):
+    
+    def generic_visit(self, node):
+        print('generic visit', node)
+        return super().generic_visit(node)
+        
+    def visit_BinOp(self, node):
+        print('replacing BinOp')
+        return VerilogOperator(node.left, node.op, node.right)
+
+    
+class ReplaceExpr(ast.NodeTransformer):
+    def visit_Expr(self, node):
+        
+        return node.value
+    
+    
 class VerilogAsynchronousAssignment(ast.AST):
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
+    def toVerilog(self):
+        str = ''
+        
+        str += Python2VerilogTranspiler.toVerilog(self.left) + '='
+        str += Python2VerilogTranspiler.toVerilog(self.right) + '\n'
+        return str
+        
 class VerilogSynchronousAssignment(ast.AST):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+        self._fields = tuple(['left', 'right'])
+
+    def toVerilog(self):
+        str = ''
+        
+        str += Python2VerilogTranspiler.toVerilog(self.left) + '<='
+        str += Python2VerilogTranspiler.toVerilog(self.right) + ';\n'
+        return str
+
+class VerilogOperator(ast.AST):
+    def __init__(self, left, op, right):
+        self.left = left
+        self.op = self.getOp(op)
+        self.right = right
+        self._fields = tuple(['left', 'op', 'right'])
+
+    def getOp(self, operator):
+        # translated an AST operator into verilog syntax
+        if (isinstance(operator, ast.Add)):
+            return '+'
+        else:
+            raise Exception('operator {} not supported'.format(type(operator)))
+            
+    def toVerilog(self):
+        str = ''
+        
+        str += Python2VerilogTranspiler.toVerilog(self.left) 
+        str += self.op
+        str += Python2VerilogTranspiler.toVerilog(self.right)
+        return str
+
         
 class VerilogWire(ast.AST):
     '''
@@ -252,6 +323,10 @@ class VerilogWire(ast.AST):
     '''
     def __init__(self, name:str):
         self.name = name
+        self._fields = tuple(['name', 'dummy'])
+
+    def toVerilog(self):
+        return self.name
         
 class VerilogBody(ast.AST):
     '''
@@ -259,9 +334,12 @@ class VerilogBody(ast.AST):
     '''
     def __init__(self, body:list):
         self.body = body
-        self._fields = ('body')
-        
-class VerilogComment(Logic):
-    def __init__(self, parent, name: str, comment:str):
-        super().__init__(parent, name)
-        self.comment = comment
+        self._fields = tuple(['body', 'dummy'])
+    
+    def toVerilog(self):
+        str = ''
+        for node in self.body:
+            str += Python2VerilogTranspiler.toVerilog(node)
+        return str
+            
+            
