@@ -10,6 +10,7 @@ from .logic import *
 from .logic.bitwise import *
 from .logic.storage import *
 from .schematic_symbols import *
+from .transpilation.python2verilog_transpilation import *
 
 def getVerilogModuleName(obj:Logic, noInstanceNumber=False):
     str = type(obj).__name__  
@@ -721,3 +722,7 @@ def getAstName(obj):
     else:
         raise Exception('unknown type {}'.format(type(obj)))
 
+class VerilogComment(Logic):
+    def __init__(self, parent, name: str, comment:str):
+        super().__init__(parent, name)
+        self.comment = comment
