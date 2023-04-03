@@ -12,6 +12,7 @@ from .logic.relational import *
 from .logic.simulation import *
 from .schematic import *
 from .rtl_generation import *
+from .transpilation import *
 
 import py4hw.gui
 import py4hw.debug
