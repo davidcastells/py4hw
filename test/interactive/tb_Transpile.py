@@ -4,18 +4,18 @@ Created on Sun Apr  2 14:18:11 2023
 
 @author: dcr
 """
-from py4hw.base import *
-from py4hw.logic import *
-from py4hw.logic.storage import *
-import py4hw.debug
+import sys
+sys.path.append('../..')
+
+import py4hw
+import py4hw.transpilation.python2verilog_transpilation as py2v
+import py4hw.transpilation.ast2xml as ast2xml
 import inspect
 import textwrap
 import ast
-import py4hw.transpilation.ast2xml as ast2xml
-import py4hw.transpilation.python2verilog_transpilation as py2v
 import webbrowser
 
-class TestCircuit(Logic):
+class TestCircuit(py4hw.Logic):
     def __init__(self, parent, name, a, r):
         super().__init__(parent, name)
         
@@ -26,11 +26,11 @@ class TestCircuit(Logic):
         self.r.prepare(self.r.get() + self.a.get())
         
         
-hw = HWSystem()
+hw = py4hw.HWSystem()
 a = hw.wire('a', 8)
 r = hw.wire('r', 8)
 
-Sequence(hw, 'seq', [1,2,3], a)
+py4hw.Sequence(hw, 'seq', [1,2,3], a)
 dut = TestCircuit(hw, 'test', a, r)
 
 if (True):
@@ -38,16 +38,26 @@ if (True):
     module = py2v.getMethod(dut, 'clock')
     node = py2v.getBody(module)
     
+        
     node = py2v.ReplaceWireGets().visit(node)
     node = py2v.ReplaceWirePrepare().visit(node)
+    node = py2v.ReplaceExpr().visit(node)
+    node = py2v.ReplaceBinOp().visit(node)
     
     #xml = ast2xml.visit_node(node, ast_name='body')
     xml = ast2xml.visit_node(node)
     
     with open('c:\\temp\\test.xml', 'wb') as f:
         f.write(ast2xml.renderXml(xml))
+
+if (True):    
+    rtl = py2v.Python2VerilogTranspiler(dut, 'clock')
+    str = rtl.transpile()
     
-rtl = py2v.Python2VerilogTranspiler(dut, 'clock')
-str = rtl.transpile()
+    print('transpilation of clock method')
+    print(str)
+
+rtl = py4hw.rtl_generation.VerilogGenerator(dut)
+str = rtl.getVerilog()
 
 print(str)
