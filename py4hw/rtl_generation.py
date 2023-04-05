@@ -656,7 +656,7 @@ class VerilogGenerator:
         
         tr = Python2VerilogTranspiler(obj, 'clock')
         
-        transpiled = tr.transpile() ;
+        transpiled = tr.transpileRTL() ;
         
         str += "// local declarations\n"
         str += tr.getExtraDeclarations() + "\n";
