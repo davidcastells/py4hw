@@ -9,14 +9,8 @@ from .. import *
 from deprecated import deprecated
 
 import ast
+from .astutils import * 
 
-def getMethod(obj, methodname):
-    methods = inspect.getmembers(obj, inspect.ismethod)
-    method = [x[1] for x in methods if x[0] == methodname ][0]
-
-    source = textwrap.dedent(inspect.getsource(method))
-    node = ast.parse(source)
-    return node
 
 def getBody(node):
     # the Module node contains a body, that contains a list, containting
@@ -38,26 +32,60 @@ class Python2VerilogTranspiler:
         return ' ' * (self.indent * 4)
 
 
-    def transpile(self):
+    def transpileRTL(self):
+        '''
+        Transpile RTL style behavioural descriptions
+
+        Returns
+        -------
+        str
+            the equivalent RTL
+
+        '''
         module = getMethod(self.obj, self.methodName)
     
         node = getBody(module)
     
         assert(isinstance(node, ast.AST))
         
+        node = ReplaceIf().visit(node)
         node = ReplaceWireGets().visit(node)
-        node= ReplaceWirePrepare().visit(node)
-        node= ReplaceWirePut().visit(node)
+        node = ReplaceWirePrepare().visit(node)
+        node = ReplaceWirePut().visit(node)
         node = ReplaceExpr().visit(node)
         node = ReplaceBinOp().visit(node)
+        node = ReplaceAttribute().visit(node)
+        node = ReplaceConstant().visit(node)
+        node = ReplaceAssign().visit(node)
  
         return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
         
     @staticmethod
     def toVerilog(node):
+        '''
+        Tranlates to Verilog a node by calling its toVerilog method
+        For lists, in invokes the same method to the elements of the list
+
+        Parameters
+        ----------
+        node : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        toV : TYPE
+            DESCRIPTION.
+
+        '''
         # print('transpiling', type(node))
-                
+
+        if (isinstance(node, list)):
+            str = ''
+            for item in node:
+                str += Python2VerilogTranspiler.toVerilog(item)
+            return str
+        
         toV = getattr(node, 'toVerilog')
         
         if (toV is None):
@@ -202,6 +230,20 @@ class Python2VerilogTranspiler:
     
     
     
+class ReplaceIf(ast.NodeTransformer):
+        
+    def visit_If(self, node):
+        #print('transpiling if')
+        condition = node.test
+        
+        positive = node.body
+        negative = node.orelse
+        
+        node2 = VerilogIf(condition, positive, negative)
+
+        node2 = ast.NodeTransformer.generic_visit(self, node2)
+        return node2
+        
 
 class ReplaceWireGets(ast.NodeTransformer):
         
@@ -254,21 +296,44 @@ class ReplaceWirePut(ast.NodeTransformer):
 
 class ReplaceBinOp(ast.NodeTransformer):
     
-    def generic_visit(self, node):
-        print('generic visit', node)
-        return super().generic_visit(node)
-        
     def visit_BinOp(self, node):
-        print('replacing BinOp')
+        #print('replacing BinOp')
         return VerilogOperator(node.left, node.op, node.right)
 
+    def visit_Compare(self, node):
+        return VerilogOperator(node.left, node.ops, node.comparators)    
     
 class ReplaceExpr(ast.NodeTransformer):
     def visit_Expr(self, node):
         
         return node.value
+
+class ReplaceAttribute(ast.NodeTransformer):
+    def visit_Attribute(self, node):
+        return VerilogWire(node.attr)
     
+class ReplaceConstant(ast.NodeTransformer):
+    def visit_Constant(self, node):
+        return VerilogConstant(node.value)
     
+class ReplaceAssign(ast.NodeTransformer):
+    def visit_Assign(self, node):
+        if (len(node.targets) > 1):
+            raise Exception('{} targets! only 1 is supported'.format(len(node.targets)))
+            
+        left = node.targets[0]
+        right = node.value
+        
+        return VerilogSynchronousAssignment(left, right)
+    
+    def visit_AugAssign(self, node):
+        left = node.target
+        right = node.value
+        
+        newvalue = VerilogOperator(left, node.op, right)
+        return VerilogSynchronousAssignment(left, newvalue)
+
+        
 class VerilogAsynchronousAssignment(ast.AST):
     def __init__(self, left, right):
         self.left = left
@@ -296,6 +361,11 @@ class VerilogSynchronousAssignment(ast.AST):
 
 class VerilogOperator(ast.AST):
     def __init__(self, left, op, right):
+        if (isinstance(op, list)):
+            # we only support single operators
+            assert(len(op) == 1)
+            op = op[0]
+            
         self.left = left
         self.op = self.getOp(op)
         self.right = right
@@ -305,6 +375,8 @@ class VerilogOperator(ast.AST):
         # translated an AST operator into verilog syntax
         if (isinstance(operator, ast.Add)):
             return '+'
+        elif (isinstance(operator, ast.Eq)):
+            return '=='
         else:
             raise Exception('operator {} not supported'.format(type(operator)))
             
@@ -316,7 +388,7 @@ class VerilogOperator(ast.AST):
         str += Python2VerilogTranspiler.toVerilog(self.right)
         return str
 
-        
+
 class VerilogWire(ast.AST):
     '''
     AST node for Verilog Wires
@@ -343,3 +415,27 @@ class VerilogBody(ast.AST):
         return str
             
             
+class VerilogIf(ast.AST):
+    def __init__(self, condition, positive, negative):
+        self.condition = condition
+        self.positive = positive
+        self.negative = negative
+        self._fields = tuple(['condition', 'positive', 'negative'])
+        
+    def toVerilog(self):
+        str = 'if (' + Python2VerilogTranspiler.toVerilog(self.condition) + ')\n'
+        str += 'begin\n'
+        str += Python2VerilogTranspiler.toVerilog(self.positive) + '\n'
+        str += 'end\n'
+        str += 'else\n'
+        str += 'begin\n'
+        str += Python2VerilogTranspiler.toVerilog(self.negative) + '\n'
+        str += 'end\n'
+        return str
+    
+class VerilogConstant(ast.AST):
+    def __init__(self, value):
+        self.value = value
+        
+    def toVerilog(self):
+        return '{}'.format(self.value)
