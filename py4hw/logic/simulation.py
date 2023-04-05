@@ -54,7 +54,7 @@ class Waveform(Logic):
                     self.addIn(w.name, w)
                     uniqueWires.append(w)
             else:
-                raise Exception('Unsupported object class to watch ' + type(x))
+                raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
             self.data[x] = []            
 
