@@ -15,14 +15,34 @@ class Add(Logic):
     Combinational Arithmetic Add
     """
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None):
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
+        
+        if (ci is None):
+            self.ci = None
+        else:
+            self.ci = self.addIn('ci', ci)
+            
+        if (co is None):
+            self.co = None
+        else:
+            self.co = self.addOut('co', co)
 
     def propagate(self):
-        self.r.put(self.a.get() + self.b.get())
+        if (not(self.ci is None)):
+            vci = self.ci.get()
+        else:
+            vci = 0
+
+        vr = self.a.get() + self.b.get() + vci
+        
+        if (not(self.co is None)):
+            self.co.put(vr >> self.r.getWidth())
+            
+        self.r.put(vr)
 
 class Abs(Logic):
     """
