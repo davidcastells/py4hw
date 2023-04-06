@@ -535,7 +535,7 @@ class VerilogGenerator:
             str += link + "output clk_out".format(drv.name)
             
         reg = ""
-        if (obj.isClockable() and not(self.isProvidingBody(obj))):
+        if ((obj.isClockable() or obj.isPropagatable()) and not(self.isProvidingBody(obj))):
             reg = " reg "
         
         if (self.anyClockableDescendant(obj)):
@@ -654,39 +654,19 @@ class VerilogGenerator:
         str = "// Code generated from clock method\n"
         clkname = getObjectClockDriver(obj).name
         
-        tr = Python2VerilogTranspiler(obj, 'clock')
+        tr = Python2VerilogTranspiler(obj, 'clock', 'posedge {}'.format(clkname))
         
-        transpiled = tr.transpileRTL() ;
+        str += tr.transpileRTL() ;
         
-        str += "// local declarations\n"
-        str += tr.getExtraDeclarations() + "\n";
-        str += "// sequential process\n"
-        str += "always @(posedge {})\n".format(clkname)
-        str += "begin\n"
-        str += transpiled + "\n"
-        str += "end\n"
-        
-        str += "\n"
         
         return str
 
     def generateCodeFromPropagate(self, obj:Logic):
-        str = "// Code generated from clock method\n"
-        clkname = getObjectClockDriver(obj).name
+        str = "// Code generated from propagate method\n"
         
-        tr = Python2VerilogTranspiler(obj, 'propagate')
+        tr = Python2VerilogTranspiler(obj, 'propagate', '*')
         
-        transpiled = tr.transpile() ;
-        
-        str += "// local declarations\n"
-        str += tr.getExtraDeclarations() + "\n";
-        str += "// combinational process\n"
-        str += "always @(*)\n"
-        str += "begin\n"
-        str += transpiled + "\n"
-        str += "end\n"
-        
-        str += "\n"
+        str += tr.transpileRTL()
         
         return str
 import inspect
