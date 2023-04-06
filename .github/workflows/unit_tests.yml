@@ -24,4 +24,4 @@ jobs:
         run: python setup.py install
         
       - name: Run Python script
-        run: python test/allTests.py 
+        run: python -m pytest 
