@@ -12,19 +12,22 @@ import ast
 from .astutils import * 
 
 
-def getBody(node):
+def getBody(node, slist):
     # the Module node contains a body, that contains a list, containting
     # a function definition with a body
     
     # AST visitors can not deal directly with list, we wrap them in 
     # a dummy verilog body object
-    return VerilogBody(node.body[0].body)
+    var = VerilogWireDeclarations()
+    process = VerilogProcess(node.body[0].body, slist)
+    return VerilogBody(var, process)
     
 class Python2VerilogTranspiler:
 
-    def __init__(self, obj:Logic, methodName:str):
+    def __init__(self, obj:Logic, methodName:str, slist:str):
         self.obj = obj
         self.methodName = methodName
+        self.slist = slist
         self.signals = {}
         self.indent = 0
 
@@ -44,20 +47,20 @@ class Python2VerilogTranspiler:
         '''
         module = getMethod(self.obj, self.methodName)
     
-        node = getBody(module)
+        node = getBody(module, self.slist)
     
         assert(isinstance(node, ast.AST))
         
         node = ReplaceIf().visit(node)
-        node = ReplaceWireGets().visit(node)
-        node = ReplaceWirePrepare().visit(node)
-        node = ReplaceWirePut().visit(node)
+        node = ReplaceWireCalls().visit(node)
         node = ReplaceExpr().visit(node)
         node = ReplaceBinOp().visit(node)
         node = ReplaceAttribute().visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
  
+        node = FlattenOperators().visit(node)
+
         return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
         
@@ -245,7 +248,7 @@ class ReplaceIf(ast.NodeTransformer):
         return node2
         
 
-class ReplaceWireGets(ast.NodeTransformer):
+class ReplaceWireCalls(ast.NodeTransformer):
         
     def visit_Call(self, node):
         from py4hw.rtl_generation import getAstName
@@ -259,46 +262,32 @@ class ReplaceWireGets(ast.NodeTransformer):
             #print('REPLACING GET ', wirename)
             return VerilogWire(wirename)
         
-        node = ast.NodeTransformer.generic_visit(self, node)
-        
-        return node
-    
-    
-class ReplaceWirePrepare(ast.NodeTransformer):
-    def visit_Call(self, node):
-        from py4hw.rtl_generation import getAstName
-
-        attr = getAstName(node.func)
-        
-        #print('checking call', attr)
-        
-        if (attr == 'prepare'):
+        elif (attr == 'prepare'):
             #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
             left = VerilogWire(node.func.value.attr)
-            return VerilogSynchronousAssignment(left, node.args[0])
+            node = VerilogSynchronousAssignment(left, node.args[0])
         
+        elif (attr == 'put'):
+            #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
+            left = VerilogWire(node.func.value.attr)
+            right = ast.NodeTransformer.generic_visit(self, node.args[0])
+            node = VerilogAsynchronousAssignment(left, right)
+        else:
+            print('WARNING: unhandled call {}'.format(attr))
+                 
         node = ast.NodeTransformer.generic_visit(self, node)
         
         return node
     
-class ReplaceWirePut(ast.NodeTransformer):
-    def visit_Call(self, node):
-        attr = getAstName(node.func)
-        
-        if (attr == 'put'):
-            #print('REPLACE WIRE PUTS FUNC:', attr , node.func.value.attr, node.args)
-            left = VerilogWire(node.func.value.attr)
-            return VerilogAsynchronousAssignment(left, node.args[0])
-        
-        node = ast.NodeTransformer.generic_visit(self, node)
-        
-        return node
+    
 
 class ReplaceBinOp(ast.NodeTransformer):
     
     def visit_BinOp(self, node):
         #print('replacing BinOp')
-        return VerilogOperator(node.left, node.op, node.right)
+        node =  VerilogOperator(node.left, node.op, node.right)
+        node = ast.NodeTransformer.generic_visit(self, node)
+        return node
 
     def visit_Compare(self, node):
         return VerilogOperator(node.left, node.ops, node.comparators)    
@@ -333,17 +322,83 @@ class ReplaceAssign(ast.NodeTransformer):
         newvalue = VerilogOperator(left, node.op, right)
         return VerilogSynchronousAssignment(left, newvalue)
 
+class FlattenOperators(ast.NodeTransformer):
+    # If recursive operators are found they are extracted, new wires
+    # are created and the structure is flattened
+    ic = -1
+
+    def loop_visit(self, node):
+        self.anyChange = True
+        
+        while (self.anyChange):
+            self.anyChange = False
+            node = self.visit(node)
+            
+        return node
+            
+    def visit_VerilogBody(self, node):
+        self.top = node
+        return ast.NodeTransformer.generic_visit(self, node)
+    
+    def newName(self):
+        self.ic += 1
+        return 'i{}'.format(self.ic)
+    
+    def visit_VerilogAsynchronousAssignment(self, node):
+        self.sync = False
+        return ast.NodeTransformer.generic_visit(self, node)
+
+    def visit_VerilogSynchronousAssignment(self, node):
+        self.sync = True
+        return ast.NodeTransformer.generic_visit(self, node)
+        
+    def visit_VerilogOperator(self, node):
+        if (isinstance(node.left, VerilogOperator)):
+            #print('we should extract left operator')
+            wn = self.newName()
+            vwd = VerilogWireDeclaration(wn)
+            vw = VerilogWire(wn)
+            self.top.wires.wires.append(vwd)
+            
+            if (self.sync):
+                assign = VerilogSynchronousAssignment(vw, node.left)
+            else:
+                assign = VerilogAsynchronousAssignment(vw, node.left)
+                
+            self.top.process.body.append(assign)
+            node.left = vw
+            self.anyChange = True 
+            
+        if (isinstance(node.right, VerilogOperator)):
+            #print('we should extract right operator')
+            wn = self.newName()
+            vwd = VerilogWireDeclaration(wn)
+            vw = VerilogWire(wn)
+            self.top.wires.wires.append(vwd)
+            
+            if (self.sync):
+                assign = VerilogSynchronousAssignment(vw, node.right)
+            else:
+                assign = VerilogAsynchronousAssignment(vw, node.right)
+                
+            self.top.process.body.append(assign)
+            node.right = vw
+            self.anyChange = True
+            
+        return node
+
         
 class VerilogAsynchronousAssignment(ast.AST):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+        self._fields = tuple(['left', 'right'])
 
     def toVerilog(self):
         str = ''
         
-        str += Python2VerilogTranspiler.toVerilog(self.left) + '='
-        str += Python2VerilogTranspiler.toVerilog(self.right) + '\n'
+        str += Python2VerilogTranspiler.toVerilog(self.left) + '<='
+        str += Python2VerilogTranspiler.toVerilog(self.right) + ';\n'
         return str
         
 class VerilogSynchronousAssignment(ast.AST):
@@ -375,6 +430,12 @@ class VerilogOperator(ast.AST):
         # translated an AST operator into verilog syntax
         if (isinstance(operator, ast.Add)):
             return '+'
+        elif (isinstance(operator, ast.BitAnd)):
+            return '&'
+        elif (isinstance(operator, ast.BitOr)):
+            return '|'
+        elif (isinstance(operator, ast.BitXor)):
+            return '^'
         elif (isinstance(operator, ast.Eq)):
             return '=='
         else:
@@ -399,19 +460,66 @@ class VerilogWire(ast.AST):
 
     def toVerilog(self):
         return self.name
+
+class VerilogWireDeclaration(ast.AST):
+    '''
+    AST node for Verilog Wires
+    '''
+    def __init__(self, name:str):
+        self.name = name
+        self._fields = tuple(['name', 'dummy'])
+
+    def toVerilog(self):
+        return 'reg ' + self.name + ';\n'
+
+
+class VerilogWireDeclarations(ast.AST):
+    # wire declaration section at the beginning of the module
+    def __init__(self):
+        self.wires = []
+        self._fields = tuple(['wires', 'dummy'])
         
+    def toVerilog(self):
+        str = ''
+        
+        for w in self.wires:
+            str += Python2VerilogTranspiler.toVerilog(w)
+            
+        return str    
+
+class VerilogProcess(ast.AST):
+    def __init__(self, body, sensitivity):
+        self.body = body
+        self.sensitivity_list = sensitivity
+        self._fields = tuple(['body', 'sensitivity_list'])
+        
+    def toVerilog(self):
+        str = 'always @({})\n'.format(self.sensitivity_list)
+        str += 'begin\n'
+        
+        for st in self.body:
+            str += Python2VerilogTranspiler.toVerilog(st) 
+
+        str += 'end\n'            
+        return str            
+    
 class VerilogBody(ast.AST):
     '''
     AST node to wrap body
     '''
-    def __init__(self, body:list):
-        self.body = body
-        self._fields = tuple(['body', 'dummy'])
+    def __init__(self, wires, process):
+        self.wires = wires
+        self.process = process
+        self._fields = tuple(['wires', 'process'])
     
     def toVerilog(self):
         str = ''
-        for node in self.body:
-            str += Python2VerilogTranspiler.toVerilog(node)
+        
+        str += '// variable declaration \n'
+        str += Python2VerilogTranspiler.toVerilog(self.wires)
+
+        str += '// process \n'
+        str += Python2VerilogTranspiler.toVerilog(self.process)
         return str
             
             
