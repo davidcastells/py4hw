@@ -438,6 +438,8 @@ class VerilogOperator(ast.AST):
             return '^'
         elif (isinstance(operator, ast.Eq)):
             return '=='
+        elif (isinstance(operator, ast.GtE)):
+            return '>='        
         else:
             raise Exception('operator {} not supported'.format(type(operator)))
             
