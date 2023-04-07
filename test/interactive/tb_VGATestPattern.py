@@ -154,6 +154,10 @@ if (True):
     sch = py4hw.Schematic(sys)
     sch.draw()
 
+if (True):
+    rtl = py4hw.VerilogGenerator(vga)
+    print(rtl.getVerilog())
+    
 # Simulate    
 if (True):
     #from Waveform import * 
