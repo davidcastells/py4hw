@@ -652,11 +652,10 @@ class VerilogGenerator:
     
     def generateCodeFromClock(self, obj:Logic):
         str = "// Code generated from clock method\n"
-        clkname = getObjectClockDriver(obj).name
         
-        tr = Python2VerilogTranspiler(obj, 'clock', 'posedge {}'.format(clkname))
+        tr = Python2VerilogTranspiler(obj)
         
-        str += tr.transpileRTL() ;
+        str += tr.transpileSequential();
         
         
         return str
