@@ -17,6 +17,6 @@ from .transpilation import *
 
 import py4hw.gui
 import py4hw.debug
-import py4hw.external.intel.BlockDesignFile
+
 
 from nbwavedrom import draw as draw_waveform
