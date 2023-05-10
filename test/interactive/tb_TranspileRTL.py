@@ -104,7 +104,7 @@ class VGATestPattern(py4hw.Logic):
             if (self.y >= 520):
                 self.y = 0
 
-if (False):
+if (True):
     # Test circuit
     hw = py4hw.HWSystem()
     a = hw.wire('a', 8)
@@ -114,7 +114,7 @@ if (False):
     dut = TestCircuit(hw, 'test', a, r)
     #dut = FSM(hw, 'test', a, r)
 
-if (True):
+if (False):
     # Test circuit
     hw = py4hw.HWSystem()
     ha = hw.wire('ha')
@@ -179,7 +179,8 @@ if (True):
 
 if (False):    
     rtl = py2v.Python2VerilogTranspiler(dut)
-    str = rtl.transpileSequential()
+    node = rtl.transpileSequential()
+    str = rtl.toVerilog(node)
     
     print('transpilation of clock method')
     print(str)
