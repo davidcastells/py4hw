@@ -82,6 +82,9 @@ class Reg(Logic):
             
 class TReg(Logic):
     def __init__(self, parent, name:str, t:Wire, e:Wire, q:Wire, ):
+        from .bitwise import Not
+        from .bitwise import Mux2
+        
         super().__init__(parent, name)
         self.t = self.addIn("t", t)
         self.e = self.addIn("e", e)
