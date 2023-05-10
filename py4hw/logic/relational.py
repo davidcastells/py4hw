@@ -63,6 +63,7 @@ class EqualConstant(Logic):
         from .bitwise import BitsLSBF
         from .bitwise import Minterm
         from .bitwise import Buf
+        from .bitwise import Not
 
         # we save the values for Verilog generation
         self.a = self.addIn("a", a)
