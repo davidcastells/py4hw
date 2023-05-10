@@ -36,6 +36,7 @@ class Waveform(Logic):
         """
         super().__init__(parent, name)
         self.wires = wires if isinstance(wires, list) else [wires]
+        self.format = []
         self.data = {}  # this is a dictionary of obj (wire or port) -> data, list of wire values 
 
         uniqueWires = []
@@ -43,6 +44,7 @@ class Waveform(Logic):
         for x in self.wires:
             
             if isinstance(x, Wire):
+                w = x
                 if not(x in uniqueWires):
                     self.addIn(x.name, x)
                     uniqueWires.append(x)
@@ -57,6 +59,11 @@ class Waveform(Logic):
                 raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
             self.data[x] = []            
+            
+            if (w.getWidth() == 1):
+                self.format.append('')
+            else:
+                self.format.append('{:X}')
 
     @staticmethod
     def getwire(x):
@@ -69,6 +76,11 @@ class Waveform(Logic):
             
         return w
     
+    def clear(self):
+        for key in self.data.keys():
+            self.data[key] = []
+        
+        
     def clock(self):
         for x in self.wires:
             w = Waveform.getwire(x)
@@ -116,6 +128,8 @@ class Waveform(Logic):
         import nbwavedrom as wave
         return wave.draw(self.get_wavedrom(shortNames))
     
+    
+    
     def get_wavedrom(self, shortNames=False):
         """
         
@@ -134,8 +148,9 @@ class Waveform(Logic):
         
         signals = [{"name": "clk", 'wave': 'P'}]
         
-        for obj in self.wires:
+        for idx, obj in enumerate(self.wires):
             w = Waveform.getwire(obj)
+            fmt = self.format[idx]
             wavedata = 'x'
             wavedatadata = []
             
@@ -149,7 +164,7 @@ class Waveform(Logic):
                         wavedata += '{}'.format(v)
                     else:
                         wavedata += '{}'.format(2)
-                        wavedatadata.append( '{:X}'.format(v))
+                        wavedatadata.append(fmt.format(v))
                 else:
                     wavedata += '.'
                 last = v
