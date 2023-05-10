@@ -655,8 +655,10 @@ class VerilogGenerator:
         
         tr = Python2VerilogTranspiler(obj)
         
-        str += tr.transpileSequential();
+        node = tr.transpileSequential()
+        str += tr.toVerilog(node)
         
+        str = tr.format(str)
         
         return str
 
