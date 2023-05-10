@@ -215,6 +215,12 @@ class LogicHelper:
         Or(self.parent, name, a, r)
         return r
 
+    def hw_or_bits(self, a) -> Wire:
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        OrBits(self.parent, name, a, r)
+        return r
+
     def hw_range(self, a:Wire, up:int, down:int) -> Wire:
         w = up - down + 1
         name = self._getNewName()
