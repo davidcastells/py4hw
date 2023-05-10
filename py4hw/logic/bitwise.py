@@ -253,6 +253,17 @@ class Or2(Logic):
     def propagate(self):
         self.r.put(self.a.get() | self.b.get())
 
+class OrBits(Logic):
+    def __init__(self, parent, name:str, a: Wire, r: Wire):
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addOut('r', r)
+        
+        ab = self.wires('ab', a.getWidth(), 1)
+        BitsLSBF(self, 'bits', a, ab)
+        Or(self, 'or', ab, r)
+    
 class Or(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
         super().__init__(parent, name)
