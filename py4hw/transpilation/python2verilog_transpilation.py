@@ -11,6 +11,20 @@ from deprecated import deprecated
 import ast
 from .astutils import * 
 
+def startsWith(line, sub):
+    if (line[0:len(sub)] == sub):
+        return True
+    else:
+        return False
+    
+def strip(line):
+    line = line.strip()
+    
+    while (startsWith(line, '\t')):
+        # remove tabs
+        line = line[1:]
+
+    return line
 
 def getBody(node, slist=''):
     # the Module node contains a body, that contains a list, containting
@@ -50,10 +64,12 @@ class Python2VerilogTranspiler:
     
         assert(isinstance(node, ast.AST))
         
+        node = RemovePrints().visit(node)
         node = ReplaceIf().visit(node)
         node = ReplaceWireCalls().visit(node)
         node = ReplaceExpr().visit(node)
-        node = ReplaceBinOp().visit(node)
+        node = ReplaceOperators().visit(node)
+        node = ReplaceOperators().visit(node) # repeat to handle Compare
         node = ReplaceAttribute().visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
@@ -88,10 +104,14 @@ class Python2VerilogTranspiler:
     
         assert(isinstance(node, ast.AST))
         
+        node = RemovePrints().visit(node)
+        node = RemoveAssert().visit(node)
+        
         node = ReplaceIf().visit(node)
         node = ReplaceWireCalls().visit(node)
         node = ReplaceExpr().visit(node)
-        node = ReplaceBinOp().visit(node)
+        node = ReplaceOperators().visit(node)
+        node = ReplaceOperators().visit(node) # repeat to handle Compare
         
         wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables)
         node = wiresAndVars.visit(node)
@@ -104,7 +124,8 @@ class Python2VerilogTranspiler:
 
         print('variables', node.wires.variables)
         
-        return Python2VerilogTranspiler.toVerilog(node)
+        return node;
+        # return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
         
     @staticmethod
@@ -138,6 +159,33 @@ class Python2VerilogTranspiler:
             print('No toVerilog for', type(node))
         else:
             return toV()
+
+    def format(self, str):
+        lines = str.split('\n')
+        indent = 0
+        ret = ''
+        
+        for line in lines:
+            line = strip(line)
+            
+            if (startsWith(line, 'end')):
+                indent -= 1
+                #print('end->indent: ', indent)
+                
+            sindent = ''
+            if (indent > 0):
+                sindent = ' ' * (indent * 4)
+                #print('len indent:', len(sindent))
+                #ret += '{:02}-'.format(indent)  + sindent
+                
+            if (startsWith(line, 'begin')):
+                indent += 1
+                #print('begin->indent: ', indent)
+                
+            if (len(line) > 0):
+                ret += sindent  + line + '\n'
+        
+        return ret
     
     @deprecated
     def getExtraDeclarations(self):
@@ -187,6 +235,31 @@ class ReplaceIf(ast.NodeTransformer):
         return node2
         
 
+class RemovePrints(ast.NodeTransformer):
+        
+    def visit_Call(self, node):
+        from py4hw.rtl_generation import getAstName
+
+        attr = getAstName(node.func)
+        
+        #print('checking call', attr)
+        if (attr == 'print'):
+            # remove prints
+            return VerilogComment('print removed')
+        
+        node = ast.NodeTransformer.generic_visit(self, node)
+        
+        return node
+
+class RemoveAssert(ast.NodeTransformer):
+        
+    def visit_Assert(self, node):
+        from py4hw.rtl_generation import getAstName
+
+        # remove asserts
+        return VerilogComment('assert removed')
+        
+    
 class ReplaceWireCalls(ast.NodeTransformer):
         
     def visit_Call(self, node):
@@ -220,16 +293,31 @@ class ReplaceWireCalls(ast.NodeTransformer):
     
     
 
-class ReplaceBinOp(ast.NodeTransformer):
+class ReplaceOperators(ast.NodeTransformer):
     
     def visit_BinOp(self, node):
         #print('replacing BinOp')
-        node =  VerilogOperator(node.left, node.op, node.right)
-        node = ast.NodeTransformer.generic_visit(self, node)
+        left = ast.NodeTransformer.generic_visit(self, node.left)
+        right = ast.NodeTransformer.generic_visit(self, node.right)
+        node =  VerilogOperator(left, node.op, right)
+        #node = ast.NodeTransformer.generic_visit(self, node)
         return node
 
+    def visit_BoolOp(self, node):
+        assert(len(node.values) == 2)
+        left = ast.NodeTransformer.generic_visit(self, node.values[0])
+        right = ast.NodeTransformer.generic_visit(self, node.values[1])
+        node = VerilogOperator(left, node.op, right)
+        return node
+    
     def visit_Compare(self, node):
-        return VerilogOperator(node.left, node.ops, node.comparators)    
+        print('visiting compare')
+        left = ast.NodeTransformer.generic_visit(self, node.left)
+        right = node.comparators # ast.NodeTransformer.generic_visit(self, node.comparators)
+        node = VerilogOperator(left, node.ops, right)            
+        return node
+    
+
     
 class ReplaceExpr(ast.NodeTransformer):
     def visit_Expr(self, node):
@@ -494,6 +582,8 @@ class VerilogOperator(ast.AST):
         # ARITHMETIC
         if (isinstance(operator, ast.Add)):
             return '+'
+        elif (isinstance(operator, ast.Sub)):
+            return '-'
         elif (isinstance(operator, ast.Mult)):
             return '*'
         elif (isinstance(operator, ast.FloorDiv)):
@@ -505,9 +595,13 @@ class VerilogOperator(ast.AST):
             return '|'
         elif (isinstance(operator, ast.BitXor)):
             return '^'
+        elif (isinstance(operator, ast.LShift)):
+            return '<<'
         elif (isinstance(operator, ast.RShift)):
             return '>>'
         # RELATIONAL
+        elif (isinstance(operator, ast.And)):
+            return '&&'
         elif (isinstance(operator, ast.Eq)):
             return '=='
         elif (isinstance(operator, ast.Lt)):
@@ -675,6 +769,14 @@ class VerilogIf(ast.AST):
             str += Python2VerilogTranspiler.toVerilog(self.negative) + '\n'
             str += 'end\n'
         return str
+    
+class VerilogComment(ast.AST):
+    def __init__(self, value):
+        self.value = value
+        self._fields = tuple(['value', 'dummy'])
+    
+    def toVerilog(self):
+        return '// {}\n'.format(self.value)
     
 class VerilogConstant(ast.AST):
     def __init__(self, value):
