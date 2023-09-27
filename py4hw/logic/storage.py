@@ -5,7 +5,8 @@ Created on Thu Oct 29 17:10:01 2020
 @author: dcr
 """
 from .. import *
-from .. import *
+from .bitwise import Buf
+
 from deprecated import deprecated
 
 
@@ -123,6 +124,7 @@ class DelayLine(Logic):
         None.
 
         """
+        
         super().__init__(parent, name)
         
         self.addIn('a', a)
