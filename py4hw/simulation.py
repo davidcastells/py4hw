@@ -100,8 +100,15 @@ class Simulator:
         # Now sort the propagatables list
         anyChange = True 
         
+        loopcount = 0
+        
         while (anyChange):
+            loopcount += 1
             anyChange = False
+            
+            if (loopcount > 1000):
+                raise Exception('Excessive loop count in topological count')
+                
             for i in range(len(self.propagatables)):
                 leaf = self.propagatables[i]
                 pos = self.findFirstDependentPosition(leaf)
