@@ -127,6 +127,11 @@ class MatplotlibRender:
         xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
         self.canvas.plot( xnew ,ynew , color=self.color, linewidth=self.linewidth)
         
+    def drawImage(self, x, y, img ):
+        w = img.shape[1]
+        h = img.shape[0]
+        self.canvas.imshow(img, extent=[x,x+w,y+h,y], origin='upper')
+        
 
 class TkinterRender:
     # check https://zetcode.com/tkinter/drawing/
@@ -235,6 +240,19 @@ class TkinterRender:
         xnew,ynew = interpolate.splev( np.linspace( 0, 1, 20 ), tck,der = 0)
         self.drawPolygon( xnew ,ynew)
 
+    def drawImage(self, x, y, np_img ):
+        from tkinter import PhotoImage
+        from PIL import Image, ImageTk
+        w = np_img.shape[1]
+        h = np_img.shape[0]
+        
+        #print('drawImage', np_img.shape, type(np_img), type(np_img[0][0][0]))
+
+        pil_img = Image.fromarray(np_img)
+        tk_img = ImageTk.PhotoImage(image=pil_img)
+        # Display the image on the canvas
+        self.canvas.create_image(x, y, anchor="nw", image=tk_img)
+        self.canvas.image = tk_img
         
 class Schematic:
     """
@@ -242,6 +260,8 @@ class Schematic:
     """
 
     step_timeout = 10 # any step of the schematic rendering cannot take more than this value (seconds)
+
+    mapping = {} # maaping from object class to symbol
     
     def __init__(self, obj:Logic, render='matplotlib', parent=None, placeAndRoute=True):
    
@@ -272,25 +292,24 @@ class Schematic:
         self.sources = []   # a list of net sources with tuples [symbol, x, y, wire]
         self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, wire]
         
-        self.mapping = {}
-        self.mapping[And2] = AndSymbol
-        self.mapping[And] = AndSymbol
-        self.mapping[Not] = NotSymbol
-        self.mapping[Or2] = OrSymbol
-        self.mapping[Or] = OrSymbol
-        self.mapping[Nor2] = NorSymbol
-        self.mapping[Xor2] = XorSymbol
+        Schematic.mapping[And2] = AndSymbol
+        Schematic.mapping[And] = AndSymbol
+        Schematic.mapping[Not] = NotSymbol
+        Schematic.mapping[Or2] = OrSymbol
+        Schematic.mapping[Or] = OrSymbol
+        Schematic.mapping[Nor2] = NorSymbol
+        Schematic.mapping[Xor2] = XorSymbol
         
-        self.mapping[Add] = AddSymbol
-        self.mapping[Sub] = SubSymbol
-        self.mapping[Mul] = MulSymbol
+        Schematic.mapping[Add] = AddSymbol
+        Schematic.mapping[Sub] = SubSymbol
+        Schematic.mapping[Mul] = MulSymbol
         
-        self.mapping[Reg] = RegSymbol
-        self.mapping[Scope] = ScopeSymbol
-        self.mapping[Buf] = BufSymbol
-        self.mapping[Bit] = BitSymbol
-        self.mapping[Mux2] = Mux2Symbol
-        self.mapping[Range] = RangeSymbol
+        Schematic.mapping[Reg] = RegSymbol
+        Schematic.mapping[Scope] = ScopeSymbol
+        Schematic.mapping[Buf] = BufSymbol
+        Schematic.mapping[Bit] = BitSymbol
+        Schematic.mapping[Mux2] = Mux2Symbol
+        Schematic.mapping[Range] = RangeSymbol
 
         self.mapping[Waveform] = ScopeSymbol # Temp solution
 
@@ -998,7 +1017,7 @@ class Schematic:
         for inp in self.sys.inPorts:
             isym = InPortSymbol(inp, self.x, self.y)
             self.objs.append(isym)
-            self.y = self.y + gridsize * portSeparation
+            self.y = self.y + gridsize * LogicSymbol.portSeparation
             self.sources.append({'symbol':isym, 'x':15, 'y':8+5, 'wire':inp.wire})
         
         if (len(self.sys.inPorts) > 0):
@@ -1013,7 +1032,7 @@ class Schematic:
         
     def getSymbol(self, obj, x, y):
         try:
-            ret = self.mapping[type(obj)]
+            ret = Schematic.mapping[type(obj)]
     
             #print('getSymbol -> good', obj)
                 
@@ -1036,12 +1055,12 @@ class Schematic:
         i = 0
         for inp in child.inPorts:
             #print('adding inport ', child, inp.name)
-            self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
+            self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*LogicSymbol.portpitch, 'wire':inp.wire})
             i = i+1
         i = 0
         for inp in child.outPorts:
             #print('adding outport ', child, inp.name)
-            self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*portpitch, 'wire':inp.wire})
+            self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*LogicSymbol.portpitch, 'wire':inp.wire})
             i = i+1
                 
         return isym
@@ -1069,7 +1088,7 @@ class Schematic:
         for inp in self.sys.outPorts:
             osym = OutPortSymbol(inp, self.x, self.y)
             self.objs.append(osym)
-            self.y = self.y + gridsize * portSeparation
+            self.y = self.y + gridsize * LogicSymbol.portSeparation
             self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
         
         #self.x = self.x + 3
@@ -1413,7 +1432,8 @@ class Schematic:
         if (mode == 'prerouting'):
             maxh = maxh*2
             
-        grid = np.zeros((maxh,maxw))
+        #print('ocupancy grid = ', maxh, maxw)
+        grid = np.zeros((maxh, maxw))
         
         for obj in self.getNonNets():
             if (obj in discard):
