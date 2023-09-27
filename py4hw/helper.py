@@ -193,6 +193,28 @@ class LogicHelper:
         Comparator(self.parent, self._getNewName(), a, k, gt, eq, lt)
         return gt
     
+    def hw_lt_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        gt = self.parent.wire(self._getNewName())
+        eq = self.parent.wire(self._getNewName())
+        lt = self.parent.wire(self._getNewName())
+        k = self.parent.wire(self._getNewName(), w)
+        Constant(self.parent, self._getNewName(), b, k)
+        Comparator(self.parent, self._getNewName(), a, k, gt, eq, lt)
+        return lt
+    
+    def hw_ge_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        gt = self.parent.wire(self._getNewName())
+        eq = self.parent.wire(self._getNewName())
+        lt = self.parent.wire(self._getNewName())
+        ge = self.parent.wire(self._getNewName())
+        k = self.parent.wire(self._getNewName(), w)
+        Constant(self.parent, self._getNewName(), b, k)
+        Comparator(self.parent, self._getNewName(), a, k, gt, eq, lt)
+        Or2(self.parent, self._getNewName(), gt, eq, ge)
+        return ge
+    
     def _getNewName(self)->str:
         while (True):
             name = 'i{}'.format(self.inum)
@@ -285,6 +307,18 @@ class LogicHelper:
         name = self._getNewName()
         r = self.parent.wire(name, w)
         Sign(self.parent, name, a, r)
+        return r
+    
+    def sign_extend(self, a:Wire, w) -> Wire:
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        SignExtend(self.parent, name, a, r)
+        return r
+    
+    def zero_extend(self, a:Wire, w) -> Wire:
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        ZeroExtend(self.parent, name, a, r)
         return r
     
     def sim_sequence(self, width:int, seq:list) -> Wire:
