@@ -8,16 +8,7 @@ from .logic.bitwise import *
 from .base import Wire
 import math
 
-gridsize = 5
-portpitch = 28
-cellmargin = 50
-portSeparation = 10
 
-namemargin = 8
-portmargin = 8
-instanceportwidth = 4
-instanceportheight = 10
-instanceporttextmargin = 10
  
 #
 #  name              name margin
@@ -30,11 +21,54 @@ instanceporttextmargin = 10
 #  +------------+
 
 class LogicSymbol:
+    gridsize = 5
+    portpitch = 28
+    cellmargin = 50
+    portSeparation = 10
+
+    namemargin = 8
+    portmargin = 8
+    instanceportwidth = 4
+    instanceportheight = 10
+    instanceporttextmargin = 10
+
     def __init__(self, obj:Logic, x:int, y:int):
         self.obj = obj
         self.x = x
         self.y = y
-                
+        self.instanceWidth = self.computeWidth() 
+        #print('instance width:', self.instanceWidth)
+        
+    def getTextExtend(self, text):
+        from matplotlib.textpath import TextPath
+
+        fontsize = 12
+        
+        path = TextPath((0, 0), text, size=fontsize)
+        
+        text_width = path.get_extents().width
+        #text_height = path.get_extents().height
+        return text_width
+
+    def getInPortsWidth(self):
+        inMaxWidth = 0
+        if (hasattr(self.obj, 'inPorts')):
+            for idx, port in enumerate(self.obj.inPorts):
+                inMaxWidth = max(inMaxWidth, self.getTextExtend(port.name))
+        return inMaxWidth
+    
+    def getOutPortsWidth(self):
+        outMaxWidth = 0
+        if (hasattr(self.obj, 'outPorts')):
+            for idx, port in enumerate(self.obj.outPorts):
+                outMaxWidth = max(outMaxWidth, self.getTextExtend(port.name))
+        return outMaxWidth
+    
+    def computeWidth(self):
+        outMaxWidth = self.getOutPortsWidth()
+        inMaxWidth = self.getInPortsWidth()
+        
+        return int(outMaxWidth * 1.5  +  LogicSymbol.gridsize*10 + inMaxWidth * 1.5 )
         
     def getWireSourcePos(self, wire:Wire):
         selidx = -1
@@ -46,7 +80,7 @@ class LogicSymbol:
             raise Exception('out port not found in {}'.format(self.obj.getFullPath()) )
 
 
-        return (self.getWidth(), namemargin + portmargin + selidx*portpitch + instanceportheight//2)
+        return (self.getWidth(), LogicSymbol.namemargin + LogicSymbol.portmargin + selidx*LogicSymbol.portpitch + LogicSymbol.instanceportheight//2)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -58,13 +92,13 @@ class LogicSymbol:
             raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
 
         
-        return (0, namemargin + portmargin + selidx*portpitch + instanceportheight//2)
+        return (0, LogicSymbol.namemargin + LogicSymbol.portmargin + selidx*LogicSymbol.portpitch + LogicSymbol.instanceportheight//2)
 
     def getHeight(self):
-        return namemargin + 2*portmargin + max(len(self.obj.inPorts), len(self.obj.outPorts)) * portpitch 
+        return LogicSymbol.namemargin + 2*LogicSymbol.portmargin + max(len(self.obj.inPorts), len(self.obj.outPorts)) * LogicSymbol.portpitch 
     
     def getWidth(self):
-        return 25 * gridsize    
+        return self.instanceWidth    
 
     def getOccupancy(self):
         return {'x':self.x, 'y':self.y, 'w':self.getWidth(), 'h':self.getHeight()}
@@ -78,7 +112,7 @@ class BinaryOperatorSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         canvas.drawText(x+25, y+25+5, self.operator, anchor='c')
         canvas.drawEllipse(x, y, x+50, y+50)
@@ -88,13 +122,13 @@ class BinaryOperatorSymbol(LogicSymbol):
         #canvas.drawArc(x + 20, y, x + 50, y + 40, start=-90, extent=180) #, style=tkinter.ARC, outline='black', fill='white')
 
     def getHeight(self):
-        return 50 + namemargin
+        return 50 + LogicSymbol.namemargin
 
     def getWidth(self):
         return 50 
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + 25)
+        return (self.getWidth(), LogicSymbol.namemargin + 25)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -111,7 +145,7 @@ class BinaryOperatorSymbol(LogicSymbol):
         if (selidx == 0):
             y = -y
 
-        return (25-x, namemargin + 25 + y)
+        return (25-x, LogicSymbol.namemargin + 25 + y)
 
 
 class AddSymbol(BinaryOperatorSymbol):
@@ -145,7 +179,7 @@ class AndSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x, y, x + 25, y)
@@ -154,13 +188,13 @@ class AndSymbol(LogicSymbol):
         canvas.drawArc(x , y+2, x + 50, y + self.h, start=-90, stop=90) #, style=tkinter.ARC, outline='black', fill='white')
 
     def getHeight(self):
-        return namemargin + self.h
+        return LogicSymbol.namemargin + self.h
 
     def getWidth(self):
         return 50
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + self.h//2)
+        return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -173,7 +207,7 @@ class AndSymbol(LogicSymbol):
 
         y = 10 + selidx * 20
 
-        return (5, namemargin + y)
+        return (5, LogicSymbol.namemargin + y)
 
 class NotSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -184,7 +218,7 @@ class NotSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin 
+        y = y + LogicSymbol.namemargin 
 
         y = y + 10
 
@@ -198,10 +232,10 @@ class NotSymbol(LogicSymbol):
         return 40
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + 25)
+        return (self.getWidth(), LogicSymbol.namemargin + 25)
     
     def getWireSinkPos(self, wire:Wire):
-        return (0, namemargin + 25)
+        return (0, LogicSymbol.namemargin + 25)
     
     
 class BufSymbol(LogicSymbol):
@@ -213,7 +247,7 @@ class BufSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin 
+        y = y + LogicSymbol.namemargin 
 
         canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
         
@@ -224,10 +258,10 @@ class BufSymbol(LogicSymbol):
         return 20
 
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + 10)
+        return (self.getWidth(), LogicSymbol.namemargin + 10)
     
     def getWireSinkPos(self, wire:Wire):
-        return (0, namemargin + 10)
+        return (0, LogicSymbol.namemargin + 10)
     
 class BitSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -238,7 +272,7 @@ class BitSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text='[{}]'.format(self.obj.bit), anchor='w')
-        y = y + namemargin 
+        y = y + LogicSymbol.namemargin 
 
         canvas.drawLine(x+10,y, x, y+20)
         #canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
@@ -250,10 +284,10 @@ class BitSymbol(LogicSymbol):
         return 20
 
     def getWireSourcePos(self, wire:Wire):
-        return (10, namemargin + 10)
+        return (10, LogicSymbol.namemargin + 10)
     
     def getWireSinkPos(self, wire:Wire):
-        return (0, namemargin + 10)
+        return (0, LogicSymbol.namemargin + 10)
     
 class RangeSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -264,7 +298,7 @@ class RangeSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text='[{}:{}]'.format(self.obj.high, self.obj.low), anchor='w')
-        y = y + namemargin 
+        y = y + LogicSymbol.namemargin 
 
         canvas.drawLine(x+10,y, x, y+20)
         #canvas.drawPolygon([x, x + 20, x, x], [y, y + 10, y + 20, y])
@@ -276,10 +310,10 @@ class RangeSymbol(LogicSymbol):
         return 20
 
     def getWireSourcePos(self, wire:Wire):
-        return (10, namemargin + 10)
+        return (10, LogicSymbol.namemargin + 10)
     
     def getWireSinkPos(self, wire:Wire):
-        return (0, namemargin + 10)
+        return (0, LogicSymbol.namemargin + 10)
     
 class NorSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -291,7 +325,7 @@ class NorSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x, y, x + 20, y)
@@ -305,13 +339,13 @@ class NorSymbol(LogicSymbol):
         canvas.drawEllipse(x + 55, y + 15, x + 65, y + 25)
 
     def getHeight(self):
-        return namemargin + self.h
+        return LogicSymbol.namemargin + self.h
 
     def getWidth(self):
         return 65
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + self.h//2)
+        return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -327,7 +361,7 @@ class NorSymbol(LogicSymbol):
         else:
             y = self.h//2 + 10 
 
-        return (5, namemargin + y)
+        return (5, LogicSymbol.namemargin + y)
     
 class OrSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -345,7 +379,7 @@ class OrSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x, y, x + 20, y)
@@ -359,13 +393,13 @@ class OrSymbol(LogicSymbol):
         canvas.drawSpline([x+20, x+30, x+42, x+50], [y+self.h,  y+self.h-2, y+self.h-self.h//4, y+self.h//2])
 
     def getHeight(self):
-        return namemargin + self.h
+        return LogicSymbol.namemargin + self.h
 
     def getWidth(self):
         return 50
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + self.h//2)
+        return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -378,7 +412,7 @@ class OrSymbol(LogicSymbol):
 
         y = 10 + selidx * 20
 
-        return (5, namemargin + y)
+        return (5, LogicSymbol.namemargin + y)
     
 class XorSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -390,7 +424,7 @@ class XorSymbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         # the and box would be x[0:50] y[0:30]
         canvas.drawLine(x+10, y, x + 20+10, y)
@@ -406,13 +440,13 @@ class XorSymbol(LogicSymbol):
 
 
     def getHeight(self):
-        return namemargin + self.h
+        return LogicSymbol.namemargin + self.h
 
     def getWidth(self):
         return 50+10
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + self.h//2)
+        return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -428,7 +462,7 @@ class XorSymbol(LogicSymbol):
         else:
             y = self.h//2 + 10 
 
-        return (5, namemargin + y)
+        return (5, LogicSymbol.namemargin + y)
     
 class InPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -438,7 +472,7 @@ class InPortSymbol(LogicSymbol):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
-        y = y+namemargin 
+        y = y+LogicSymbol.namemargin 
         
         canvas.drawPolygon([x, x+10, x+15, x+10,x,x], [y, y, y+5, y+10, y+10, y])
 
@@ -449,7 +483,7 @@ class InPortSymbol(LogicSymbol):
         return 20;
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin +5)
+        return (self.getWidth(), LogicSymbol.namemargin +5)
     
 class OutPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -459,7 +493,7 @@ class OutPortSymbol(LogicSymbol):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
-        y = y+namemargin 
+        y = y+LogicSymbol.namemargin 
         
         canvas.drawPolygon([x, x+10, x+15, x+10, x, x], [y, y, y+5, y+10, y+10, y])
 
@@ -470,7 +504,7 @@ class OutPortSymbol(LogicSymbol):
         return 20;
     
     def getWireSinkPos(self, wire:Wire):
-        return (0, namemargin + 5)
+        return (0, LogicSymbol.namemargin + 5)
     
 class InstanceSymbol(LogicSymbol):
     def __init__(self, obj:Logic, x:int, y:int):
@@ -481,23 +515,24 @@ class InstanceSymbol(LogicSymbol):
         y = self.y 
         
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y+namemargin 
+        y = y + LogicSymbol.namemargin 
         
-        canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - namemargin)
+        #print('instance symbol width:', self.getWidth())
+        canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - LogicSymbol.namemargin)
 
-        ipw = instanceportwidth 
-        iph = instanceportheight
+        ipw = LogicSymbol.instanceportwidth 
+        iph = LogicSymbol.instanceportheight
         iphh = iph//2
-        iptm = instanceporttextmargin
+        iptm = LogicSymbol.instanceporttextmargin
 
-        y = y + portmargin
+        y = y + LogicSymbol.portmargin
         
         for inp in self.obj.inPorts:
             canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x,x], [y, y, y+iphh, y+iph, y+iph,y])
             canvas.drawText(x+ipw+iph, y+iptm, text=inp.name , anchor='w')
-            y = y+portpitch
+            y = y+LogicSymbol.portpitch
             
-        y = self.y + namemargin + portmargin
+        y = self.y + LogicSymbol.namemargin + LogicSymbol.portmargin
         
 
         for inp in self.obj.outPorts:
@@ -505,7 +540,7 @@ class InstanceSymbol(LogicSymbol):
             canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x, x], [y, y, y+iphh, y+iph, y+iph, y])
             x = self.x + self.getWidth() - ipw - iph -iphh
             canvas.drawText(x, y+iptm, text=inp.name , anchor='e')
-            y = y+portpitch
+            y = y+LogicSymbol.portpitch
         
         
 class RegSymbol(InstanceSymbol):
@@ -530,10 +565,10 @@ class ScopeSymbol(InstanceSymbol):
         y = self.y 
         
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y+namemargin 
+        y = y+LogicSymbol.namemargin 
 
         canvas.setFillcolor('lightsalmon')
-        canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - namemargin, fill=True)
+        canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - LogicSymbol.namemargin, fill=True)
 
         ipw = instanceportwidth 
         iph = instanceportheight
@@ -547,10 +582,10 @@ class ScopeSymbol(InstanceSymbol):
             #canvas.drawText(x+ipw+iph, y+iptm, text=inp.name , anchor='w')
             y = y+portpitch
             
-        y = self.y + namemargin + portmargin
+        y = self.y + LogicSymbol.namemargin + portmargin
         
         canvas.setFillcolor('white')
-        canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-20+self.getHeight()-namemargin-20, radius=10, fill=True)
+        canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-20+self.getHeight()-LogicSymbol.namemargin-20, radius=10, fill=True)
         
 class Mux2Symbol(LogicSymbol):
     def __init__(self, obj, x, y):
@@ -562,7 +597,7 @@ class Mux2Symbol(LogicSymbol):
         y = self.y
 
         canvas.drawText(x, y, text=self.obj.name, anchor='w')
-        y = y + namemargin
+        y = y + LogicSymbol.namemargin
 
         canvas.setForecolor('blueviolet')  
         canvas.setLineWidth(1)
@@ -590,13 +625,13 @@ class Mux2Symbol(LogicSymbol):
 
 
     def getHeight(self):
-        return namemargin + self.h
+        return LogicSymbol.namemargin + self.h
 
     def getWidth(self):
         return 20
     
     def getWireSourcePos(self, wire:Wire):
-        return (self.getWidth(), namemargin + 40)
+        return (self.getWidth(), LogicSymbol.namemargin + 40)
     
     def getWireSinkPos(self, wire:Wire):
         selidx = -1
@@ -614,7 +649,7 @@ class Mux2Symbol(LogicSymbol):
         else:
             y = 50 
 
-        return (0, namemargin + y)
+        return (0, LogicSymbol.namemargin + y)
 
 class PassthroughSymbol(LogicSymbol):
     def __init__(self):
