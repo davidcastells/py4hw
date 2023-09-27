@@ -28,11 +28,18 @@ class Workbench():
         self.hierarchyPane = PanedWindow(self.topPane, relief = SUNKEN, width=50, height=100)
         self.topPane.add(self.hierarchyPane)
         
+        self.txtClocks = tkinter.StringVar(value='1')
         #print(ttk.Style().lookup("Prolepsis.Treeview", "font"))
+        txtClocks = ttk.Entry(self.hierarchyPane, width=10, textvariable=self.txtClocks)
+        txtClocks.grid(row=0, column=0)
+        #txtClocks.pack(side=tkinter.TOP, padx=10, pady=(10,5))
         
         btnClock = ttk.Button(self.hierarchyPane, text="Clock", command=self.guiClk)
-        self.hierarchyPane.add(btnClock)
-        btnClock.pack()
+        #btnClock.pack(side=tkinter.TOP, padx=(10,0), pady=(0,10))
+        btnClock.grid(row=0, column=1)
+        
+        #self.hierarchyPane.add(btnClock)
+        
         
         self.createHierarchyTree()
         
@@ -65,14 +72,18 @@ class Workbench():
         
         self.topPane.pack(fill=BOTH, expand=True)
         
-        sys.getSimulator().addListener(self)
+        # explicitelly update
+        # sys.getSimulator().addListener(self)
         
         
         root.mainloop()
         
     def guiClk(self):
+        clks = int(self.txtClocks.get())
         sim = self.sys.getSimulator()
-        sim.clk(1)
+        sim.clk(clks)
+        #explicitelly update
+        self.simulatorUpdated()
 
     def guiZoomOut(self):
         self.schematicDiagram.scale("all", 0, 0, 0.9, 0.9)
@@ -129,7 +140,7 @@ class Workbench():
         #tv.config(style="Prolepsis.Treeview")
         detail_tv["style"] = "Prolepsis.Treeview"
 
-        self.debugTkinterHierarchy(self.root, 0)
+        #self.debugTkinterHierarchy(self.root, 0)
         
         if (obj == None):
             return
@@ -233,9 +244,16 @@ class Workbench():
         tv = self.hierarchyTree  
         self.map_id_obj = {}
     
+    
         tv.bind('<<TreeviewSelect>>', self.callback)
-        self.hierarchyPane.add(tv)
-        tv.pack(fill=BOTH, expand=YES)
+        #self.hierarchyPane.add(tv)
+        #tv.pack(fill=BOTH, expand=YES)
+        tv.grid(row=1, column=0, columnspan=2, sticky='nsew')
+        
+        self.hierarchyTree.columnconfigure(0, weight=1)  
+        self.hierarchyTree.columnconfigure(1, weight=1)  
+        self.hierarchyTree.rowconfigure(1, weight=1)  
+        
         dc_iid = tv.insert("", tkinter.END, text="HWSystem", values=['Top', 'Top level'], open=True)
         
         self.map_id_obj[dc_iid] = self.sys
