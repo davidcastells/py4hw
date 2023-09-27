@@ -465,7 +465,7 @@ class Repeat(Logic):
         else:
             self.r.put(wf)
 
-
+# deprecated use OneHotMux
 class Select(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
         super().__init__(parent, name)
@@ -487,8 +487,45 @@ class Select(Logic):
         Or(self, 'or', final, r)
 
 
+class OneHotMux(Logic):
+    def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
+        super().__init__(parent, name)
+
+        final = []
+
+        for idx, sel in enumerate(sels):
+            inv = ins[idx]
+            self.addIn('sel{}'.format(idx), sel)
+            self.addIn('in{}'.format(idx), inv)
+            selx = self.wire('selx{}'.format(idx), inv.getWidth())
+            and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
+
+            Repeat(self, 'sel{}'.format(idx), sel, selx)
+            And2(self, 'and{}'.format(idx), selx, inv, and_sel)
+            final.append(and_sel)
+
+        self.addOut('r', r)
+        Or(self, 'or', final, r)
 
 
+class OneHotDemux(Logic):
+    def __init__(self, parent, name: str, sels:list, a:Wire, outs: list):
+        super().__init__(parent, name)
+
+        final = []
+
+        a = self.addIn('a', a)
+
+        for idx, sel in enumerate(sels):
+            self.addIn('sel{}'.format(idx), sel)
+            self.addOut('out{}'.format(idx), outs[idx])
+            
+            selx = self.wire('selx{}'.format(idx), a.getWidth())
+
+            Repeat(self, 'sel{}'.format(idx), sel, selx)
+            And2(self, 'and{}'.format(idx), selx, a, outs[idx])
+            
+        
 class SelectDefault(Logic):
     def __init__(self, parent, name, sels, ins, default, r):
         super().__init__(parent, name)
