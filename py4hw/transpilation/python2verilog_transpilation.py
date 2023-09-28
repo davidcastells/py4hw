@@ -122,7 +122,7 @@ class Python2VerilogTranspiler:
         node.wires.variables = wiresAndVars.variables.values();
         #node = FlattenOperators().visit(node)
 
-        print('variables', node.wires.variables)
+        # print('variables', node.wires.variables)
         
         return node;
         # return Python2VerilogTranspiler.toVerilog(node)
@@ -311,7 +311,7 @@ class ReplaceOperators(ast.NodeTransformer):
         return node
     
     def visit_Compare(self, node):
-        print('visiting compare')
+        # print('visiting compare')
         left = ast.NodeTransformer.generic_visit(self, node.left)
         right = node.comparators # ast.NodeTransformer.generic_visit(self, node.comparators)
         node = VerilogOperator(left, node.ops, right)            
@@ -420,12 +420,12 @@ class ExtractInitializers(ast.NodeTransformer):
             
             if (fname == 'addIn'):
                 pname = node.targets[0].attr
-                print('in port', pname)
+                # print('in port', pname)
             elif (fname == 'addOut'):
                 node.targets[0].attr
-                print('out port', node.targets[0].attr)
+                # print('out port', node.targets[0].attr)
             else:
-                print('not expected', fname)
+                print('name not expected', fname)
 
             w = VerilogWire(pname)
             self.ports[pname] = w        
@@ -454,7 +454,7 @@ class ExtractInitializers(ast.NodeTransformer):
 
         attr = getAstName(node.func)
         
-        print('checking call', attr)
+        #print('checking call', attr)
         if (attr == '__init__'):
             return None
         
