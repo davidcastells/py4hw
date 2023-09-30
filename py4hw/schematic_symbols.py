@@ -570,19 +570,19 @@ class ScopeSymbol(InstanceSymbol):
         canvas.setFillcolor('lightsalmon')
         canvas.drawRectangle(x, y, x + self.getWidth(), y + self.getHeight() - LogicSymbol.namemargin, fill=True)
 
-        ipw = instanceportwidth 
-        iph = instanceportheight
+        ipw = LogicSymbol.instanceportwidth 
+        iph = LogicSymbol.instanceportheight
         iphh = iph//2
-        iptm = instanceporttextmargin
+        iptm = LogicSymbol.instanceporttextmargin
 
-        y = y + portmargin
+        y = y + LogicSymbol.portmargin
         
         for inp in self.obj.inPorts:
             canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x,x], [y, y, y+iphh, y+iph, y+iph,y])
             #canvas.drawText(x+ipw+iph, y+iptm, text=inp.name , anchor='w')
-            y = y+portpitch
+            y = y+LogicSymbol.portpitch
             
-        y = self.y + LogicSymbol.namemargin + portmargin
+        y = self.y + LogicSymbol.namemargin + LogicSymbol.portmargin
         
         canvas.setFillcolor('white')
         canvas.drawRoundRectangle(x+25, y+20, x+self.getWidth()-25, y-20+self.getHeight()-LogicSymbol.namemargin-20, radius=10, fill=True)
