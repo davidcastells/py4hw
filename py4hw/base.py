@@ -464,11 +464,13 @@ class HWSystem(Logic):
     """
     A Hardware system is the top level entity of all designs 
     """
-    def __init__(self, clock_driver=None):
+    def __init__(self, clock_driver=None, name=None):
         super().__init__(None, "HWSystem")
         self.simulator = None
         if (clock_driver is None):
             clock_driver = ClockDriver('clk50', 50E6, 0) # we create a 50MHz clock driver by default
+        if not(name is None):
+            self.name = name
         self.clockDriver = clock_driver
         
     def getSimulator(self):
