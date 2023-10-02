@@ -723,3 +723,49 @@ class Range(Logic):
         newvalue = (value >> self.low) & mask
         self.r.put(newvalue)
 
+class Digit7Segment(Logic):
+    def __init__(self, parent, name, v, led):
+        super().__init__(parent, name)
+        
+        assert(led.getWidth() == 7)
+        
+        self.addIn('v', v)
+        self.addOut('led', led)
+        
+        
+        a_minterms = [0,2,3,5,6,7,8,9,0xA,0xC,0xE,0xF]
+        b_minterms = [0,1,2,3,4,7,8,9,0xA,0xd]
+        c_minterms = [0,1,3,4,5,6,7,8,9,0xA,0xb,0xd]
+        d_minterms = [0,2,3,5,6,8,0xb,0xC,0xd,0xE]
+        e_minterms = [0,2,6,8,0xA,0xb,0xC,0xd,0xE,0xF]
+        f_minterms = [0,4,5,6,8,9,0xA,0xb,0xC,0xE,0xF]
+        g_minterms = [2,3,4,5,6,8,9,0xA,0xb,0xd,0xE,0xF]
+        
+        
+        a = self.wire('a')
+        b = self.wire('b')
+        c = self.wire('c')
+        d = self.wire('d')
+        e = self.wire('e')
+        f = self.wire('f')
+        g = self.wire('g')
+        
+        na = self.wire('na')
+        nb = self.wire('nb')
+        nc = self.wire('nc')
+        nd = self.wire('nd')
+        ne = self.wire('ne')
+        nf = self.wire('nf')
+        ng = self.wire('ng')
+        
+        ConcatenateLSBF(self, 'led', [a,b,c,d,e,f,g], led)
+        
+        SumOfMinterms(self, 'a', v, a_minterms, a)
+        SumOfMinterms(self, 'b', v, b_minterms, b)
+        SumOfMinterms(self, 'c', v, c_minterms, c)
+        SumOfMinterms(self, 'd', v, d_minterms, d)
+        SumOfMinterms(self, 'e', v, e_minterms, e)
+        SumOfMinterms(self, 'f', v, f_minterms, f)
+        SumOfMinterms(self, 'g', v, g_minterms, g)
+        
+        
