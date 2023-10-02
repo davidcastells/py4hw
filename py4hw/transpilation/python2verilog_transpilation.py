@@ -61,22 +61,32 @@ class Python2VerilogTranspiler:
         module = getMethod(self.obj, 'propagate')
     
         node = getBody(module, '*')
+        
+        initExtracter = ExtractInitializers()
+        init = initExtracter.visit(node)
+
     
         assert(isinstance(node, ast.AST))
         
         node = RemovePrints().visit(node)
+        node = RemoveAssert().visit(node)
+        
         node = ReplaceIf().visit(node)
         node = ReplaceWireCalls().visit(node)
         node = ReplaceExpr().visit(node)
         node = ReplaceOperators().visit(node)
         node = ReplaceOperators().visit(node) # repeat to handle Compare
-        node = ReplaceAttribute().visit(node)
+
+        #node = ReplaceAttribute().visit(node)
+        wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables)
+        node = wiresAndVars.visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
  
         node = FlattenOperators().visit(node)
 
-        return Python2VerilogTranspiler.toVerilog(node)
+        return node
+        #return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
 
     def transpileSequential(self):
@@ -153,11 +163,10 @@ class Python2VerilogTranspiler:
                 str += Python2VerilogTranspiler.toVerilog(item)
             return str
         
-        toV = getattr(node, 'toVerilog')
-        
-        if (toV is None):
-            print('No toVerilog for', type(node))
+        if not(hasattr(node, 'toVerilog')):
+            raise Exception('No toVerilog for', type(node), node)
         else:
+            toV = getattr(node, 'toVerilog')
             return toV()
 
     def format(self, str):
@@ -608,6 +617,8 @@ class VerilogOperator(ast.AST):
             return '<'        
         elif (isinstance(operator, ast.GtE)):
             return '>='        
+        elif (isinstance(operator, ast.Mod)):
+            return '%'
         else:
             raise Exception('operator {} not supported'.format(type(operator)))
             
