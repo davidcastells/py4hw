@@ -2,13 +2,21 @@ import tkinter
 import tkinter.font
 from tkinter import *
 from tkinter import ttk
-
+from PIL import Image, ImageTk
+import os
 from .base import Logic
 from .schematic import Schematic
     
 class Workbench():
     
-    
+    def getIcon(self, path):
+        script_directory = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(script_directory, path)
+        
+        icon = Image.open(icon_path)
+        icon = ImageTk.PhotoImage(icon)
+        return icon
+        
     def __init__(self, sys:Logic):
     
         self.sys = sys
@@ -25,21 +33,24 @@ class Workbench():
         
         self.topPane = PanedWindow(root, orient=HORIZONTAL)
         
-        self.hierarchyPane = PanedWindow(self.topPane, relief = SUNKEN, width=50, height=100)
+        self.hierarchyPane = Frame(self.topPane) # PanedWindow(self.topPane, relief = SUNKEN, width=50, height=100)
         self.topPane.add(self.hierarchyPane)
+        
+        self.buttonPane = Frame(self.hierarchyPane) #, relief = SUNKEN, width=100, height=100)
         
         self.txtClocks = tkinter.StringVar(value='1')
         #print(ttk.Style().lookup("Prolepsis.Treeview", "font"))
-        txtClocks = ttk.Entry(self.hierarchyPane, width=10, textvariable=self.txtClocks)
-        txtClocks.grid(row=0, column=0)
-        #txtClocks.pack(side=tkinter.TOP, padx=10, pady=(10,5))
+        txtClocks = ttk.Entry(self.buttonPane, width=10, textvariable=self.txtClocks)
+        #txtClocks.grid(row=0, column=0)
+        txtClocks.pack(side=tkinter.LEFT, padx=10, pady=(10,5))
         
-        btnClock = ttk.Button(self.hierarchyPane, text="Clock", command=self.guiClk)
-        #btnClock.pack(side=tkinter.TOP, padx=(10,0), pady=(0,10))
-        btnClock.grid(row=0, column=1)
+        btnClock = ttk.Button(self.buttonPane, text="Clock", command=self.guiClk)
+        btnClock.pack(side=tkinter.RIGHT, padx=(10,0), pady=(10,5))
+        #btnClock.grid(row=0, column=1)
         
-        #self.hierarchyPane.add(btnClock)
+        #self.hierarchyPane.add(self.buttonPane)
         
+        self.buttonPane.pack(side=tkinter.TOP)
         
         self.createHierarchyTree()
         
@@ -49,19 +60,20 @@ class Workbench():
         self.interfacePane = PanedWindow(self.rightPane, relief = SUNKEN, width=100, height=100)
         
         self.schematicAreaPane = PanedWindow(self.rightPane,  orient=VERTICAL, relief = SUNKEN, width=100, heigh=20)
-        self.schematicToolbarPane = PanedWindow(self.schematicAreaPane,  orient=HORIZONTAL, relief = SUNKEN, width=100, heigh=20)
+        self.schematicToolbarPane = Frame(self.schematicAreaPane) #,  orient=HORIZONTAL, relief = SUNKEN, width=100, heigh=20)
                 
         self.rightPane.add(self.interfacePane)
         self.rightPane.add(self.schematicAreaPane)
         self.schematicAreaPane.add(self.schematicToolbarPane) 
         
-        btnZoomOut = ttk.Button(self.schematicToolbarPane, text="Zoom out", command=self.guiZoomOut)
-        btnZoomIn = ttk.Button(self.schematicToolbarPane, text="Zoom in", command=self.guiZoomIn)
-
-        self.schematicToolbarPane.add(btnZoomOut)
-        self.schematicToolbarPane.add(btnZoomIn)
-
-#        btnZoomOut.pack()
+        icon_zo = self.getIcon('zoomout24.png')
+        icon_zi = self.getIcon('zoomin24.png')
+        
+        btnZoomIn = ttk.Button(self.schematicToolbarPane,  image=icon_zi, text="Zoom in", command=self.guiZoomIn)
+        btnZoomOut = ttk.Button(self.schematicToolbarPane, image=icon_zo, text="Zoom out", command=self.guiZoomOut)
+        
+        btnZoomIn.pack(side=tkinter.LEFT)
+        btnZoomOut.pack(side=tkinter.LEFT)
         
         self.schematicPane = PanedWindow(self.schematicAreaPane, relief = SUNKEN, width=100, height=100)
         self.schematicAreaPane.add(self.schematicPane)
@@ -244,15 +256,13 @@ class Workbench():
         tv = self.hierarchyTree  
         self.map_id_obj = {}
     
-    
+        
         tv.bind('<<TreeviewSelect>>', self.callback)
         #self.hierarchyPane.add(tv)
-        #tv.pack(fill=BOTH, expand=YES)
-        tv.grid(row=1, column=0, columnspan=2, sticky='nsew')
+        tv.pack(fill=BOTH, expand=YES)
+        #tv.grid(row=1, column=0, columnspan=2, sticky='nsew')
         
-        self.hierarchyTree.columnconfigure(0, weight=1)  
-        self.hierarchyTree.columnconfigure(1, weight=1)  
-        self.hierarchyTree.rowconfigure(1, weight=1)  
+        
         
         dc_iid = tv.insert("", tkinter.END, text="HWSystem", values=['Top', 'Top level'], open=True)
         
