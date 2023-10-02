@@ -665,9 +665,12 @@ class VerilogGenerator:
     def generateCodeFromPropagate(self, obj:Logic):
         str = "// Code generated from propagate method\n"
         
-        tr = Python2VerilogTranspiler(obj, 'propagate', '*')
+        tr = Python2VerilogTranspiler(obj)
         
-        str += tr.transpileRTL()
+        node = tr.transpileCombinational()
+        str += tr.toVerilog(node)
+        
+        str = tr.format(str)
         
         return str
 import inspect
