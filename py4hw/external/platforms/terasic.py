@@ -30,7 +30,7 @@ class DE1SoC(py4hw.HWSystem):
         top_name = self.name
         
         verilog_file = os.path.join(projectDir, top_name+'.v')
-        qsf_file = os.path.join(projectDir, top_name+'.qsf')
+        qsf_file = os.path.join(projectDir, top_name+'_pins.qsf')
         sdc_file = os.path.join(projectDir, 'CLOCK_50.sdc')
 
         # Create Verilog file
@@ -48,6 +48,7 @@ class DE1SoC(py4hw.HWSystem):
         
         files = [  {'name' : verilog_file, 'file_type' : 'verilogSource'},
                  {'name' : sdc_file, 'file_type' : 'SDC'},
+                 {'name' : qsf_file, 'file_type' : 'tclSource'}
                  ]
 
         parameters = {'clk_freq_hz' : {'datatype' : 'int', 'default' : 50000000, 'paramtype' : 'vlogparam'},
@@ -99,21 +100,29 @@ class DE1SoC(py4hw.HWSystem):
     def getInputKey(self):
         key = self.wire('KEY', 4)
         self.addIn('KEY', key)
-        return key
+        keyn = self.wire('KEYn', 4)
+        py4hw.Not(self, 'KEYn', key, keyn)
+        return keyn
         
+    def getOutputHex(self, i):
+        assert(i >= 0 and i <= 5)
+        name = 'HEX{}'.format(i)
+        namen = 'HEXn{}'.format(i)
+        p = self.wire(name, 7)
+        pn = self.wire(namen, 7)
+        
+        py4hw.Not(self, namen, pn, p)
+        self.addOut(name, p)
+        return pn
         
         
     def getQsf(self):
-        return '''#============================================================
+        qsf =  '''#============================================================
 # Build by Terasic System Builder
 #============================================================
 
 set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE 5CSEMA5F31C6
-set_global_assignment -name TOP_LEVEL_ENTITY DE1_SOC
-set_global_assignment -name ORIGINAL_QUARTUS_VERSION "15.1.0"
-set_global_assignment -name LAST_QUARTUS_VERSION "17.1.1 Standard Edition"
-set_global_assignment -name PROJECT_CREATION_TIME_DATE "09:34:43 MARCH 24,2023"
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 896
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 6
@@ -512,3 +521,5 @@ set_location_assignment PIN_D11 -to VGA_VS
 
 
 '''
+        
+        return qsf
