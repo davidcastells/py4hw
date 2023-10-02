@@ -405,12 +405,36 @@ class BinaryToBCD(Logic):
     """
     
     def __init__(self, parent, name : str, a: Wire, r:Wire):
+        from ..helper import LogicHelper    
+
         super().__init__(parent, name)
         
         a = self.addIn('a', a)
         r = self.addOut('r', r)
     
-        raise Exception('Not implemented')
+        hlp = LogicHelper(self)
+        
+        w = a.getWidth()
+        assert(r.getWidth() % 4 == 0)
+        digits = r.getWidth() // 4 # int(math.ceil(math.log10((2**w)-1)))
+        print('Number of BCD digits:', digits)
+        print('r width:', r.getWidth())
+        
+        assert(r.getWidth() >= (digits*4))
+        
+        ret = []
+        v = a
+        k10 = hlp.hw_constant(4, 10)
+        
+        for i in range(digits):
+            rem = self.wire('mod{}'.format(i), 4)
+            div = self.wire('div{}'.format(i), w)
+            Mod(self, 'mod{}'.format(i), v, k10, rem)
+            Div(self, 'div{}'.format(i), v, k10, div)
+            ret.append(rem)
+            v = div
+            
+        ConcatenateLSBF(self, 'r', ret, r)
         
 
 class _FFunction(Logic):
