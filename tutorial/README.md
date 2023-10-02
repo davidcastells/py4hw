@@ -1,6 +1,6 @@
 # py4hw Documentation
 
-The [Tutorial](tutorial.ipynb)  is a jupyter notebook that
+The [Tutorial](Tutorial.ipynb)  is a jupyter notebook that
 describes the py4hw features by examples. You can run it in binder to be ablue to execute interactively [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/davidcastells/py4hw/HEAD?filepath=tutorial%2FTutorial.ipynb).
 
 
