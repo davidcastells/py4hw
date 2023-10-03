@@ -4,3 +4,4 @@ matplotlib
 deprecated
 scipy
 pytest
+edalize
