@@ -72,16 +72,19 @@ class Logic:
 
         """
         ports = []
+        if (len(name) > 0):
+            name = name + '_'
+            
         for obj in interface.sourceToSink:
             wire = obj[1]
-            portname = name + "_" +obj[0]
+            portname = name + obj[0]
             port = OutPort(self, portname, wire)
             self.outPorts.append(port)
             ports.append(port)
         
         for obj in interface.sinkToSource:
             wire = obj[1]
-            portname = name + "_" +obj[0]
+            portname = name + obj[0]
             port = InPort(self, portname, wire)
             self.inPorts.append(port)
             ports.append(port)
@@ -105,15 +108,18 @@ class Logic:
 
         """
         ports = []
+        if (len(name) > 0):
+            name = name + '_'
+            
         for obj in interface.sourceToSink:
             wire = obj[1]
-            portname = name + "_" +obj[0]
+            portname = name + obj[0]
             port = InPort(self, portname, wire)
             self.inPorts.append(port)
             ports.append(port)
         for obj in interface.sinkToSource:
             wire = obj[1]
-            portname = name + "_" +obj[0]
+            portname = name + obj[0]
             port = OutPort(self, portname, wire)
             self.outPorts.append(port)
             ports.append(port)
@@ -473,6 +479,7 @@ class HWSystem(Logic):
             self.name = name
         self.clockDriver = clock_driver
         
+        
     def getSimulator(self):
         """
         Returns the singleton simulator instance
@@ -498,7 +505,7 @@ class ClockDriver():
     A clock driver
     """
     
-    def __init__(self, name:str, freq=50E6, phaseOffset=0, base=None, enable=None):
+    def __init__(self, name:str, freq=50E6, phaseOffset=0, base=None, enable=None, wire=None):
         """
         Creates a clock driver
 
@@ -515,6 +522,8 @@ class ClockDriver():
         enable : Wire, optional
             Wire controling the gating of the clock. When enable is 0, the clock
             will be gated
+        wire : Wire, optional
+            Wire that contains the clock
 
         Returns
         -------
@@ -532,7 +541,7 @@ class ClockDriver():
             self.phaseOffset = base.phaseOffset
             
         self.enable = enable
-        
+        self.wire = wire
 
 def has_method(o, name):
     return callable(getattr(o, name, None))
@@ -568,6 +577,26 @@ class Interface:
         w = self.parent.wire(self.name + "_" + name, width)
         self.sourceToSink.append([name, w])
         return w;
+    
+    def getSourceToSink(self, name):
+        if len(self.sourceToSink) == 0:
+            raise Exception('No source-to-sink elements in this interface')
+            
+        for p in self.sourceToSink:
+            if (p[0] == name):
+                return p[1]
+            
+        raise Exception('SourceToSink {} not found'.format(name))
+    
+    def getSinkToSource(self, name):
+        if len(self.sinkToSource) == 0:
+            raise Exception('No sink-to-source elements in this interface')
+            
+        for p in self.sinkToSource:
+            if (p[0] == name):
+                return p[1]
+                
+        raise Exception('SinkToSource {} not found'.format(name))
         
     def addSinkToSource(self, name:str, width:int):
         """
