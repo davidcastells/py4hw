@@ -236,6 +236,9 @@ def InlineMul(obj:Logic):
 def InlineDiv(obj:Logic):
     return "assign {} = {} / {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
+def InlineMod(obj:Logic):
+    return "assign {} = {} % {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+
 def InlineSub(obj:Logic):
     return "assign {} = {} - {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
@@ -396,7 +399,7 @@ class VerilogGenerator:
         self.inlinablePrimitives = {}
         
         self.inlinablePrimitives[Add] = InlineAdd
-        self.inlinablePrimitives[Mul] = InlineMul
+        
         self.inlinablePrimitives[And2] = InlineAnd2
         self.inlinablePrimitives[And] = InlineAnd
         self.inlinablePrimitives[Buf] = InlineBuf
@@ -409,6 +412,8 @@ class VerilogGenerator:
         self.inlinablePrimitives[Div] = InlineDiv
         self.inlinablePrimitives[Equal] = InlineEqual
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
+        self.inlinablePrimitives[Mod] = InlineMod
+        self.inlinablePrimitives[Mul] = InlineMul
         self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Nand2] = InlineNand2
         self.inlinablePrimitives[Not] = InlineNot
@@ -616,8 +621,12 @@ class VerilogGenerator:
             
         elif (self.anyClockableDescendant(child)):
             # Clock is an implicit parameter
-            clkname = getObjectClockDriver(child).name
-            str += link + ".{}({})".format(clkname, clkname)
+            drv:ClockDriver = getObjectClockDriver(child)
+            clkname = drv.name
+            if (drv.wire is None):
+                raise Exception('None clk driver wire for', clkname, child.getFullPath())
+            wirename = drv.wire.name
+            str += link + ".{}({})".format(clkname, wirename)
             link = ","
         
 
