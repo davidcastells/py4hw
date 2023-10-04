@@ -11,10 +11,40 @@ import py4hw
 from edalize import edatool
 import os
 
+class VGAExternalControllerInterface(py4hw.Interface):
+    def __init__(self, parent, name:str):
+        super().__init__(parent, name)
+        
+        self.R = self.addSourceToSink('R', 8)
+        self.G = self.addSourceToSink('G', 8)
+        self.B = self.addSourceToSink('B', 8)
+        self.CLK = self.addSourceToSink('CLK', 1)
+        self.SYNC_N = self.addSourceToSink('SYNC_N', 1)
+        self.BLANK_N = self.addSourceToSink('BLANK_N', 1)
+        self.VS = self.addSourceToSink('VS', 1)
+        self.HS = self.addSourceToSink('HS', 1)
+        
+class VGAInternalControllerInterface(py4hw.Interface):
+    def __init__(self, parent, name:str):
+        super().__init__(parent, name)
+        
+        self.R = self.addSourceToSink('R', 8)
+        self.G = self.addSourceToSink('G', 8)
+        self.B = self.addSourceToSink('B', 8)
+        
+        self.VS = self.addSourceToSink('VS', 1)
+        self.HS = self.addSourceToSink('HS', 1)
+        
+
+
 class DE1SoC(py4hw.HWSystem):
     
     def __init__(self):
-        super().__init__(clock_driver=py4hw.ClockDriver('CLOCK_50', 50E6, 0), name='DE1SoC')
+        super().__init__(name='DE1SoC')
+        
+        wire = self.wire('CLOCK_50')
+        
+        self.clockDriver = py4hw.ClockDriver('CLOCK_50', 50E6, 0, wire=wire)
     
     
     
@@ -114,6 +144,39 @@ class DE1SoC(py4hw.HWSystem):
         py4hw.Not(self, namen, pn, p)
         self.addOut(name, p)
         return pn
+    
+            
+        
+            
+    
+    def getVGAController(self, vga_clk):
+        '''
+        Connections to the ADV7123
+        
+
+        Returns
+        -------
+        None.
+
+        '''
+        vga_ext = VGAExternalControllerInterface(self, 'DE1SoC_EXT_VGA_CTRL')
+        vga_int = VGAInternalControllerInterface(self, 'DE1SoC_INT_VGA_CTRL')
+        
+        self.addInterfaceSource('VGA', vga_ext)
+        
+        py4hw.Buf(self, 'R', vga_int.R, vga_ext.R)
+        py4hw.Buf(self, 'G', vga_int.G, vga_ext.G)
+        py4hw.Buf(self, 'B', vga_int.B, vga_ext.B)
+        
+        py4hw.Buf(self, 'HS', vga_int.HS, vga_ext.HS)
+        py4hw.Buf(self, 'VS', vga_int.VS, vga_ext.VS)
+        
+        py4hw.Buf(self, 'SYNC_N', vga_int.HS, vga_ext.SYNC_N)
+        py4hw.Buf(self, 'BLANK_N', vga_int.VS, vga_ext.BLANK_N)
+        
+        py4hw.Buf(self, 'CLK', vga_clk, vga_ext.CLK)
+        
+        return vga_int
         
         
     def getQsf(self):
