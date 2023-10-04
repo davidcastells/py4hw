@@ -9,12 +9,46 @@ import py4hw
 
 import py4hw.external.platforms as plt
 
+class VGATestPattern(py4hw.Logic):
+    
+    def __init__(self, parent, name, vga_if):
+        super().__init__(parent, name)
+        
+        
+        self.vga_if = self.addInterfaceSource('', vga_if)
+        self.x = 0
+        self.y = 0
+        
+        
+        
+    def clock(self):
+        
+        divx = self.x // 80
+        vr = ((divx >> 0) & 1) * 0xFF
+        vg = ((divx >> 1) & 1) * 0xFF
+        vb = ((divx >> 2) & 1) * 0xFF       
+
+        self.vga_if.R.prepare(vr)
+        self.vga_if.G.prepare(vg)
+        self.vga_if.B.prepare(vb)
+        self.vga_if.VS.prepare(1 if self.y < 480 else 0)
+        self.vga_if.HS.prepare(1 if self.x < 640 else 0)
+        
+        self.x += 1
+        if (self.x >= 840):
+            self.x = 0
+            self.y += 1
+            if (self.y >= 520):
+                self.y = 0
+                
 sys = plt.DE1SoC()
+
+print('DE1SoC clk driver', sys.clockDriver.name)
 
 inc = sys.wire('inc')
 reset = sys.wire('reset')
 
-N = 10000
+N = 100000
 binary_digits = int(math.ceil(math.log2(N)))
 bcd_digits = int(math.ceil(math.log10(N)))
 
@@ -49,8 +83,19 @@ for i in range(bcd_digits):
 for i in range(bcd_digits, 6):
     py4hw.Constant(sys, 'hex{}'.format(i), 0, hexs[i])
 
+
+vga_clk = sys.wire('VGA_CLK')
+py4hw.ClockDivider(sys, 'VGA_CLK', sys.clockDriver.freq, 25E6, vga_clk)
+
+vga_if = sys.getVGAController(vga_clk)
+
+
+vga_pattern = VGATestPattern(sys, 'vga', vga_if)
+vga_pattern.clockDriver = py4hw.ClockDriver('clk25', 25E6, wire=vga_clk)
+
+
 py4hw.gui.Workbench(sys)
 
-#dir = '/tmp/testDE1SoC'
-#sys.build(dir)
+dir = '/tmp/testDE1SoC'
+sys.build(dir)
 #sys.download(dir)
