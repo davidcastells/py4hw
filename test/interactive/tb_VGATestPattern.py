@@ -155,7 +155,7 @@ if (True):
     sch.draw()
 
 if (True):
-    rtl = py4hw.VerilogGenerator(vga)
+    rtl = py4hw.VerilogGenerator(vgatestpattern)
     print(rtl.getVerilog())
     
 # Simulate    
