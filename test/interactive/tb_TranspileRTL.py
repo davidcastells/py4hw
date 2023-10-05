@@ -14,7 +14,14 @@ import inspect
 import textwrap
 import ast
 import webbrowser
+import os
 
+def getTempDir():
+    if ('Linux' in os.uname()):
+        return '/tmp/'
+    else:
+        return 'c:\\Temp\\'
+    
 class FullAdder(py4hw.Logic):
     
     def __init__(self, parent, name, x, y, ci, s, co):
@@ -38,6 +45,9 @@ class TestCircuit(py4hw.Logic):
         self.r = self.addOut('r', r)
         
     def clock(self):
+        '''
+        This is a doc
+        '''
         self.r.prepare(self.r.get() + self.a.get())
         
     
@@ -150,7 +160,7 @@ if (True):
 
     xml = ast2xml.visit_node(node)
     
-    with open('c:\\temp\\init.xml', 'wb') as f:
+    with open(getTempDir()+'init.xml', 'wb') as f:
         f.write(ast2xml.renderXml(xml))
 
 if (True):
@@ -158,23 +168,29 @@ if (True):
     module = py2v.getMethod(dut, 'clock')
     node = py2v.getBody(module, '*')
     
+    # Save the AST before translation
+    xml = ast2xml.visit_node(node)
+    with open(getTempDir()+'clock_pre.xml', 'wb') as f:
+        f.write(ast2xml.renderXml(xml))
+    
     node = py2v.ReplaceIf().visit(node)        
     node = py2v.ReplaceWireCalls().visit(node)
     node = py2v.ReplaceExpr().visit(node)
-    node = py2v.ReplaceBinOp().visit(node)
+    node = py2v.ReplaceOperators().visit(node)
     ports = {'r':py2v.VerilogWire('r'), 'g':py2v.VerilogWire('g')}
     variables = {'x':py2v.VerilogVariable('x', 'int'), 'y':py2v.VerilogVariable('y', 'int')}
     node = py2v.ReplaceWiresAndVariables(ports, variables).visit(node)
     node = py2v.ReplaceConstant().visit(node)
     node = py2v.ReplaceAssign().visit(node)
     node = py2v.ReplaceIfExp().visit(node)
+    node = py2v.ReplaceDocStrings().visit(node)
     
     #node = py2v.FlattenOperators().loop_visit(node)
     
     #xml = ast2xml.visit_node(node, ast_name='body')
     xml = ast2xml.visit_node(node)
     
-    with open('c:\\temp\\clock.xml', 'wb') as f:
+    with open(getTempDir()+'clock.xml', 'wb') as f:
         f.write(ast2xml.renderXml(xml))
 
 if (False):    
