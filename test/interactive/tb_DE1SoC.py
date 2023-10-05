@@ -22,7 +22,40 @@ class VGATestPattern(py4hw.Logic):
         
         
     def clock(self):
+        '''
         
+        VGA Timings for 640 x 480 @ 60 Hz
+        
+             ____     ____________________
+        SYNC     \___/                    \______
+             _____________ ________ _____________
+        RGB  _____________X________X_____________
+        
+                 | a | b |    c    |  d   |
+        
+        Horizontal
+        
+        a = 96 * (1/25 MHz) = 3.84 us
+        b = 48 * (1/25 MHz) = 1.92 us
+        c = 640 * (1/25 MHz) = 25.6 us
+        d = 16 * (1/25 MHz) = 0.64 us
+        
+        TOTAL = 800 * (1/25 MHz) = 32 us
+        
+        Vertical
+        
+        a = 2 
+        b = 33
+        c = 480
+        d = 10
+        
+        TOTAL = 525 * 32 us = 16.8 ms
+
+        Returns
+        -------
+        None.
+
+        '''
         divx = self.x // 80
         vr = ((divx >> 0) & 1) * 0xFF
         vg = ((divx >> 1) & 1) * 0xFF
@@ -31,14 +64,15 @@ class VGATestPattern(py4hw.Logic):
         self.vga_if.R.prepare(vr)
         self.vga_if.G.prepare(vg)
         self.vga_if.B.prepare(vb)
-        self.vga_if.VS.prepare(1 if self.y < 480 else 0)
-        self.vga_if.HS.prepare(1 if self.x < 640 else 0)
+        
+        self.vga_if.VS.prepare(0 if (self.y >= (480+10)) and (self.y < (480+10+2))  else 1)
+        self.vga_if.HS.prepare(0 if (self.x >= (640+16)) and ( self.x < (640+16+96)) else 1)
         
         self.x += 1
-        if (self.x >= 840):
+        if (self.x >= 800):
             self.x = 0
             self.y += 1
-            if (self.y >= 520):
+            if (self.y >= 525):
                 self.y = 0
                 
 sys = plt.DE1SoC()
@@ -98,4 +132,4 @@ py4hw.gui.Workbench(sys)
 
 dir = '/tmp/testDE1SoC'
 sys.build(dir)
-#sys.download(dir)
+sys.download(dir)
