@@ -15,7 +15,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/davidcastells/py4hw',
-    install_requires=open('requirements.txt').readlines(),
-    tests_require=open('requirements.txt').readlines(),
+    install_requires=open('requires.txt').readlines(),
+    tests_require=open('requires.txt').readlines(),
     packages=find_packages(exclude=['riscv'])
 )
