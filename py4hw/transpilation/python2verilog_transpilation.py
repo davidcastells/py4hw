@@ -122,12 +122,14 @@ class Python2VerilogTranspiler:
         node = ReplaceExpr().visit(node)
         node = ReplaceOperators().visit(node)
         node = ReplaceOperators().visit(node) # repeat to handle Compare
+        node = ReplaceOperators().visit(node) # repeat to handle Compare
         
         wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables)
         node = wiresAndVars.visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
         node = ReplaceIfExp().visit(node)
+        node = ReplaceDocStrings().visit(node)
         
         node.wires.variables = wiresAndVars.variables.values();
         #node = FlattenOperators().visit(node)
@@ -155,7 +157,7 @@ class Python2VerilogTranspiler:
             DESCRIPTION.
 
         '''
-        # print('transpiling', type(node))
+        #print('transpiling', type(node))
 
         if (isinstance(node, list)):
             str = ''
@@ -268,6 +270,16 @@ class RemoveAssert(ast.NodeTransformer):
         # remove asserts
         return VerilogComment('assert removed')
         
+class ReplaceDocStrings(ast.NodeTransformer):
+    
+    def visit_VerilogProcess(self, node):
+        newbody = []
+        
+        for obj in node.body:
+            if (isinstance(obj, VerilogConstant)):
+                obj = VerilogComment(obj.value)
+            newbody.append(obj)
+        return VerilogProcess(newbody, node.sensitivity_list)
     
 class ReplaceWireCalls(ast.NodeTransformer):
         
@@ -372,6 +384,7 @@ class ReplaceWiresAndVariables(ast.NodeTransformer):
     
 class ReplaceConstant(ast.NodeTransformer):
     def visit_Constant(self, node):
+        
         return VerilogConstant(node.value)
     
     def visit_Num(self, node):
@@ -787,7 +800,7 @@ class VerilogComment(ast.AST):
         self._fields = tuple(['value', 'dummy'])
     
     def toVerilog(self):
-        return '// {}\n'.format(self.value)
+        return '/* {} */\n'.format(self.value)
     
 class VerilogConstant(ast.AST):
     def __init__(self, value):
