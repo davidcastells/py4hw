@@ -1102,7 +1102,7 @@ class Schematic:
                 return source
             
         sourceNames = [x['wire'].getFullPath() for x in self.sources]
-        raise Exception('No source to wire "{}" in {}'.format(sinkWire.getFullPath(), sourceNames ) )
+        raise Exception('Could not find a source to wire "{}" in the sources collection {}'.format(sinkWire.getFullPath(), sourceNames ) )
             
     def findSinkTuples(self, sourceWire):
         ret = []
