@@ -35,7 +35,14 @@ class VGAInternalControllerInterface(py4hw.Interface):
         self.VS = self.addSourceToSink('VS', 1)
         self.HS = self.addSourceToSink('HS', 1)
         
-
+class I2CInterface(py4hw.Interface):
+    def __init__(self, parent, name:str):
+        super().__init__(parent, name)
+        
+        self.SCLK = self.addSourceToSink('SCLK')
+        self.SDAT_OUT = self.addSourceToSink('SDAT_OUT')
+        self.SDAT_OE = self.addSourceToSink('SDAT_OE')
+        self.SDAT_IN = self.addSinkToSource('SDAT_IN')
 
 class DE1SoC(py4hw.HWSystem):
     
@@ -145,8 +152,12 @@ class DE1SoC(py4hw.HWSystem):
         self.addOut(name, p)
         return pn
     
-            
-        
+    def I2C(self):
+        #set_location_assignment PIN_J12 -to FPGA_I2C_SCLK
+        #set_location_assignment PIN_K12 -to FPGA_I2C_SDAT
+        self.addOut('FPGA_I2C_SCLK', self.wire('FPGA_I2C_SCLK'))
+        self.addOut('FPGA_I2C_SDAT', self.wire('FPGA_I2C_SDAT'))
+        raise Exception('We need inout pins!')
             
     
     def getVGAController(self, vga_clk):
