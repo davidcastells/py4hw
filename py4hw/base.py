@@ -56,6 +56,11 @@ class Logic:
         port = OutPort(self, name, wire)
         self.outPorts.append(port)
         return wire;
+    
+    def addInOut(self, name, wire):
+        port = InOutPort(self, name, wire)
+        self.inOutPorts.append(port)
+        return wire;
 
     def addInterfaceSource(self, name:str, interface):
         """
@@ -135,6 +140,9 @@ class Logic:
             
         self._wires[wire.name] = wire
         
+    def bidir_wire(self, name, width=1):
+        return BidirWire(self, name, width)
+    
     def wire(self, name, width=1):
         return Wire(self, name, width);
     
@@ -264,7 +272,8 @@ class Logic:
         
 class Wire:
     """
-    Wires in py4hw connect one source with one (or more) sinks
+    Wires in py4hw connect one source with one (or more) sinks.
+    For many-to-many connections use BidirWire
     """
     
     # this is the list of prepared wires, 
@@ -383,6 +392,10 @@ class Wire:
         self.parent = newparent
         newparent.appendWire(self)
 
+class BidirWire(Wire):
+    def __init__(self, parent, name : str, width: int = 1 ):
+        super().__init__(parent, name , width)
+        
 class InPort:
     """
     An Input port
@@ -450,6 +463,43 @@ class OutPort:
         
         if (parent.isPrimitive()):
             wire.setSource(self)
+
+    def getFullPath(self):
+        return self.parent.getFullPath() + '[{}]'.format(self.name)
+
+class InOutPort:
+    """
+    An input/output port
+    """
+    def __init__(self, parent:Logic, name:str, wire:Wire):
+        """
+        Creates an in/out port to the cell.
+        The cell will be registered as source of the wire only if it
+        is a leaf (a primitive) in the hierarchy 
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent Cell of the port
+        name : str
+            name of the port.
+        wire : Wire
+            Wire associated with the port
+
+        Returns
+        -------
+        None.
+
+        """
+        #print('out port')
+        self.name = name
+        self.parent = parent
+        self.wire = wire
+        
+        if (parent.isPrimitive()):
+            wire.setSource(self)
+            wire.addSink(self)
+
 
     def getFullPath(self):
         return self.parent.getFullPath() + '[{}]'.format(self.name)
