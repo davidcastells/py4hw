@@ -483,6 +483,8 @@ class Schematic:
             # an output port cannot drive anything (at the circuit level)
             # so, no dependent instances 
             return []
+        elif (isinstance(obj, InOutPort)):
+            outports = [obj]
         else:
             if (not(hasattr(obj, 'outPorts'))):
                 raise Exception('obj {} from type {} {} has not out ports'.format(obj.getFullPath(), type(obj), isinstance(obj, InPort)))
@@ -1080,6 +1082,14 @@ class Schematic:
         self.grid_yunits = self.y / gridsize
         
     def placeOutputPorts(self):
+        '''
+        Place Output Ports and InOutPorts
+
+        Returns
+        -------
+        None.
+
+        '''
         #self.x = 1
         self.y = gridsize * 5
         
@@ -1090,7 +1100,14 @@ class Schematic:
             self.objs.append(osym)
             self.y = self.y + gridsize * LogicSymbol.portSeparation
             self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
-        
+
+        for inp in self.sys.inOutPorts:
+            osym = InOutPortSymbol(inp, self.x, self.y)
+            self.objs.append(osym)
+            self.y = self.y + gridsize * LogicSymbol.portSeparation
+            self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
+            self.sources.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
+
         #self.x = self.x + 3
 
         self.lastOutput = len(self.objs)
@@ -1385,6 +1402,8 @@ class Schematic:
             outwires = [srcobj.obj.wire]
         elif (isinstance(srcobj, OutPortSymbol)):
             outwires = []
+        elif (isinstance(srcobj, InOutPortSymbol)):
+            outwires = [srcobj.obj.wire] # @todo is this what we should do ?
         else:
             outwires = [outport.wire for outport in srcobj.obj.outPorts]
         
@@ -1392,6 +1411,8 @@ class Schematic:
             inwires = []
         elif (isinstance(trgobj, OutPortSymbol)):
             inwires = [trgobj.obj.wire]
+        elif (isinstance(trgobj, InOutPortSymbol)):
+            inwires = [trgobj.obj.wire] # @todo check this, not sure if we should put more wires here
         else:
             inwires = [inport.wire for inport in trgobj.obj.inPorts]
         
