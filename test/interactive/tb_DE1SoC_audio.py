@@ -10,6 +10,7 @@ import math
 import py4hw
 
 import py4hw.external.platforms as plt
+from py4hw.logic.protocol.i2c.I2CMaster import I2CMasterWriter
 
 class WM8731InitSequencer(py4hw.Logic):
     def __init__(self, parent, name, reset, device_address, register_address,
@@ -69,14 +70,13 @@ class WM8731InitSequencer(py4hw.Logic):
                 self.done.prepare(1)
                 
 class WM8731Init(py4hw.Logic):
-    def __init__(self, parent, name, reset, i2c_scl, i2c_sda_in, i2c_sda_out, i2c_sda_oe, error, done):
+    def __init__(self, parent, name, reset, 
+                 i2c, 
+                 error, done):
         super().__init__(parent, name)
         
         self.reset = self.addIn('reset', reset)
-        self.i2c_sda_in = self.addIn('i2c_sda_in', i2c_sda_in)
-        self.i2c_sda_out = self.addOut('i2c_sda_out', i2c_sda_out)
-        self.i2c_sda_oe = self.addOut('i2c_sda_oe', i2c_sda_oe)
-        self.i2c_scl = self.addOut('i2c_scl', i2c_scl)
+        self.i2c = self.addInterfaceSource('i2c', i2c)
         self.error = self.addOut('error', error)
         self.done = self.addOut('done', done)
         
@@ -89,11 +89,26 @@ class WM8731Init(py4hw.Logic):
         
         WM8731InitSequencer(self, 'seq', reset, device_address, register_address, data, start, busy, self.error, self.done)
         
-        py4hw.logic.protocol.i2c.I2CMaster.I2CMasterWriter(self, 'i2c_master', reset, device_address, register_address, data, start, busy, 
-                        error, i2c_sda_in, i2c_sda_out, i2c_sda_oe, i2c_scl)
+        I2CMasterWriter(self, 'i2c_master', reset, device_address, register_address, data, start, busy, 
+                        error, i2c)
         
         
 sys = plt.DE1SoC()
 
+i2c = sys.getI2C()
+
+reset = sys.wire('reset')
+error = sys.wire('error')
+done = sys.wire('done')
+
+key = sys.getInputKey()
+py4hw.Bit(sys, 'reset', key, 0, reset)
+
+wm8731 = WM8731Init(sys, 'wm8731',  reset, i2c, error, done)
 
 py4hw.gui.Workbench(sys)
+
+
+dir = 'c:\\temp\\testDE1SoC'
+sys.build(dir)
+#sys.download(dir)
