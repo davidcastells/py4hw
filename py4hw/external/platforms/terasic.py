@@ -39,10 +39,10 @@ class I2CInterface(py4hw.Interface):
     def __init__(self, parent, name:str):
         super().__init__(parent, name)
         
-        self.SCLK = self.addSourceToSink('SCLK')
-        self.SDAT_OUT = self.addSourceToSink('SDAT_OUT')
-        self.SDAT_OE = self.addSourceToSink('SDAT_OE')
-        self.SDAT_IN = self.addSinkToSource('SDAT_IN')
+        self.SCLK = self.addSourceToSink('SCLK', 1)
+        self.SDAT_OUT = self.addSourceToSink('SDAT_OUT', 1)
+        self.SDAT_OE = self.addSourceToSink('SDAT_OE', 1)
+        self.SDAT_IN = self.addSinkToSource('SDAT_IN', 1)
 
 class DE1SoC(py4hw.HWSystem):
     
@@ -152,13 +152,18 @@ class DE1SoC(py4hw.HWSystem):
         self.addOut(name, p)
         return pn
     
-    def I2C(self):
+    def getI2C(self):
         #set_location_assignment PIN_J12 -to FPGA_I2C_SCLK
         #set_location_assignment PIN_K12 -to FPGA_I2C_SDAT
-        self.addOut('FPGA_I2C_SCLK', self.wire('FPGA_I2C_SCLK'))
-        self.addOut('FPGA_I2C_SDAT', self.wire('FPGA_I2C_SDAT'))
-        raise Exception('We need inout pins!')
-            
+        fpga_i2c_sclk = self.addOut('FPGA_I2C_SCLK', self.wire('FPGA_I2C_SCLK'))
+        fpga_i2c_sdat = self.addInOut('FPGA_I2C_SDAT', self.wire('FPGA_I2C_SDAT'))
+        
+        i2c = I2CInterface(self, 'fpga')
+        
+        py4hw.Buf(self, 'SCLK', i2c.SCLK, fpga_i2c_sclk)
+        py4hw.BidirBuf(self, 'SDAT', i2c.SDAT_IN, i2c.SDAT_OUT, i2c.SDAT_OE, fpga_i2c_sdat)
+        
+        return i2c
     
     def getVGAController(self, vga_clk):
         '''
