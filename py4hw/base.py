@@ -21,6 +21,7 @@ class Logic:
 
         self.inPorts = []   # in ports are a sorted list
         self.outPorts = []  # out ports are a sorted list
+        self.inOutPorts = [] # in/out ports
         self.sources = []   # list of InterfaceSource objects
         self.sinks = []     # List of InterfaceSink objects
     
@@ -319,6 +320,8 @@ class Wire:
 
         self.source = source
         
+    def addSource(self, source):
+        self.setSource(source)
         
     def getSource(self):
         """
@@ -393,8 +396,124 @@ class Wire:
         newparent.appendWire(self)
 
 class BidirWire(Wire):
+    """
+    Wires in py4hw connect one source with one (or more) sinks.
+    For many-to-many connections use BidirWire
+    """
+    
+    # this is the list of prepared wires, 
+    # @todo what for ??
+    prepared = []
+    
     def __init__(self, parent, name : str, width: int = 1 ):
-        super().__init__(parent, name , width)
+        # the following should not be necessary if python checks types
+        assert(isinstance(name, str))
+        assert(isinstance(width, int))
+        
+        self.parent = parent
+        self.name = name
+        self.width = width
+        self.value = 0 # should be None      # reset state
+        self.sinks = []
+        self.sources = []
+        parent.appendWire(self)
+        
+    def getFullPath(self)->str:
+        return self.parent.getFullPath() + '[{}]'.format(self.name)
+    
+    def getWidth(self) -> int:
+        return self.width
+    
+    def put(self, val:int):
+        mask = (1<<self.width) -1
+        self.value = val & mask
+
+    def prepare(self, val:int):
+        mask = (1<<self.width) -1
+        self.next = val & mask
+        Wire.prepared.append(self)
+        
+    def settle(self):
+        self.value = self.next
+        
+    def get(self) -> int:
+        return self.value
+    
+    def addSource(self, source):        
+        self.sources.append(source)
+        
+        
+    def getSource(self):
+        """
+        Returns the OutPort that drives this wire
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        return self.source
+    
+    def addSink(self, sink):
+        """
+        Adds a sink to the wire
+
+        Parameters
+        ----------
+        sink : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.sinks.append(sink)
+        
+    def getSinks(self):
+        """
+        Gets all the sinks from a wire
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        """
+        return self.sinks;
+    
+
+    def settleAll():
+        """
+        Settles all pending wires that were changed by clock methods
+
+        Returns
+        -------
+        None.
+
+        """
+        for w in Wire.prepared:
+            w.settle()
+            
+        # empty list
+        Wire.prepared = []
+    
+    def rename(self, newname):
+        del self.parent._wires[self.name]
+        self.name = newname
+        self.parent.appendWire(self)
+        
+    def reparent(self, newparent):
+        del self.parent._wires[self.name]
+        self.parent = newparent
+        newparent.appendWire(self)
+
+    def reparentAndRename(self, newparent, newname):
+        del self.parent._wires[self.name]
+        self.name = newname
+        self.parent = newparent
+        newparent.appendWire(self)
         
 class InPort:
     """
@@ -436,7 +555,7 @@ class OutPort:
     """
     An output port
     """
-    def __init__(self, parent:Logic, name:str, wire:Wire):
+    def __init__(self, parent:Logic, name:str, wire):
         """
         Creates an out port to the cell.
         The cell will be registered as source of the wire only if it
@@ -462,7 +581,7 @@ class OutPort:
         self.wire = wire
         
         if (parent.isPrimitive()):
-            wire.setSource(self)
+            wire.addSource(self)
 
     def getFullPath(self):
         return self.parent.getFullPath() + '[{}]'.format(self.name)
@@ -497,7 +616,7 @@ class InOutPort:
         self.wire = wire
         
         if (parent.isPrimitive()):
-            wire.setSource(self)
+            wire.addSource(self)
             wire.addSink(self)
 
 
