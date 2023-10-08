@@ -154,6 +154,22 @@ class Buf(Logic):
     def propagate(self):
         self.r.put(self.a.get())
 
+class BidirBuf(Logic):
+    
+    def __init__(self, parent, name: str, pin : Wire , pout : Wire, poe : Wire, bidir : BidirWire):
+        super().__init__(parent, name)
+        
+        self.bidir = self.addInOut('bidir', bidir)
+        self.pin = self.addOut('pin', pin)
+        self.pout = self.addIn('pout', pout)
+        self.poe = self.addIn('poe', poe)
+        
+    def propagate(self):
+        if (self.poe.get() ==1):
+            self.bidir.put(self.pout.get())
+        else:
+            self.pin.put(self.bidir.get())
+
 
 class Constant(Logic):
     """
