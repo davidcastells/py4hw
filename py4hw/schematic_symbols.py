@@ -505,6 +505,31 @@ class OutPortSymbol(LogicSymbol):
     
     def getWireSinkPos(self, wire:Wire):
         return (0, LogicSymbol.namemargin + 5)
+
+class InOutPortSymbol(LogicSymbol):
+    def __init__(self, obj, x, y):
+        super().__init__(obj, x, y)
+        
+    def draw(self, canvas):
+        x = self.x 
+        y = self.y 
+        canvas.drawText(x, y, text=self.obj.name , anchor='w')
+        y = y+LogicSymbol.namemargin 
+        
+        canvas.drawPolygon([x, x+5, x+10, x+15, x+10, x+5, x], [y+5, y, y, y+5, y+10, y+10, y+5])
+
+    def getWidth(self):
+        return 20;
+    
+    def getHeight(self):
+        return 20;
+    
+    def getWireSinkPos(self, wire:Wire):
+        return (0, LogicSymbol.namemargin + 5)
+    
+    def getWireSourcePos(self, wire:Wire):
+        return (self.getWidth(), LogicSymbol.namemargin +5)
+
     
 class InstanceSymbol(LogicSymbol):
     def __init__(self, obj:Logic, x:int, y:int):
@@ -536,6 +561,13 @@ class InstanceSymbol(LogicSymbol):
         
 
         for inp in self.obj.outPorts:
+            x = self.x + self.getWidth() - ipw - iphh 
+            canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x, x], [y, y, y+iphh, y+iph, y+iph, y])
+            x = self.x + self.getWidth() - ipw - iph -iphh
+            canvas.drawText(x, y+iptm, text=inp.name , anchor='e')
+            y = y+LogicSymbol.portpitch
+
+        for inp in self.obj.inOutPorts:
             x = self.x + self.getWidth() - ipw - iphh 
             canvas.drawPolygon([x, x+ipw, x+ipw+iphh, x+ipw, x, x], [y, y, y+iphh, y+iph, y+iph, y])
             x = self.x + self.getWidth() - ipw - iph -iphh
@@ -785,6 +817,7 @@ class NetSymbol:
         # self.sinkcol will be assigned later
         
     def getStartPoint(self):
+        
         objsource = self.source
         portsource = objsource.getWireSourcePos(self.wire)
         return (objsource.x + portsource[0], objsource.y + portsource[1]) 
