@@ -10,21 +10,6 @@ import py4hw
 
 
 
-class IOBuf(py4hw.Logic):
-    
-    def __init__(self, parent, name, pin, pout, poe, bidir):
-        super().__init__(parent, name)
-        
-        self.bidir = self.addInOut('bidir', bidir)
-        self.pin = self.addOut('pin', pin)
-        self.pout = self.addIn('pout', pout)
-        self.poe = self.addIn('poe', poe)
-        
-    def propagate(self):
-        if (self.poe.get() ==1):
-            self.bidir.put(self.pout.get())
-        else:
-            self.pin.set(self.bidir.get())
             
 sys = py4hw.HWSystem()
             
@@ -34,9 +19,15 @@ pout = sys.wire('pout')
 pin = sys.wire('pin')
          
 py4hw.Sequence(sys, 'bidir', [0,0,0,1, 1], bidir)
-py4hw.Sequence(sys, 'poe', [1,0,0], poe)
+py4hw.Sequence(sys, 'poe', [1,0,0,0,0,0,0], poe)
 py4hw.Sequence(sys, 'pout', [0, 1], pout)
 
-IOBuf(sys, 'iobuf', pin, pout, poe, bidir)
+py4hw.BidirBuf(sys, 'iobuf', pin, pout, poe, bidir)
+
+wvf = py4hw.Waveform(sys, 'wvf', [pin, pout, poe, bidir])
 
 py4hw.gui.Workbench(sys)
+
+sys.getSimulator().clk(30)
+wvf.gui()
+
