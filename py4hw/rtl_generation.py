@@ -555,6 +555,10 @@ class VerilogGenerator:
         for outp in obj.outPorts:
             str += link + "output " + reg + getWidthInfo(outp.wire) + " " + getPortName(outp)+ ""
             link = ",\n\t"
+
+        for outp in obj.inOutPorts:
+            str += link + "inout " + reg + getWidthInfo(outp.wire) + " " + getPortName(outp)+ ""
+            link = ",\n\t"
             
         str += ");\n"
         
