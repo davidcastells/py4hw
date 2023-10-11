@@ -39,19 +39,35 @@ class I2CInterface(py4hw.Interface):
     def __init__(self, parent, name:str):
         super().__init__(parent, name)
         
-        self.SCLK = self.addSourceToSink('SCLK', 1)
-        self.SDAT_OUT = self.addSourceToSink('SDAT_OUT', 1)
-        self.SDAT_OE = self.addSourceToSink('SDAT_OE', 1)
-        self.SDAT_IN = self.addSinkToSource('SDAT_IN', 1)
+        self.SCL = self.addSourceToSink('SCL', 1)
+        self.SDA_OUT = self.addSourceToSink('SDA_OUT', 1)
+        self.SDA_OE = self.addSourceToSink('SDA_OE', 1)
+        self.SDA_IN = self.addSinkToSource('SDA_IN', 1)
+
+class AudioInterface(py4hw.Interface):
+    def __init__(self, parent, name:str):
+        super().__init__(parent, name)
+        
+        self.AUD_ADCLRCK = self.addSourceToSink('AUD_ADCLRCK', 1)
+        self.AUD_ADCDAT =  self.addSinkToSource('AUD_ADCDAT', 1)
+        self.AUD_DACLRCK = self.addSourceToSink('AUD_DACLRCK', 1)
+        self.AUD_DACDAT = self.addSourceToSink('AUD_DACDAT', 1)
+        self.AUD_XCK = self.addSourceToSink('AUD_XCK', 1)
+        self.AUD_BCLK = self.addSourceToSink('AUD_BCLK', 1)
 
 class DE1SoC(py4hw.HWSystem):
     
     def __init__(self):
+        
         super().__init__(name='DE1SoC')
         
-        wire = self.wire('CLOCK_50')
+        clk50 = self.wire('CLOCK_50')
+        #clk50 = self.addIn('CLOCK_50', clk50)
+        clockDriver = py4hw.ClockDriver('CLOCK_50', 50E6, 0, wire=clk50)
         
-        self.clockDriver = py4hw.ClockDriver('CLOCK_50', 50E6, 0, wire=wire)
+        print('Initial', self.getFullPath(),  self._wires)
+        
+        self.clockDriver = clockDriver
     
     
     
@@ -160,10 +176,18 @@ class DE1SoC(py4hw.HWSystem):
         
         i2c = I2CInterface(self, 'fpga')
         
-        py4hw.Buf(self, 'SCLK', i2c.SCLK, fpga_i2c_sclk)
-        py4hw.BidirBuf(self, 'SDAT', i2c.SDAT_IN, i2c.SDAT_OUT, i2c.SDAT_OE, fpga_i2c_sdat)
+        py4hw.Buf(self, 'SCL', i2c.SCL, fpga_i2c_sclk)
+        py4hw.BidirBuf(self, 'SDA', i2c.SDA_IN, i2c.SDA_OUT, i2c.SDA_OE, fpga_i2c_sdat)
         
         return i2c
+    
+    def getAudio(self):
+        
+        audio = AudioInterface(self, 'audio')
+        
+        self.addInterfaceSource('', audio)
+        
+        return audio
     
     def getVGAController(self, vga_clk):
         '''
