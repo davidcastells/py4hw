@@ -28,10 +28,12 @@ class WM8731InitSequencer(py4hw.Logic):
         self.state = 0
         self.after_done = 0
         
-        self.debugState = self.addOut('debug_state', self.wire('debug_state', 8))
+        self.debugState = self.addOut('debugState', parent.wire('{}_debug_state'.format(name), 8))
         
     def clock(self):
         self.debugState.prepare(self.state)
+        
+        WM8731_ADDR = 0x34 >> 1 # 0x34
         
         if (self.reset.get() == 1):
             self.state = 0
@@ -41,14 +43,14 @@ class WM8731InitSequencer(py4hw.Logic):
             self.data.prepare(0)
         else:
             if (self.state == 0):
-                self.device_address.prepare(0x34)
+                self.device_address.prepare(WM8731_ADDR)
                 self.register_address.prepare(0<<1)
                 self.data.prepare(0b00010111)
                 self.start.prepare(1)
                 self.after_done = 1
                 self.state = 100
             elif (self.state == 1):
-                self.device_address.prepare(0x34)
+                self.device_address.prepare(WM8731_ADDR)
                 self.register_address.prepare(1<<1)
                 self.data.prepare(0b00010111)
                 self.start.prepare(1)
@@ -66,7 +68,6 @@ class WM8731InitSequencer(py4hw.Logic):
                     
             elif (self.state == 102):
                 # ERROR state
-                self.error.prepare(1)
                 self.done.prepare(1)
                 
 class WM8731Init(py4hw.Logic):
@@ -96,6 +97,7 @@ class WM8731Init(py4hw.Logic):
 sys = plt.DE1SoC()
 
 i2c = sys.getI2C()
+audio = sys.getAudio()
 
 reset = sys.wire('reset')
 error = sys.wire('error')
@@ -104,11 +106,20 @@ done = sys.wire('done')
 key = sys.getInputKey()
 py4hw.Bit(sys, 'reset', key, 0, reset)
 
+clk_i2c = sys.wire('clk_i2c')
+py4hw.ClockDivider(sys, 'clk_i2c', sys.clockDriver.freq, 200E3, clk_i2c)
+
+py4hw.Buf(sys, 'AUD_XCK', clk_i2c, audio.AUD_XCK)
+
+clk_signal_tap = sys.wire('clk_signal_tap')
+py4hw.ClockDivider(sys, 'clk_signal_tap', sys.clockDriver.freq, 400E3, clk_signal_tap)
+
 wm8731 = WM8731Init(sys, 'wm8731',  reset, i2c, error, done)
+wm8731.clockDriver = py4hw.ClockDriver('clk_i2c', 200E3, wire=clk_i2c)
 
 py4hw.gui.Workbench(sys)
 
 
-dir = 'c:\\temp\\testDE1SoC'
+dir = '/tmp/testDE1SoC'
 sys.build(dir)
-#sys.download(dir)
+sys.download(dir)
