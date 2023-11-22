@@ -22,6 +22,7 @@ cellmargin_initial = 150
 netmargin = 40
 netspacing = 10
 nettrackspacing = 10
+portvaluemargin = 10
 
 class MatplotlibRender:
     def __init__(self, shape, physical_shape=None, dpi=None):
@@ -263,7 +264,7 @@ class Schematic:
 
     mapping = {} # maaping from object class to symbol
     
-    def __init__(self, obj:Logic, render='matplotlib', parent=None, placeAndRoute=True):
+    def __init__(self, obj:Logic, render='matplotlib', parent=None, placeAndRoute=True, showValues=False):
    
         if not(obj.isStructural()):
             raise Exception('Schematics are only available to structural circuits')
@@ -316,6 +317,8 @@ class Schematic:
         self.parent = parent
         self.render = render        
         self.canvas = None
+
+        self.showValues = showValues
 
         if (placeAndRoute):
             self.placeAndRoute()
@@ -1072,18 +1075,22 @@ class Schematic:
         self.y = gridsize*3
         
         #print('placeInstances', self.sys)
+        if (self.showValues):
+            self.x += portvaluemargin
         
         for child in self.sys.children.values():
             isym = self.placeInstance(child)
             maxx = max(maxx, isym.getWidth())
             
-        self.x = self.x + maxx + gridsize*10 + cellmargin
+        self.x += maxx + gridsize*10 + cellmargin + portvaluemargin
         self.grid_yunits = self.y / gridsize
-        self.grid_yunits = self.y / gridsize
+        self.grid_yunits = self.y / gridsize # @todo should this be x ??
         
     def placeOutputPorts(self):
         '''
-        Place Output Ports and InOutPorts
+        Place Output Ports and InOutPorts.
+        This basically means creating an output port symbol for each port and
+        assigning the its y coordinate 
 
         Returns
         -------
@@ -1274,6 +1281,20 @@ class Schematic:
         else:
             raise Exception('Unsupported render {}'.format(render))
 
+    def drawValues(self, symbol):
+        if (symbol.obj is None):
+            #print('WARNING: no symbol for object', type(symbol))
+            return
+        if not(hasattr(symbol.obj, 'inPorts')):
+            return
+        
+        for port in symbol.obj.inPorts:
+            wire = port.wire
+            pos = symbol.getWireSinkPos(wire)
+            self.canvas.drawText(symbol.x + pos[0] - portvaluemargin,
+                                 symbol.y + pos[1] - gridsize * 2,
+                                 '{:X}'.format(wire.get()), 'w')
+
     def drawAll(self):
         if (self.canvas is None):
             self.createRender()
@@ -1289,6 +1310,9 @@ class Schematic:
             self.canvas.setFillcolor('k')
             self.canvas.setLineWidth(2)
             obj.draw(self.canvas)
+            
+            if (self.showValues):
+                self.drawValues(obj)
 
         # Draw Nets
         for obj in self.getNets():
