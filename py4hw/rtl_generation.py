@@ -122,11 +122,15 @@ def getWireNames(obj:Logic):
     for outp in obj.outPorts:
         ret[outp.wire] = getPortName(outp) 
         
+    for outp in obj.inOutPorts:
+        ret[outp.wire] = getPortName(outp) 
+        
     return ret
     
 def collectPortWires( obj:Logic):
     """
-    Return the wires of the object interface
+    Return the wires of the object interface.
+    @todo where is this used ?
 
     Parameters
     ----------
@@ -145,6 +149,10 @@ def collectPortWires( obj:Logic):
             ret.append(inp.wire)
 
     for outp in obj.outPorts:
+        if (not(outp.wire is None)):
+            ret.append(outp.wire)
+            
+    for outp in obj.inOutPorts:
         if (not(outp.wire is None)):
             ret.append(outp.wire)
 
@@ -188,6 +196,13 @@ def getPortName(p):
 
 def getWireName(scope:Logic, w:Wire):
     wNames = getWireNames(scope)
+    
+    if not(w in wNames.keys()):
+        print('ERROR: wire ', w.getFullPath(), 'not in the wires of ', scope.getFullPath()) 
+        for w2 in wNames.keys():
+            print(wNames[w2], w2 )
+        raise Exception('Wire wire {} not in the wires of {}'.format( w.getFullPath(), scope.getFullPath())) 
+        
     return wNames[w]
 
 def getParentWireName(child:Logic, w:Wire):
@@ -199,6 +214,11 @@ def InlineConstant(obj:Logic):
 
 def InlineNot(obj:Logic):
     return "assign {} = ~{};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
+
+def InlineBidirBuf(obj:Logic):
+    str =  "assign {} = {};\n".format(getParentWireName(obj, obj.pin), getParentWireName(obj, obj.bidir))
+    str += "assign {} = ({}) ? {} : {}'bZ;\n".format(getParentWireName(obj, obj.bidir), getParentWireName(obj, obj.poe), getParentWireName(obj, obj.pout), obj.bidir.getWidth())
+    return str
 
 def InlineBuf(obj:Logic):
     return "assign {} = {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
@@ -402,10 +422,11 @@ class VerilogGenerator:
         
         self.inlinablePrimitives[And2] = InlineAnd2
         self.inlinablePrimitives[And] = InlineAnd
-        self.inlinablePrimitives[Buf] = InlineBuf
+        self.inlinablePrimitives[BidirBuf] = InlineBidirBuf
         self.inlinablePrimitives[Bit] = InlineBit
         self.inlinablePrimitives[BitsLSBF] = InlineBitsLSBF
         self.inlinablePrimitives[BitsMSBF] = InlineBitsMSBF
+        self.inlinablePrimitives[Buf] = InlineBuf
         self.inlinablePrimitives[ConcatenateMSBF] = InlineConcatenateMSBF
         self.inlinablePrimitives[ConcatenateLSBF] = InlineConcatenateLSBF
         self.inlinablePrimitives[Constant] = InlineConstant
@@ -440,7 +461,7 @@ class VerilogGenerator:
 
         Returns
         -------
-        None.
+        An string with the Verilog for the Hierarchy.
 
         """
         
@@ -463,6 +484,22 @@ class VerilogGenerator:
         return str        
         
     def getVerilog(self, obj=None, noInstanceNumber=False):
+        '''
+        Create Verilog for a module
+
+        Parameters
+        ----------
+        obj : TYPE, optional
+            DESCRIPTION. The default is None.
+        noInstanceNumber : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        str : TYPE
+            DESCRIPTION.
+
+        '''
         str = "// This file was automatically created by py4hw RTL generator\n"
         
         if (obj is None):
@@ -598,6 +635,20 @@ class VerilogGenerator:
         return ret(obj)
         
     def createModuleInstances(self, obj:Logic):
+        '''
+        Instantiate the child instances of the module
+
+        Parameters
+        ----------
+        obj : Logic
+            DESCRIPTION.
+
+        Returns
+        -------
+        str
+            The Verilog of sub-circuit instantiation.
+
+        '''
         str = "\n"
         
         for child in obj.children.values():
@@ -612,6 +663,7 @@ class VerilogGenerator:
         return str;
 
     def instantiateStructural(self, child:Logic):
+        parent = child.parent
         str = getVerilogModuleName(child) + " " +  getInstanceName(child)
         str += "("
         link = ""
@@ -629,7 +681,14 @@ class VerilogGenerator:
             clkname = drv.name
             if (drv.wire is None):
                 raise Exception('None clk driver wire for', clkname, child.getFullPath())
-            wirename = drv.wire.name
+                
+            parentDrv:ClockDriver = getObjectClockDriver(child.parent)
+            
+            if (drv.wire == parentDrv.wire):
+                wirename = clkname
+            else:
+                wirename = getWireName(parent, drv.wire)
+                
             str += link + ".{}({})".format(clkname, wirename)
             link = ","
         
@@ -658,6 +717,17 @@ class VerilogGenerator:
  
             link = ","
         
+        for outp in child.inOutPorts:
+            if (outp.wire is None):
+                raise Exception('Input/Output port {} from {} not connected to any wire'.format(outp.name, child.getFullPath()));
+
+            if (not(outp.wire in wireName)):
+                raise Exception('Input/Output port wire {} {} not part of the wires of the parent {}'.format(outp.wire.getFullPath(), outp.wire, child.parent.getFullPath()))
+
+            str += link + "." + getPortName(outp) + "("+wireName[outp.wire]+")"
+ 
+            link = ","
+            
         str += ");\n"
 
         return str                
