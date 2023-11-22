@@ -178,7 +178,7 @@ class Workbench():
                 
             if (obj.isStructural()):
                 # ignore non structural circuits
-                sch = Schematic(obj, render='tkinter', parent=self.schematicPane)
+                sch = Schematic(obj, render='tkinter', parent=self.schematicPane, showValues=True)
     
                 sch.drawAll()
                 self.schematicDiagram = sch.canvas.canvas
