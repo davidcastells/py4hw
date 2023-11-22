@@ -37,6 +37,16 @@ class LogicHelper:
         r = self.parent.wire(name, wr)
         Add(self.parent, name, a, b, r)
         return r
+    
+    def hw_delay(self, a:Wire, en:Wire, delay:int) -> Wire:
+        wa = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, wa)
+        if (en is None):
+            en = self.hw_constant(1,1)
+        DelayLine(self.parent, name, a, en, r, delay)
+        return r
+    
 
     def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
@@ -95,11 +105,11 @@ class LogicHelper:
         BitsLSBF(self.parent, name, a, r)
         return r
 
-    def hw_reg(self, a:Wire) -> Wire:
+    def hw_reg(self, a:Wire, enable=None, reset=None) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
         r = self.parent.wire(name, w)
-        Reg(self.parent, name, d=a, q=r)
+        Reg(self.parent, name, d=a, q=r, enable=enable, reset=reset)
         return r
 
     def hw_buf(self, a:Wire) -> Wire:
