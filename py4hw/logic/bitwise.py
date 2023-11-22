@@ -784,4 +784,32 @@ class Digit7Segment(Logic):
         SumOfMinterms(self, 'f', v, f_minterms, f)
         SumOfMinterms(self, 'g', v, g_minterms, g)
         
+class PriorityEncoder(py4hw.Logic):
+    def __init__(self, parent, name, a, r, inc_priority=True):
+        super().__init__(parent, name)
+        assert(len(a) == len(r))
+
+        # Make a copy so that reverse does not affect the original list
+        a = a.copy()
+        r = r.copy()
         
+        # It the priority is decreasing, the a[0] is the more priorized
+        # Otherwise is the higher index
+        if (inc_priority):
+            a.reverse()
+            r.reverse()
+        
+        hlp = py4hw.LogicHelper(self)
+        
+        last = None
+        
+        for i in range(len(a)):
+            self.addIn('a{}'.format(i), a[i])
+            self.addOut('r{}'.format(i), r[i])
+            
+            if (last is None):
+                py4hw.Buf(self, 'r{}'.format(i), a[i], r[i])
+                last = hlp.hw_buf(a[i])
+            else:
+                py4hw.And2(self, 'r{}'.format(i), a[i], hlp.hw_not(last), r[i])
+                last = hlp.hw_or2(last, a[i])
