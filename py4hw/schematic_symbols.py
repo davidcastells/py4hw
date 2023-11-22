@@ -63,6 +63,7 @@ class LogicSymbol:
             for idx, port in enumerate(self.obj.outPorts):
                 outMaxWidth = max(outMaxWidth, self.getTextExtend(port.name))
         return outMaxWidth
+                                
     
     def computeWidth(self):
         outMaxWidth = self.getOutPortsWidth()
