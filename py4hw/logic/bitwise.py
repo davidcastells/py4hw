@@ -784,8 +784,9 @@ class Digit7Segment(Logic):
         SumOfMinterms(self, 'f', v, f_minterms, f)
         SumOfMinterms(self, 'g', v, g_minterms, g)
         
-class PriorityEncoder(py4hw.Logic):
+class PriorityEncoder(Logic):
     def __init__(self, parent, name, a, r, inc_priority=True):
+        from ..helper import LogicHelper
         super().__init__(parent, name)
         assert(len(a) == len(r))
 
@@ -799,7 +800,7 @@ class PriorityEncoder(py4hw.Logic):
             a.reverse()
             r.reverse()
         
-        hlp = py4hw.LogicHelper(self)
+        hlp = LogicHelper(self)
         
         last = None
         
@@ -808,8 +809,8 @@ class PriorityEncoder(py4hw.Logic):
             self.addOut('r{}'.format(i), r[i])
             
             if (last is None):
-                py4hw.Buf(self, 'r{}'.format(i), a[i], r[i])
+                Buf(self, 'r{}'.format(i), a[i], r[i])
                 last = hlp.hw_buf(a[i])
             else:
-                py4hw.And2(self, 'r{}'.format(i), a[i], hlp.hw_not(last), r[i])
+                And2(self, 'r{}'.format(i), a[i], hlp.hw_not(last), r[i])
                 last = hlp.hw_or2(last, a[i])
