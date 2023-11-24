@@ -140,6 +140,13 @@ class TkinterRender:
     def __init__(self, parent, shape):
         from tkinter import Canvas
         self.canvas = Canvas(parent, bg='white')
+        
+        self.canvas.bind("<ButtonPress-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+
+        self.start_x = None
+        self.start_y = None
+        
         w = shape[0]
         h = shape[1]
         dpi = 100
@@ -159,6 +166,25 @@ class TkinterRender:
         self.linewidth = 2
         self.xmargin = 50
         self.ymargin = 50
+
+    def on_press(self, event):
+        self.start_x = int(self.canvas.canvasx(event.x))
+        self.start_y = int(self.canvas.canvasy(event.y))
+
+    def on_drag(self, event):
+        if self.start_x is not None and self.start_y is not None:
+            cur_x = int(self.canvas.canvasx(event.x))
+            cur_y = int(self.canvas.canvasy(event.y))
+
+            delta_x = cur_x - self.start_x
+            delta_y = cur_y - self.start_y
+
+            self.canvas.scan_mark(self.start_x, self.start_y)
+            self.canvas.scan_dragto(cur_x, cur_y, gain=1)
+
+    def reset_start_coords(self):
+        self.start_x = None
+        self.start_y = None
         
     def setForecolor(self, color):
         #print('color {} = {}'.format(color, colors.rgb2hex(colors.to_rgb(color))))
@@ -1294,6 +1320,13 @@ class Schematic:
             self.canvas.drawText(symbol.x + pos[0] - portvaluemargin,
                                  symbol.y + pos[1] - gridsize * 2,
                                  '{:X}'.format(wire.get()), 'w')
+        for port in symbol.obj.outPorts:
+            wire = port.wire
+            pos = symbol.getWireSourcePos(wire)
+            self.canvas.drawText(symbol.x + pos[0] + portvaluemargin,
+                                 symbol.y + pos[1] - gridsize * 2,
+                                 '{:X}'.format(wire.get()), 'e')
+
 
     def drawAll(self):
         if (self.canvas is None):
