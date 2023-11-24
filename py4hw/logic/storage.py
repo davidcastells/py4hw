@@ -141,7 +141,7 @@ class DelayLine(Logic):
         Buf(self, 'buf', last, r)
         
         
-class PipelinePhase(py4hw.Logic):
+class PipelinePhase(Logic):
     def __init__(self, parent, name, reset, ins, outs):
         super().__init__(parent, name)
         assert(len(ins) == len(outs))
