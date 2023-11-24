@@ -44,7 +44,7 @@ class LogicHelper:
         r = self.parent.wire(name, wa)
         if (en is None):
             en = self.hw_constant(1,1)
-        DelayLine(self.parent, name, a, en, r, delay)
+        DelayLine(self.parent, name, a, en=en, reset=None, r=r, delay=delay)
         return r
     
 
