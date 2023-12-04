@@ -577,6 +577,9 @@ class VerilogGenerator:
     def isProvidingBody(self, obj:Logic):
         # if (not(obj.isPrimitive())):
         #     return False
+
+        if (has_method(obj, 'verilogBody')):
+            return True
         
         try:
             ret = self.providingBody[type(obj)]
@@ -590,6 +593,10 @@ class VerilogGenerator:
         return ret(obj)
 
     def provideBody(self, obj:Logic):
+
+        if (has_method(obj, 'verilogBody')):
+            return obj.verilogBody()
+
         ret = self.providingBody[type(obj)]
         return ret(obj)
         
