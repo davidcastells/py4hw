@@ -154,6 +154,22 @@ class Buf(Logic):
     def propagate(self):
         self.r.put(self.a.get())
 
+class BidirBuf(Logic):
+    
+    def __init__(self, parent, name: str, pin : Wire , pout : Wire, poe : Wire, bidir : BidirWire):
+        super().__init__(parent, name)
+        
+        self.bidir = self.addInOut('bidir', bidir)
+        self.pin = self.addOut('pin', pin)
+        self.pout = self.addIn('pout', pout)
+        self.poe = self.addIn('poe', poe)
+        
+    def propagate(self):
+        if (self.poe.get() ==1):
+            self.bidir.put(self.pout.get())
+        else:
+            self.pin.put(self.bidir.get())
+
 
 class Constant(Logic):
     """
@@ -768,4 +784,33 @@ class Digit7Segment(Logic):
         SumOfMinterms(self, 'f', v, f_minterms, f)
         SumOfMinterms(self, 'g', v, g_minterms, g)
         
+class PriorityEncoder(Logic):
+    def __init__(self, parent, name, a, r, inc_priority=True):
+        from ..helper import LogicHelper
+        super().__init__(parent, name)
+        assert(len(a) == len(r))
+
+        # Make a copy so that reverse does not affect the original list
+        a = a.copy()
+        r = r.copy()
         
+        # It the priority is decreasing, the a[0] is the more priorized
+        # Otherwise is the higher index
+        if (inc_priority):
+            a.reverse()
+            r.reverse()
+        
+        hlp = LogicHelper(self)
+        
+        last = None
+        
+        for i in range(len(a)):
+            self.addIn('a{}'.format(i), a[i])
+            self.addOut('r{}'.format(i), r[i])
+            
+            if (last is None):
+                Buf(self, 'r{}'.format(i), a[i], r[i])
+                last = hlp.hw_buf(a[i])
+            else:
+                And2(self, 'r{}'.format(i), a[i], hlp.hw_not(last), r[i])
+                last = hlp.hw_or2(last, a[i])

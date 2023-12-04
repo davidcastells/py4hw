@@ -5,3 +5,4 @@ deprecated
 scipy
 pytest
 edalize
+setuptools

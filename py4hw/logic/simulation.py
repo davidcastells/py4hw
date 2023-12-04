@@ -18,7 +18,8 @@ from tkinter import ttk
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
         """
-        
+        Collects the progress of signals along the time.
+        We try to reduce data by avoiding data duplication.
 
         Parameters
         ----------
@@ -39,26 +40,27 @@ class Waveform(Logic):
         self.format = []
         self.data = {}  # this is a dictionary of obj (wire or port) -> data, list of wire values 
 
-        uniqueWires = []
+        self.uniqueWires = []
         
         for x in self.wires:
             
             if isinstance(x, Wire):
                 w = x
-                if not(x in uniqueWires):
+                if not(x in self.uniqueWires):
                     self.addIn(x.name, x)
-                    uniqueWires.append(x)
+                    self.uniqueWires.append(x)
+                    self.data[x] = []            
             elif isinstance(x, InPort) or isinstance(x, OutPort):
                 w = x.wire
                 if (w is None):
                     raise Exception('Wire is null for port', x.getFullPath())
-                if not (w in uniqueWires):
+                if not (w in self.uniqueWires):
                     self.addIn(w.name, w)
-                    uniqueWires.append(w)
+                    self.uniqueWires.append(w)
+                    self.data[x] = []            
             else:
                 raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
-            self.data[x] = []            
             
             if (w.getWidth() == 1):
                 self.format.append('')
@@ -82,7 +84,7 @@ class Waveform(Logic):
         
         
     def clock(self):
-        for x in self.wires:
+        for x in self.uniqueWires:
             w = Waveform.getwire(x)
                 
             self.data[x].append(w.get())

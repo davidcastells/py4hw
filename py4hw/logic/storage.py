@@ -99,7 +99,7 @@ class TReg(Logic):
         Reg(self, 'reg', d, q, enable=e)
         
 class DelayLine(Logic):
-    def __init__(self, parent, name:str, a:Wire, en:Wire, r:Wire, delay:int):
+    def __init__(self, parent, name:str, a:Wire, en:Wire, reset:Wire, r:Wire, delay:int):
         """
         Daisy-chained number of registers, typically used to create a 
         fixed-length delay line
@@ -128,13 +128,28 @@ class DelayLine(Logic):
         super().__init__(parent, name)
         
         self.addIn('a', a)
-        self.addIn('en', en)
+        if not(en is None): self.addIn('en', en)
+        if not(reset is None): self.addIn('reset', reset)
         self.addOut('r', r)
 
         last = a
         for i in range(delay):
             newlast = self.wire('r{}'.format(i), a.getWidth())
-            Reg(self, 'r{}'.format(i), last, newlast, enable=en)
+            Reg(self, 'r{}'.format(i), last, newlast, enable=en, reset=reset)
             last = newlast
             
         Buf(self, 'buf', last, r)
+        
+        
+class PipelinePhase(Logic):
+    def __init__(self, parent, name, reset, ins, outs):
+        super().__init__(parent, name)
+        assert(len(ins) == len(outs))
+        
+        self.addIn('reset', reset)
+        
+        for i in range(len(ins)):
+            self.addIn('in{}'.format(i), ins[i])
+            self.addOut('out{}'.format(i), outs[i])
+            
+            Reg(self, 'r{}'.format(i), ins[i], outs[i], reset=reset)
