@@ -82,21 +82,25 @@ class Reg(Logic):
 
             
 class TReg(Logic):
-    def __init__(self, parent, name:str, t:Wire, e:Wire, q:Wire, ):
+    def __init__(self, parent, name:str, t:Wire, q:Wire, enable:Wire=None, reset:Wire=None ):
         from .bitwise import Not
         from .bitwise import Mux2
         
         super().__init__(parent, name)
-        self.t = self.addIn("t", t)
-        self.e = self.addIn("e", e)
-        self.q = self.addOut("q", q)
+        
+        self.addIn("t", t)
+        
+        if not(enable is None):
+            self.addIn("e", enable)
+        
+        self.addOut("q", q)
         
         nq = self.wire('nq', 1)
         Not(self, 'nq', q, nq)
         
         d = self.wire('d', 1)
         Mux2(self, 'mux', t, q, nq, d)
-        Reg(self, 'reg', d, q, enable=e)
+        Reg(self, 'reg', d, q, enable=enable, reset=reset)
         
 class DelayLine(Logic):
     def __init__(self, parent, name:str, a:Wire, en:Wire, reset:Wire, r:Wire, delay:int):
