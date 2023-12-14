@@ -44,13 +44,14 @@ class And(Logic):
         
         num = len(ins)
 
+        if (num == 1):
+            Buf(self, 'and1', ins[0], r)
+            return
+        
         if (num == 2):
             And2(self, 'and2', ins[0], ins[1], r)
             return
             
-        if (num < 3):
-            raise Exception('List should be > 2')
-
         # by now we do an inefficient ladder structure, we should
         # do a more fancy logarithmic design
         
