@@ -746,6 +746,9 @@ class Schematic:
               
         
         for wire in intersection:
+            if (wire is None):
+                continue
+            
             # remove the original net
             removeNets = [x for x in self.nets if x.wire== wire and x.source == source and x.sink == sink]
 
