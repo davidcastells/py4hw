@@ -13,6 +13,28 @@ from .schematic_symbols import *
 from .transpilation.python2verilog_transpilation import *
 
 def getVerilogModuleName(obj:Logic, noInstanceNumber=False):
+    '''
+    Returns the module name of an object.
+    Logic classes can provide their module name by implementing the method structureName,
+    if it is not provided the structure is unique for every instance, hence the number
+    of structures is significantly increase (which is generally bad for reading)
+
+    Parameters
+    ----------
+    obj : Logic
+        DESCRIPTION.
+    noInstanceNumber : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    str : TYPE
+        DESCRIPTION.
+
+    '''
+    if (has_method(obj, 'structureName')):
+        return obj.structureName()
+    
     str = type(obj).__name__  
     if (not(noInstanceNumber)):
         sid = hex(id(obj))
@@ -464,13 +486,16 @@ class VerilogGenerator:
         An string with the Verilog for the Hierarchy.
 
         """
-        
+        self.created_structures = []
+        return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity)
+    
+    def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True):
         if (obj is None):
             obj = self.obj
         
         #print('generating {}'.format(obj.getFullPath()))
             
-        str = self.getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity)
+        str = self._getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity)
         
         for child in obj.children.values():
             if (self.isInlinable(child)):
@@ -479,7 +504,7 @@ class VerilogGenerator:
             else:
                 # skip inlinable modules from verilog generation
                 str += "\n"
-                str += self.getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
+                str += self._getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
 
         return str        
         
@@ -500,11 +525,22 @@ class VerilogGenerator:
             DESCRIPTION.
 
         '''
+        self.created_structures = []
+        return self._getVerilog(obj, noInstanceNumber)
+    
+    def _getVerilog(self, obj=None, noInstanceNumber=False):
+        
         str = "// This file was automatically created by py4hw RTL generator\n"
         
         if (obj is None):
             obj = self.obj
             
+        # check if structure was already generated
+        
+        structure_name = getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber)
+        
+        if (structure_name in self.created_structures):
+            return ''
             
         str += self.createModuleHeader(obj, noInstanceNumber=noInstanceNumber)
         
@@ -539,6 +575,8 @@ class VerilogGenerator:
             str += self.createModuleInstances(obj)
         
         str += "endmodule\n"
+        
+        self.created_structures.append(structure_name)
         
         return str
         
