@@ -92,6 +92,9 @@ class TReg(Logic):
         
         if not(enable is None):
             self.addIn("e", enable)
+
+        if not(reset is None):
+            self.addIn("r", reset)
         
         self.addOut("q", q)
         
