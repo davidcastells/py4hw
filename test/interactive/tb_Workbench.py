@@ -40,6 +40,7 @@ sys = HWSystem()
 a = Wire(sys, "a", 4)
 b = Wire(sys, "b", 4)
 c = Wire(sys, "c", 4)
+d = Wire(sys, "d", 4)
 
 r = Wire(sys, "r", 4)
 
@@ -48,5 +49,6 @@ Constant(sys, 'b', 2, b)
 SerialAdder(sys, "sa", a, r)
 #And2(sys, 'and', a, b, c)
 WrappedAnd(sys, 'and', a, a, c)
+WrappedAnd(sys, 'and2', a, c, d)
 
 py4hw.gui.Workbench(sys)
