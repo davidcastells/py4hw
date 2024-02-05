@@ -699,6 +699,7 @@ class Schematic:
 
         for colidx, col in enumerate(self.columns):
             for obj in col:
+                # We list the objects in the column 
                 if (isinstance(obj, PassthroughSymbol)):
                     continue
                 if (isinstance(obj, FeedbackStartSymbol)):
@@ -816,7 +817,8 @@ class Schematic:
         sink_wires = self.getWiresFromSink(sink)
         intersection = Intersection(source_wires, sink_wires)
         
-       
+        # intersection wires are wires that connect source and sink
+        # but take care, because the same wire can have multiple sink ports
         
         for wire in intersection:
             # remove the original net
@@ -826,7 +828,12 @@ class Schematic:
                 self.dumpNets()
                 raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
 
-            self.nets.remove(removeNets[0])
+            if (len(removeNets) > 1):
+                self.dumpNets()
+                raise Exception('Muliple nets between source:{} {} and sink:{} {}'.format( type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
+
+            netToRemove = removeNets[0]
+            self.nets.remove(netToRemove)
         
             lastSymbol = source
             
@@ -841,7 +848,7 @@ class Schematic:
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
             # TODO: what to do here with the port info ???
-            net1 = NetSymbol(wire, None, None, lastSymbol, fb_start)
+            net1 = NetSymbol(wire, netToRemove.sourcePort, None , lastSymbol, fb_start)
             net1.sourcecol = sourcecol
             net1.arrow = False
             self.nets.append(net1)            
@@ -854,7 +861,7 @@ class Schematic:
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
             # TODO what to do here with the port info ????
-            net2 = NetSymbol(wire, None, None, fb_end, sink)
+            net2 = NetSymbol(wire, None, netToRemove.sinkPort, fb_end, sink)
             net2.sourcecol = sinkcol
             net2.arrow = True
             self.nets.append(net2)
@@ -1334,7 +1341,7 @@ class Schematic:
         
         for port in symbol.obj.inPorts:
             wire = port.wire
-            pos = symbol.getPortSinkPos(wire)
+            pos = symbol.getPortSinkPos(port)
             self.canvas.drawText(symbol.x + pos[0] - portvaluemargin,
                                  symbol.y + pos[1] - gridsize * 2,
                                  '{:X}'.format(wire.get()), 'w')
