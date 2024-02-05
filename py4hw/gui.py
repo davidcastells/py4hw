@@ -180,7 +180,7 @@ class Workbench():
                 # ignore non structural circuits
                 sch = Schematic(obj, render='tkinter', parent=self.schematicPane, showValues=True)
     
-                sch.drawAll(debug=True)
+                sch.drawAll()
                 self.schematicDiagram = sch.canvas.canvas
                 self.schematicPane.add(self.schematicDiagram)
                 #self.schematicPane.pack()
