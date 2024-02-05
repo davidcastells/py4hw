@@ -23,6 +23,17 @@ class SerialAdder(Logic):
         Reg(self, "reg", d, r, enable=e)
  
 
+class WrappedAnd(py4hw.Logic):
+    def __init__(self, parent, name, a, b, r):
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addIn('b', b)
+        self.addOut('r', r)
+        
+        py4hw.And2(self, 'and', a, b, r)
+
+
 
 sys = HWSystem()
 
@@ -35,6 +46,7 @@ r = Wire(sys, "r", 4)
 Constant(sys, 'inc', 3, a)
 Constant(sys, 'b', 2, b)
 SerialAdder(sys, "sa", a, r)
-And2(sys, 'and', a, b, c)
+#And2(sys, 'and', a, b, c)
+WrappedAnd(sys, 'and', a, a, c)
 
 py4hw.gui.Workbench(sys)
