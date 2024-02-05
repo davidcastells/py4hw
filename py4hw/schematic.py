@@ -758,9 +758,15 @@ class Schematic:
                 self.dumpNets()
                 raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), id(source), source.obj.getFullPath(), id(sink), sink.obj.getFullPath()))
             
-            self.nets.remove(removeNets[0])
+            if (len(removeNets) > 1):
+                self.dumpNets()
+                raise Exception('Muliple nets between source:{} {} and sink:{} {}'.format( type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
+
+            netToRemove = removeNets[0]
+            self.nets.remove(netToRemove)
         
             lastSymbol = source
+            lastSourcePort = netToRemove.sourcePort
             
             for col in range(sourcecol+1, sinkcol):
                 pts = PassthroughSymbol()
@@ -768,22 +774,23 @@ class Schematic:
                 self.objs.append(pts)
                 self.columns[col].append(pts)
 
-                raise Exception('TODO get the port of this wire')
-                self.sources.append({'symbol':pts, 'port':wire})
-                self.sinks.append({'symbol':pts, 'port':wire})
+                # raise Exception('TODO get the port of this wire')
+                # self.sources.append({'symbol':pts, 'port':wire})
+                # self.sinks.append({'symbol':pts, 'port':wire})
                 
                 # TODO what to do here with the port info ??
-                net1 = NetSymbol(wire, None, None, lastSymbol, pts)
+                net1 = NetSymbol(wire, lastSourcePort, None, lastSymbol, pts)
                 net1.sourcecol = col-1
                 net1.arrow = False
                 self.nets.append(net1)
                 
                 lastSymbol = pts
+                lastSourcePort = None
                 
                 
             if (lastSymbol != None):
                 # TODO what to do here with the port info 
-                net2 = NetSymbol(wire, None, None, pts, sink)
+                net2 = NetSymbol(wire, None, netToRemove.sinkPort, pts, sink)
                 net2.sourcecol = sinkcol-1
                 self.nets.append(net2)
                                 
