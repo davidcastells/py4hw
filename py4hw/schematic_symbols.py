@@ -244,7 +244,7 @@ class NotSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -273,7 +273,7 @@ class BufSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -298,7 +298,7 @@ class BitSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -324,7 +324,7 @@ class RangeSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -351,7 +351,7 @@ class NorSymbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 40
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -405,7 +405,7 @@ class OrSymbol(LogicSymbol):
 
         self.h = 20 * self.nins
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -450,7 +450,7 @@ class XorSymbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 40
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -541,7 +541,7 @@ class InOutPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
@@ -623,7 +623,7 @@ class ScopeSymbol(InstanceSymbol):
     def getHeight(self):
         return 80
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         
@@ -655,7 +655,7 @@ class Mux2Symbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 20*3
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
