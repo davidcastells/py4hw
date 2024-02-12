@@ -184,6 +184,8 @@ class Workbench():
                 self.schematicDiagram = sch.canvas.canvas
                 self.schematicPane.add(self.schematicDiagram)
                 #self.schematicPane.pack()
+            elif (hasattr(obj, 'tkinter_gui')):
+                self.schematicPane.add(obj.tkinter_gui(self.schematicPane))
             
         self.detailObj = obj
         self.detail_tv.delete(*self.detail_tv.get_children())
