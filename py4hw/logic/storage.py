@@ -9,7 +9,25 @@ from .bitwise import Buf
 
 from deprecated import deprecated
 
-
+class Latch(Logic):
+    '''
+    This is an asynchronous LATCH
+    '''
+    def __init__(self, parent, name, d:Wire, q:Wire, enable:Wire):
+        super().__init__(parent, name)
+        self.d = self.addIn("d", d)
+        self.q = self.addOut("q", q)
+        self.e = self.addIn("e", enable)
+        
+    def propagate(self):
+        
+        if (self.e.get()):
+            self.q.put(self.d.get())
+            
+    def structureName(self):
+        msg = 'Latch{}'.format(self.q.getWidth())
+        return msg
+    
 class Reg(Logic):
     """
     This is a D flip flop with (optional) enable and (optional) reset
@@ -80,6 +98,14 @@ class Reg(Logic):
             
         self.q.prepare(self.value)
 
+    def structureName(self):
+        msg = 'Reg{}'.format(self.q.getWidth())
+        
+        if not(self.r is None): msg += 'R'
+        if not(self.e is None): msg += 'E'
+        if not(self.reset_value == 0): msg += '_v{}'.format(self.reset_value)
+        
+        return msg
             
 class TReg(Logic):
     def __init__(self, parent, name:str, t:Wire, q:Wire, enable:Wire=None, reset:Wire=None ):
