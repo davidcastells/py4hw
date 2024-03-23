@@ -63,7 +63,10 @@ class RandomValue(py4hw.Logic):
 
         maxv = (2 ** self.r.getWidth()) -1
         
+        print('maxv : ', maxv)
+        
         # Create sliders and labels
+        
         self.label1 = ttk.Label(frame, text="Mean: {}".format(self.mean))
         self.label2 = ttk.Label(frame, text="Stddev: {}".format(self.stddev))
 
@@ -71,10 +74,12 @@ class RandomValue(py4hw.Logic):
         slider1.set(self.mean)
         slider2 = ttk.Scale(frame, from_=0, to=maxv, orient="horizontal", command=self.update_stddev)
         slider2.set(self.stddev)
+        
+        
 
         # Grid layout for sliders and labels
-        slider1.grid(column=0, row=0, columnspan=2, pady=10)
-        slider2.grid(column=0, row=1, columnspan=2, pady=10)
+        slider1.grid(column=0, row=0,  pady=10)
+        slider2.grid(column=0, row=1,  pady=10)
         self.label1.grid(column=1, row=0, padx=5)
         self.label2.grid(column=1, row=1, padx=5)
         
@@ -101,6 +106,6 @@ SerialAdder(sys, "sa", a, r)
 #And2(sys, 'and', a, b, c)
 WrappedAnd(sys, 'and', a, a, c)
 WrappedAnd(sys, 'and2', a, c, d)
-RandomValue(sys, 'random', e, 1<<3, 1<<3)
+RandomValue(sys, 'random', e, 1, 1)
 
 py4hw.gui.Workbench(sys)
