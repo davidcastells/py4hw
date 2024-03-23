@@ -800,7 +800,7 @@ class Schematic:
             
     def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int, debug=False):
         """
-        A passthrough instance has to be inserted for every wire connecting both entities
+        Create feedback nets between source and sink
 
         Parameters
         ----------
@@ -881,9 +881,9 @@ class Schematic:
                 self.objs.append(pts)
                 self.columns[col].append(pts)
 
-                raise Exception('TODO get the port of this wire')
-                self.sources.append({'symbol':pts, 'port':wire})
-                self.sinks.append({'symbol':pts, 'port':wire})
+                #raise Exception('TODO get the port of this wire')
+                #self.sources.append({'symbol':pts, 'port':wire})
+                #self.sinks.append({'symbol':pts, 'port':wire})
               
                 # TODO what to do here with the port info ???
                 net1 = NetSymbol(wire, None, None, lastSymbol, pts)
