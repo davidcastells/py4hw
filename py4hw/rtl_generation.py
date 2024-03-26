@@ -398,7 +398,7 @@ def InlineVerilogCommnent(obj:Logic):
     
 def BodyReg(obj:Logic):
     clkname = getObjectClockDriver(obj).name
-    str = "reg "+getWidthInfo(obj.q) + " rq = 0;\n"
+    str = "reg "+getWidthInfo(obj.q) + " rq = {};\n".format(obj.reset_value)
     str += "always @(posedge {})\n".format(clkname)
     close = ""
     if not(obj.r is None):
