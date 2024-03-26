@@ -76,7 +76,7 @@ class Reg(Logic):
         else:
             self.reset_value = 0
             
-        self.value = 0
+        self.value = self.reset_value
         
     def clock(self):
         setValue = True
