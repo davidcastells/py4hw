@@ -10,10 +10,10 @@ from .schematic import Schematic
 class Workbench():
     
     def getIcon(self, path):
-        script_directory = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.join(script_directory, path)
+        #script_directory = os.path.dirname(os.path.abspath(__file__))
+        #icon_path = os.path.join(script_directory, path)
         
-        icon = Image.open(icon_path)
+        icon = Image.open(path)
         icon = ImageTk.PhotoImage(icon)
         return icon
         
@@ -66,8 +66,14 @@ class Workbench():
         self.rightPane.add(self.schematicAreaPane)
         self.schematicAreaPane.add(self.schematicToolbarPane) 
         
-        icon_zo = self.getIcon('zoomout24.png')
-        icon_zi = self.getIcon('zoomin24.png')
+        import importlib
+        package_path = importlib.resources.files('py4hw')
+        # Construct the full path to the image file
+        zoomout_path = package_path / 'zoomout24.png'
+        zoomin_path = package_path / 'zoomin24.png'
+        
+        icon_zo = self.getIcon(zoomout_path)
+        icon_zi = self.getIcon(zoomin_path)
         
         btnZoomIn = ttk.Button(self.schematicToolbarPane,  image=icon_zi, text="Zoom in", command=self.guiZoomIn)
         btnZoomOut = ttk.Button(self.schematicToolbarPane, image=icon_zo, text="Zoom out", command=self.guiZoomOut)
