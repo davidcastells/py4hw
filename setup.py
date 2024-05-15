@@ -8,14 +8,15 @@ with open("README.md", "r") as fh:
                          
 setup(
     name='py4hw',
-    version='2024.1',
+    version='2024.3',
     author='David Castells-Rufas',
     author_email='david.castells@uab.cat',
-    description='py4hw is a library to model, and simulate digital logic circuits. It promotes the use of structural design style to build hardware and it is highly influenced by the ideas behind JHDL.',
+    description='py4hw is a library to model, and simulate digital logic circuits. It promotes the use of structural and behavioural design styles to build hardware and it is influenced by some ideas behind JHDL.',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/davidcastells/py4hw',
     install_requires=open('requires.txt').readlines(),
     tests_require=open('requires.txt').readlines(),
-    packages=find_packages(exclude=['riscv'])
+    packages=find_packages(),
+    package_data={'': ['*.png']}
 )
