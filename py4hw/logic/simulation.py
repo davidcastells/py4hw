@@ -15,6 +15,20 @@ import tkinter.font
 from tkinter import *
 from tkinter import ttk
     
+class FieldInspector:
+    def __init__(self, obj, field):
+        self.obj = obj
+        self.field = field
+        
+    def getFormat(self):
+        return '{}'
+    
+    def get(self):
+        return getattr(self.obj, self.field)
+    
+    def getFullPath(self):
+        return self.obj.getFullPath() + '/' + self.field
+        
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
         """
@@ -36,6 +50,8 @@ class Waveform(Logic):
 
         """
         super().__init__(parent, name)
+        
+        # wires contain all the elements of the input list, there might be repeatitions
         self.wires = wires if isinstance(wires, list) else [wires]
         self.format = []
         self.data = {}  # this is a dictionary of obj (wire or port) -> data, list of wire values 
@@ -57,12 +73,19 @@ class Waveform(Logic):
                 if not (w in self.uniqueWires):
                     self.addIn(w.name, w)
                     self.uniqueWires.append(w)
-                    self.data[x] = []            
+                    self.data[w] = []     
+            elif isinstance(x, FieldInspector):
+                w = None
+                if not(x in self.uniqueWires):
+                    self.uniqueWires.append(x)
+                    self.data[x] = []                                                
             else:
                 raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
-            
-            if (w.getWidth() == 1):
+
+            if isinstance(x, FieldInspector):
+               self.format.append(x.getFormat()) 
+            elif (w.getWidth() == 1):
                 self.format.append('')
             else:
                 self.format.append('{:X}')
@@ -84,10 +107,18 @@ class Waveform(Logic):
         
         
     def clock(self):
+        # Data is indexed by wire (or field inspector) to avoid repeats
+        # For ports, the value used for x will be its wire
         for x in self.uniqueWires:
-            w = Waveform.getwire(x)
+            if isinstance(x, FieldInspector):
+                self.data[x].append(x.get())
+            else:
+                w = Waveform.getwire(x)
                 
-            self.data[x].append(w.get())
+                if not(w in self.data):
+                    raise Exception('Wire {}/{} not in data list {}'.format(x, w, self.data.keys()))
+                    
+                self.data[w].append(w.get())
             
     def getDict(self):
         return self.data
@@ -151,18 +182,24 @@ class Waveform(Logic):
         signals = [{"name": "clk", 'wave': 'P'}]
         
         for idx, obj in enumerate(self.wires):
-            w = Waveform.getwire(obj)
+            if (isinstance(obj, FieldInspector)):
+                w = obj
+                ww = -1
+            else:
+                w = Waveform.getwire(obj)
+                ww = w.getWidth()
+                
             fmt = self.format[idx]
             wavedata = 'x'
             wavedatadata = []
             
-            data = self.data[obj]
+            data = self.data[w]
             last = 'x'
             numclks = len(data)
             for i in range(numclks):
                 v = data[i]
                 if (v != last):
-                    if (w.getWidth() == 1):
+                    if (ww == 1):
                         wavedata += '{}'.format(v)
                     else:
                         wavedata += '{}'.format(2)

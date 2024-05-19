@@ -106,6 +106,20 @@ class Python2VerilogTranspiler:
         initExtracter = ExtractInitializers()
         init = initExtracter.visit(node)
         
+        if hasattr(self.obj, 'initial'):
+            # Add the initizlization done at the initial method
+            module = getMethod(self.obj, 'initial')
+            node = getBody(module)
+        
+            node = ReplaceWireCalls().visit(node)
+            node = ReplaceExpr().visit(node)
+            node = ReplaceOperators().visit(node)
+            node = ReplaceConstant().visit(node)
+            
+            #print('Constructor Initial=', init.init.body)
+            #print('initial method=', node.process.body)
+            init.init.body.extend(node.process.body)
+        
         module = getMethod(self.obj, 'clock')
         clkname = getObjectClockDriver(self.obj).name
 
@@ -324,12 +338,34 @@ class ReplaceOperators(ast.NodeTransformer):
         #node = ast.NodeTransformer.generic_visit(self, node)
         return node
 
+    def logarithmicIteration(op, in_list):
+        out_list = []
+
+        for i in range(0, len(in_list), 2):
+            if (i < (len(in_list)-1)):
+                out_list.append( VerilogOperator(in_list[i], op, in_list[i+1]))
+            else:
+                out_list.append(in_list[i])
+                
+        return out_list
+        
     def visit_BoolOp(self, node):
-        assert(len(node.values) == 2)
-        left = ast.NodeTransformer.generic_visit(self, node.values[0])
-        right = ast.NodeTransformer.generic_visit(self, node.values[1])
-        node = VerilogOperator(left, node.op, right)
-        return node
+        if (len(node.values) == 2):
+            left = ast.NodeTransformer.generic_visit(self, node.values[0])
+            right = ast.NodeTransformer.generic_visit(self, node.values[1])
+            node = VerilogOperator(left, node.op, right)
+            return node
+        else:
+            # create a hierarchy
+            in_list = node.values
+            
+            while (len(in_list) > 1):
+                in_list = ReplaceOperators.logarithmicIteration(node.op, in_list)
+                
+            return in_list[0]
+            
+                        
+                
     
     def visit_Compare(self, node):
         # print('visiting compare')
@@ -338,6 +374,10 @@ class ReplaceOperators(ast.NodeTransformer):
         node = VerilogOperator(left, node.ops, right)            
         return node
     
+    def visit_UnaryOp(self, node):
+        operand = ast.NodeTransformer.generic_visit(self, node.operand)
+        node = VerilogOperator(None, node.op, operand)
+        return node
 
     
 class ReplaceExpr(ast.NodeTransformer):
@@ -389,6 +429,7 @@ class ReplaceConstant(ast.NodeTransformer):
     
     def visit_Num(self, node):
         return VerilogConstant(node.n)
+    
     
 class ReplaceAssign(ast.NodeTransformer):
             
@@ -446,8 +487,11 @@ class ExtractInitializers(ast.NodeTransformer):
             elif (fname == 'addOut'):
                 node.targets[0].attr
                 # print('out port', node.targets[0].attr)
+            elif (fname == 'addInterfaceSink'):
+                # @todo review what to do here
+                pass
             else:
-                print('name not expected', fname)
+                print('# name not expected', fname)
 
             w = VerilogWire(pname)
             self.ports[pname] = w        
@@ -606,11 +650,15 @@ class VerilogOperator(ast.AST):
             return '+'
         elif (isinstance(operator, ast.Sub)):
             return '-'
+        elif (isinstance(operator, ast.USub)):
+            return '-'
         elif (isinstance(operator, ast.Mult)):
             return '*'
         elif (isinstance(operator, ast.FloorDiv)):
             return '/'
         # BITWISE
+        elif (isinstance(operator, ast.Invert)):
+            return '~'
         elif (isinstance(operator, ast.BitAnd)):
             return '&'
         elif (isinstance(operator, ast.BitOr)):
@@ -621,13 +669,19 @@ class VerilogOperator(ast.AST):
             return '<<'
         elif (isinstance(operator, ast.RShift)):
             return '>>'
+        elif (isinstance(operator, ast.Not)):
+            return '!'
         # RELATIONAL
         elif (isinstance(operator, ast.And)):
             return '&&'
+        elif (isinstance(operator, ast.Or)):
+            return '||'
         elif (isinstance(operator, ast.Eq)):
             return '=='
         elif (isinstance(operator, ast.Lt)):
             return '<'        
+        elif (isinstance(operator, ast.Gt)):
+            return '>'
         elif (isinstance(operator, ast.GtE)):
             return '>='        
         elif (isinstance(operator, ast.Mod)):
@@ -638,10 +692,12 @@ class VerilogOperator(ast.AST):
     def toVerilog(self):
         str = ''
         
-        if (isinstance(self.left, VerilogOperator)):
-            str += '(' + Python2VerilogTranspiler.toVerilog(self.left)  + ')'
-        else:
-            str += Python2VerilogTranspiler.toVerilog(self.left) 
+        if not(self.left is None):
+            # skip for unary operators
+            if (isinstance(self.left, VerilogOperator)):
+                str += '(' + Python2VerilogTranspiler.toVerilog(self.left)  + ')'
+            else:
+                str += Python2VerilogTranspiler.toVerilog(self.left) 
             
         str += self.op
 

@@ -316,8 +316,8 @@ class Schematic:
 
         self.objs = []      # a list of the logic symbols displayed
         self.nets = []      # a list of the nets
-        self.sources = []   # a list of net sources with tuples [symbol, x, y, wire]
-        self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, wire]
+        self.sources = []   # a list of net sources with tuples [symbol, x, y, port]
+        self.sinks = []     # a list of net sinks with tuples   [symbol, x, y, port]
         
         Schematic.mapping[And2] = AndSymbol
         Schematic.mapping[And] = AndSymbol
@@ -357,7 +357,7 @@ class Schematic:
         
         #mainloop()
 
-    def placeAndRoute(self):
+    def placeAndRoute(self, debug=False):
         self.placeInputPorts()
         self.placeInstances()
         self.placeOutputPorts()
@@ -365,7 +365,7 @@ class Schematic:
         self.bruteForceSort()
         self.columnAssignment()
         
-        self.createNets()                   
+        self.createNets(debug=debug) 
         self.passthroughCreation()
         self.removeArrowsSpecialCases()
         
@@ -480,7 +480,7 @@ class Schematic:
             wire = inp.wire
             
             for src in self.sources:
-                if (src['wire'] == wire):
+                if (src['port'].wire == wire):
                     ret.append(src['symbol'])
         
         return ret
@@ -526,7 +526,7 @@ class Schematic:
             if not(wire in self.maxfanoutwires):
                 # avoid to report elements connected by pruned wires
                 for src in self.sinks:
-                    if (src['wire'] == wire):
+                    if (src['port'].wire == wire):
                         ret.append(src['symbol'])
         
         # if multiple wires connect between two symbols, there will be repetitions
@@ -699,6 +699,7 @@ class Schematic:
 
         for colidx, col in enumerate(self.columns):
             for obj in col:
+                # We list the objects in the column 
                 if (isinstance(obj, PassthroughSymbol)):
                     continue
                 if (isinstance(obj, FeedbackStartSymbol)):
@@ -720,7 +721,8 @@ class Schematic:
 
     def insertPassthrough(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int, debug=False):
         """
-        A passthrough instance has to be inserted for every wire connecting both entities
+        A passthrough instance has to be inserted for every wire connecting 
+        entities source and sink
 
         Parameters
         ----------
@@ -756,28 +758,39 @@ class Schematic:
                 self.dumpNets()
                 raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), id(source), source.obj.getFullPath(), id(sink), sink.obj.getFullPath()))
             
-            self.nets.remove(removeNets[0])
+            if (len(removeNets) > 1):
+                self.dumpNets()
+                raise Exception('Muliple nets between source:{} {} and sink:{} {}'.format( type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
+
+            netToRemove = removeNets[0]
+            self.nets.remove(netToRemove)
         
             lastSymbol = source
+            lastSourcePort = netToRemove.sourcePort
             
             for col in range(sourcecol+1, sinkcol):
                 pts = PassthroughSymbol()
-                pts.debug = debug
+
                 self.objs.append(pts)
                 self.columns[col].append(pts)
-                self.sources.append({'symbol':pts, 'wire':wire})
-                self.sinks.append({'symbol':pts, 'wire':wire})
+
+                # raise Exception('TODO get the port of this wire')
+                # self.sources.append({'symbol':pts, 'port':wire})
+                # self.sinks.append({'symbol':pts, 'port':wire})
                 
-                net1 = NetSymbol(wire, lastSymbol, pts)
+                # TODO what to do here with the port info ??
+                net1 = NetSymbol(wire, lastSourcePort, None, lastSymbol, pts)
                 net1.sourcecol = col-1
                 net1.arrow = False
                 self.nets.append(net1)
                 
                 lastSymbol = pts
+                lastSourcePort = None
                 
                 
             if (lastSymbol != None):
-                net2 = NetSymbol(wire, pts, sink)
+                # TODO what to do here with the port info 
+                net2 = NetSymbol(wire, None, netToRemove.sinkPort, pts, sink)
                 net2.sourcecol = sinkcol-1
                 self.nets.append(net2)
                                 
@@ -787,7 +800,7 @@ class Schematic:
             
     def insertFeedback(self, source:LogicSymbol, sourcecol:int, sink:LogicSymbol, sinkcol:int, debug=False):
         """
-        A passthrough instance has to be inserted for every wire connecting both entities
+        Create feedback nets between source and sink
 
         Parameters
         ----------
@@ -811,7 +824,8 @@ class Schematic:
         sink_wires = self.getWiresFromSink(sink)
         intersection = Intersection(source_wires, sink_wires)
         
-       
+        # intersection wires are wires that connect source and sink
+        # but take care, because the same wire can have multiple sink ports
         
         for wire in intersection:
             # remove the original net
@@ -821,7 +835,12 @@ class Schematic:
                 self.dumpNets()
                 raise Exception('Wire:{} with source:{} {} and sink:{} {} not in remove nets'.format(wire.getFullPath(), type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
 
-            self.nets.remove(removeNets[0])
+            if (len(removeNets) > 1):
+                self.dumpNets()
+                raise Exception('Muliple nets between source:{} {} and sink:{} {}'.format( type(source).__name__, source.obj.getFullPath(), type(sink).__name__, sink.obj.getFullPath()))
+
+            netToRemove = removeNets[0]
+            self.nets.remove(netToRemove)
         
             lastSymbol = source
             
@@ -835,7 +854,8 @@ class Schematic:
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
-            net1 = NetSymbol(wire, lastSymbol, fb_start)
+            # TODO: what to do here with the port info ???
+            net1 = NetSymbol(wire, netToRemove.sourcePort, None , lastSymbol, fb_start)
             net1.sourcecol = sourcecol
             net1.arrow = False
             self.nets.append(net1)            
@@ -847,7 +867,8 @@ class Schematic:
             #self.sources.append({'symbol':fb_start, 'wire':wire})
             #self.sinks.append({'symbol':fb_start, 'wire':wire})
             
-            net2 = NetSymbol(wire, fb_end, sink)
+            # TODO what to do here with the port info ????
+            net2 = NetSymbol(wire, None, netToRemove.sinkPort, fb_end, sink)
             net2.sourcecol = sinkcol
             net2.arrow = True
             self.nets.append(net2)
@@ -856,32 +877,35 @@ class Schematic:
             
             
             for col in range(sinkcol+1, sourcecol):
-                  pts = PassthroughSymbol()
-                  pts.debug = debug
-                  self.objs.append(pts)
-                  self.columns[col].append(pts)
-                  self.sources.append({'symbol':pts, 'wire':wire})
-                  self.sinks.append({'symbol':pts, 'wire':wire})
-                
-                  net1 = NetSymbol(wire, lastSymbol, pts)
-                  net1.sourcecol = col-1
-                  net1.arrow = False
-                  self.nets.append(net1)
-                
-                  lastSymbol = pts
+                pts = PassthroughSymbol()
+                self.objs.append(pts)
+                self.columns[col].append(pts)
+
+                #raise Exception('TODO get the port of this wire')
+                #self.sources.append({'symbol':pts, 'port':wire})
+                #self.sinks.append({'symbol':pts, 'port':wire})
+              
+                # TODO what to do here with the port info ???
+                net1 = NetSymbol(wire, None, None, lastSymbol, pts)
+                net1.sourcecol = col-1
+                net1.arrow = False
+                self.nets.append(net1)
+              
+                lastSymbol = pts
                 
                 
             if (lastSymbol != None):
-                 net2 = NetSymbol(wire, lastSymbol, fb_start)
-                 net2.sourcecol = sourcecol
-                 net2.arrow = False
-                 self.nets.append(net2)
+                # TODO What to do here with the port info ???
+                net2 = NetSymbol(wire, None, None, lastSymbol, fb_start)
+                net2.sourcecol = sourcecol
+                net2.arrow = False
+                self.nets.append(net2)
 
     def getWiresFromSource(self, source):
-        return [x['wire'] for x in self.sources if x['symbol'] == source]
+        return [x['port'].wire for x in self.sources if x['symbol'] == source]
 
     def getWiresFromSink(self, sink):
-        return [x['wire'] for x in self.sinks if x['symbol'] == sink]
+        return [x['port'].wire for x in self.sinks if x['symbol'] == sink]
     
     def replaceByAdjacencyMatrix(self):
         am = self.getAdjacencyMatrix()
@@ -1002,7 +1026,7 @@ class Schematic:
             iterNum = iterNum + 1
             changed = False
             for sourceTuple in self.sources:
-                sinks = self.findSinkTuples(sourceTuple['wire'])
+                sinks = self.findSinkTuples(sourceTuple['port'].wire)
                 sourceObj = sourceTuple['symbol']
                 
                 
@@ -1031,8 +1055,10 @@ class Schematic:
                 
         
     def countNetsBetweenSymbols(self, sourceSym, sinkSym):
-        wiresFromSource = [source['wire'] for source in self.sources if source['symbol'] == sourceSym]
-        wiresToSink = [sink['wire'] for sink in self.sinks if sink['symbol'] == sinkSym]
+        raise Exception('This counts wires, not ports')
+
+        wiresFromSource = [source['port'].wire for source in self.sources if source['symbol'] == sourceSym]
+        wiresToSink = [sink['port'].wire for sink in self.sinks if sink['symbol'] == sinkSym]
         common = [wire for wire in wiresFromSource if wire in wiresToSink ]
         return len(common)
     
@@ -1052,7 +1078,7 @@ class Schematic:
             isym = InPortSymbol(inp, self.x, self.y)
             self.objs.append(isym)
             self.y = self.y + gridsize * LogicSymbol.portSeparation
-            self.sources.append({'symbol':isym, 'x':15, 'y':8+5, 'wire':inp.wire})
+            self.sources.append({'symbol':isym, 'x':15, 'y':8+5, 'port':inp})
         
         if (len(self.sys.inPorts) > 0):
             self.x = self.x + 25 * gridsize
@@ -1089,12 +1115,12 @@ class Schematic:
         i = 0
         for inp in child.inPorts:
             #print('adding inport ', child, inp.name)
-            self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*LogicSymbol.portpitch, 'wire':inp.wire})
+            self.sinks.append({'symbol':isym, 'x':0, 'y':8+8+8+5+i*LogicSymbol.portpitch, 'port':inp})
             i = i+1
         i = 0
         for inp in child.outPorts:
             #print('adding outport ', child, inp.name)
-            self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*LogicSymbol.portpitch, 'wire':inp.wire})
+            self.sources.append({'symbol':isym, 'x':isym.getWidth(), 'y':8+8+8+5+i*LogicSymbol.portpitch, 'port':inp})
             i = i+1
                 
         return isym
@@ -1135,14 +1161,14 @@ class Schematic:
             osym = OutPortSymbol(inp, self.x, self.y)
             self.objs.append(osym)
             self.y = self.y + gridsize * LogicSymbol.portSeparation
-            self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
+            self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'port':inp})
 
         for inp in self.sys.inOutPorts:
             osym = InOutPortSymbol(inp, self.x, self.y)
             self.objs.append(osym)
             self.y = self.y + gridsize * LogicSymbol.portSeparation
-            self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
-            self.sources.append({'symbol':osym, 'x':0, 'y':8+5, 'wire':inp.wire})
+            self.sinks.append({'symbol':osym, 'x':0, 'y':8+5, 'port':inp})
+            self.sources.append({'symbol':osym, 'x':0, 'y':8+5, 'port':inp})
 
         #self.x = self.x + 3
 
@@ -1151,7 +1177,7 @@ class Schematic:
         
     def findSourceTuple(self, sinkWire:Wire):
         for source in self.sources:
-            if (source['wire'] == sinkWire):
+            if (source['port'].wire == sinkWire):
                 return source
             
         sourceNames = [x['wire'].getFullPath() for x in self.sources]
@@ -1160,11 +1186,11 @@ class Schematic:
     def findSinkTuples(self, sourceWire):
         ret = []
         for sink in self.sinks:
-            if (sink['wire'] == sourceWire):
+            if (sink['port'].wire == sourceWire):
                 ret.append(sink)
         return ret;
             
-    def createNets(self):
+    def createNets(self, debug=False):
         """
         Create nets for all entities in the drawing.
         It populates the self.nets list by analyzing the sinks
@@ -1177,12 +1203,15 @@ class Schematic:
         """
         for sink in self.sinks:
             try:
-                wire = sink['wire']
+                if (debug):
+                    print('Sink:', sink)
+                    
+                wire = sink['port'].wire
                 source = self.findSourceTuple(wire)
                 sourcecol = self.getSymbolColumn(source['symbol'])
                 sinkcol = self.getSymbolColumn(sink['symbol'])
 
-                net = NetSymbol(wire, source['symbol'], sink['symbol'])
+                net = NetSymbol(wire, source['port'], sink['port'], source['symbol'], sink['symbol'])
                 net.sourcecol = sourcecol
                 net.sinkcol = sinkcol
                 self.nets.append(net)   
@@ -1244,7 +1273,7 @@ class Schematic:
         """
         sourceWires = {}
         for src in self.sinks:
-            wire = src['wire']
+            wire = src['port'].wire
             try:
                 symlist = sourceWires[wire]
             except:
@@ -1256,13 +1285,13 @@ class Schematic:
             
         for sink in self.sinks:
             try:
-                wire = sink['wire']
+                wire = sink['port'].wire
                 
                 fanout = len(sourceWires[wire])
                 
                 if (fanout <= maxfanout):
                     source = self.findSourceTuple(wire)
-                    self.nets.append(NetSymbol(wire, source['symbol'], sink['symbol']))   
+                    self.nets.append(NetSymbol(wire, source['port'], sink['port'], source['symbol'], sink['symbol']))   
                 else:
                     print('skip wire {} fanout: {}'.format(wire.getFullPath(), fanout))
                     
@@ -1319,19 +1348,19 @@ class Schematic:
         
         for port in symbol.obj.inPorts:
             wire = port.wire
-            pos = symbol.getWireSinkPos(wire)
+            pos = symbol.getPortSinkPos(port)
             self.canvas.drawText(symbol.x + pos[0] - portvaluemargin,
                                  symbol.y + pos[1] - gridsize * 2,
                                  '{:X}'.format(wire.get()), 'w')
         for port in symbol.obj.outPorts:
             wire = port.wire
-            pos = symbol.getWireSourcePos(wire)
+            pos = symbol.getPortSourcePos(port)
             self.canvas.drawText(symbol.x + pos[0] + portvaluemargin,
                                  symbol.y + pos[1] - gridsize * 2,
                                  '{:X}'.format(wire.get()), 'e')
 
 
-    def drawAll(self):
+    def drawAll(self, debug=False):
         if (self.canvas is None):
             self.createRender()
             
@@ -1345,7 +1374,10 @@ class Schematic:
             self.canvas.setForecolor('k')  
             self.canvas.setFillcolor('k')
             self.canvas.setLineWidth(2)
-            obj.draw(self.canvas)
+            if (debug):
+                print('draw', type(obj))
+            
+            obj.draw(self.canvas, debug=debug)
             
             if (self.showValues):
                 self.drawValues(obj)
@@ -1356,8 +1388,11 @@ class Schematic:
             self.canvas.setForecolor(obj.color)  
             self.canvas.setFillcolor(obj.color)
             self.canvas.setLineWidth(1)
+
+            if (debug):
+                print('draw', type(obj))
             
-            obj.draw(self.canvas)
+            obj.draw(self.canvas, debug=debug)
         
         return self.canvas
     

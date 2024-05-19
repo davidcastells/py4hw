@@ -171,6 +171,25 @@ class BidirBuf(Logic):
         else:
             self.pin.put(self.bidir.get())
 
+class BufEnable(Logic):
+    # This is just a way to control set to zero all bits of a signal
+    # depending on an enable signal
+    def __init__(self, parent, name, a, en, r):
+        super().__init__(parent, name)
+        
+        self.a = self.addIn('a', a)
+        self.en = self.addIn('en', en)
+        self.r = self.addOut('r', r)
+   
+        assert(a.getWidth() == r.getWidth())
+    
+        re = self.wire('re', r.getWidth())
+        Repeat(self, 're', en, re)
+        And2(self, 'r', a, re, r)
+        
+    def structureName(self):
+        return 'BufEnable{}'.format(self.a.getWidth())
+    
 
 class Constant(Logic):
     """
@@ -186,6 +205,23 @@ class Constant(Logic):
         self.r.put(self.value)
         #print(self.name, '=', self.value)
         
+class Demux(Logic):
+    def __init__(self, parent, name, a, sel, r):
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addIn('sel', sel)
+        
+        assert(2**sel.getWidth() == len(r))
+        
+        ss = self.wires('ss', 2**sel.getWidth(), 1)
+        Decoder(self, 'decoder', sel, ss)
+        
+        for idx, ri in enumerate(r):
+            self.addOut('r{}'.format(idx), ri)
+            
+            BufEnable(self, 'en{}'.format(idx), a, ss[idx], ri)
+            
 class Nand2(Logic):
     """
     Binary Nand
@@ -297,13 +333,14 @@ class Or(Logic):
         
         num = len(ins)
 
+        if (num == 1):
+            Buf(self, 'or1', ins[0], r)
+            return 
+        
         if (num == 2):
             Or2(self, 'or2', ins[0], ins[1], r)
             return
-            
-        if (num < 3):
-            raise Exception('List should be > 2')
-
+                    
         # by now we do an inefficient ladder structure, we should
         # do a more fancy logarithmic design
         

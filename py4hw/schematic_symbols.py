@@ -70,8 +70,22 @@ class LogicSymbol:
         inMaxWidth = self.getInPortsWidth()
         
         return int(outMaxWidth * 1.5  +  LogicSymbol.gridsize*10 + inMaxWidth * 1.5 )
+
+    def getPortSourcePos(self, refport):
+        selidx = -1
+        for idx, port in enumerate(self.obj.outPorts):
+            if (port.name == refport.name):
+                selidx = idx
+                
+        if (selidx == -1):
+            raise Exception('out port {} not found in {}'.format(refport.name, self.obj.getFullPath()) )
+
+
+        return (self.getWidth(), LogicSymbol.namemargin + LogicSymbol.portmargin + selidx*LogicSymbol.portpitch + LogicSymbol.instanceportheight//2)
         
     def getWireSourcePos(self, wire:Wire):
+        # TODO remove
+        raise Exception('use port one')
         selidx = -1
         for idx, port in enumerate(self.obj.outPorts):
             if (port.wire == wire):
@@ -82,8 +96,22 @@ class LogicSymbol:
 
 
         return (self.getWidth(), LogicSymbol.namemargin + LogicSymbol.portmargin + selidx*LogicSymbol.portpitch + LogicSymbol.instanceportheight//2)
+
+    def getPortSinkPos(self, portref):
+        selidx = -1
+        for idx, port in enumerate(self.obj.inPorts):
+            if (port == portref):
+                selidx = idx
+                
+        if (selidx == -1):
+            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+
+        
+        return (0, LogicSymbol.namemargin + LogicSymbol.portmargin + selidx*LogicSymbol.portpitch + LogicSymbol.instanceportheight//2)
     
     def getWireSinkPos(self, wire:Wire):
+        # TODO remove
+        raise Exception('use port one')
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
             if (port.wire == wire):
@@ -108,7 +136,7 @@ class BinaryOperatorSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -128,17 +156,17 @@ class BinaryOperatorSymbol(LogicSymbol):
     def getWidth(self):
         return 50 
     
-    def getWireSourcePos(self, wire:Wire):
+    def gePortSourcePos(self, wire:Wire):
         return (self.getWidth(), LogicSymbol.namemargin + 25)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
-            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+            raise Exception('in port {} not found in {}'.format(self.obj.getFullPath()) )
 
         x = int(math.cos(math.pi/4)*25)
         y = int(math.sin(math.pi/4)*25)
@@ -175,7 +203,7 @@ class AndSymbol(LogicSymbol):
 
         self.h = 20 * self.nins
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -194,17 +222,19 @@ class AndSymbol(LogicSymbol):
     def getWidth(self):
         return 50
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, refport):
         return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
+        inlist = []
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            inlist.append(port.name)
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
-            raise Exception('in port not found in {}'.format(self.obj.getFullPath()) )
+            raise Exception('in port {} not found in {}. Object in ports: {}'.format(refport.name, self.obj.getFullPath(), inlist) )
 
         y = 10 + selidx * 20
 
@@ -214,7 +244,7 @@ class NotSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -232,10 +262,10 @@ class NotSymbol(LogicSymbol):
     def getWidth(self):
         return 40
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + 25)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 25)
     
     
@@ -243,7 +273,7 @@ class BufSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -258,17 +288,17 @@ class BufSymbol(LogicSymbol):
     def getWidth(self):
         return 20
 
-    def getWireSourcePos(self, wire:Wire):
+    def getWireSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + 10)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getWireSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 10)
     
 class BitSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -284,17 +314,17 @@ class BitSymbol(LogicSymbol):
     def getWidth(self):
         return 20
 
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (10, LogicSymbol.namemargin + 10)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 10)
     
 class RangeSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -310,10 +340,10 @@ class RangeSymbol(LogicSymbol):
     def getWidth(self):
         return 20
 
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (10, LogicSymbol.namemargin + 10)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 10)
     
 class NorSymbol(LogicSymbol):
@@ -321,7 +351,7 @@ class NorSymbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 40
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -345,13 +375,13 @@ class NorSymbol(LogicSymbol):
     def getWidth(self):
         return 65
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
@@ -375,7 +405,7 @@ class OrSymbol(LogicSymbol):
 
         self.h = 20 * self.nins
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -399,13 +429,13 @@ class OrSymbol(LogicSymbol):
     def getWidth(self):
         return 50
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
@@ -420,7 +450,7 @@ class XorSymbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 40
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -446,13 +476,13 @@ class XorSymbol(LogicSymbol):
     def getWidth(self):
         return 50+10
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + self.h//2)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
@@ -469,7 +499,7 @@ class InPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
@@ -483,14 +513,14 @@ class InPortSymbol(LogicSymbol):
     def getHeight(self):
         return 20;
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin +5)
     
 class OutPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
@@ -504,14 +534,14 @@ class OutPortSymbol(LogicSymbol):
     def getHeight(self):
         return 20;
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 5)
 
 class InOutPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         canvas.drawText(x, y, text=self.obj.name , anchor='w')
@@ -525,10 +555,10 @@ class InOutPortSymbol(LogicSymbol):
     def getHeight(self):
         return 20;
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, LogicSymbol.namemargin + 5)
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin +5)
 
     
@@ -536,7 +566,7 @@ class InstanceSymbol(LogicSymbol):
     def __init__(self, obj:Logic, x:int, y:int):
         super().__init__(obj, x, y)
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         
@@ -593,7 +623,7 @@ class ScopeSymbol(InstanceSymbol):
     def getHeight(self):
         return 80
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x 
         y = self.y 
         
@@ -625,7 +655,7 @@ class Mux2Symbol(LogicSymbol):
         super().__init__(obj, x, y)
         self.h = 20*3
 
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
@@ -663,13 +693,13 @@ class Mux2Symbol(LogicSymbol):
     def getWidth(self):
         return 20
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (self.getWidth(), LogicSymbol.namemargin + 40)
     
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, refport):
         selidx = -1
         for idx, port in enumerate(self.obj.inPorts):
-            if (port.wire == wire):
+            if (port.name == refport.name):
                 selidx = idx
                 
         if (selidx == -1):
@@ -687,7 +717,6 @@ class Mux2Symbol(LogicSymbol):
 class PassthroughSymbol(LogicSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
-        self.debug = False
         
     def getHeight(self):
         return 30
@@ -695,11 +724,11 @@ class PassthroughSymbol(LogicSymbol):
     def getWidth(self):
         return 30
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
-        if (self.debug):       
+        if (debug):       
             canvas.setFillcolor('yellow')  
             canvas.drawRectangle(x, y, x+30, y+30, fill=True)
         else:
@@ -711,16 +740,15 @@ class PassthroughSymbol(LogicSymbol):
             canvas.setForecolor('k')  
             canvas.setLineWidth(2)
         
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, 15);
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (30, 15);
     
 class FeedbackStartSymbol(LogicSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
-        self.debug = False
         
     def getHeight(self):
         return 30
@@ -728,11 +756,11 @@ class FeedbackStartSymbol(LogicSymbol):
     def getWidth(self):
         return 30
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
-        if (self.debug):       
+        if (debug):       
             canvas.setFillcolor('lightgreen')  
             canvas.drawRectangle(x, y, x+30, y+30, fill=True)
         else:            
@@ -745,10 +773,10 @@ class FeedbackStartSymbol(LogicSymbol):
             # canvas.setLineWidth(2)
             pass
         
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, 15);
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (30, 15);
     
 class FeedbackStopSymbol(LogicSymbol):
@@ -762,11 +790,11 @@ class FeedbackStopSymbol(LogicSymbol):
     def getWidth(self):
         return 30
     
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         x = self.x
         y = self.y
 
-        if (self.debug):       
+        if (debug):       
             canvas.setFillcolor('red')  
             canvas.drawRectangle(x, y, x+30, y+30, fill=True)
         else:
@@ -780,15 +808,15 @@ class FeedbackStopSymbol(LogicSymbol):
             # canvas.setLineWidth(2)
             pass
         
-    def getWireSinkPos(self, wire:Wire):
+    def getPortSinkPos(self, port):
         return (0, 15);
     
-    def getWireSourcePos(self, wire:Wire):
+    def getPortSourcePos(self, port):
         return (30, 15);
     
     
 class NetSymbol:
-    def __init__(self, wire:Wire, source:LogicSymbol, sink:LogicSymbol):
+    def __init__(self, wire:Wire, sourcePort, sinkPort, source:LogicSymbol, sink:LogicSymbol):
         """
         A net symbol connects two entities.
 
@@ -807,6 +835,8 @@ class NetSymbol:
 
         """
         self.wire = wire
+        self.sourcePort = sourcePort
+        self.sinkPort = sinkPort
         self.source = source
         self.sink = sink
         self.x = None
@@ -818,21 +848,20 @@ class NetSymbol:
         # self.sinkcol will be assigned later
         
     def getStartPoint(self):
-        
         objsource = self.source
-        portsource = objsource.getWireSourcePos(self.wire)
+        portsource = objsource.getPortSourcePos(self.sourcePort)
         return (objsource.x + portsource[0], objsource.y + portsource[1]) 
     
     def getEndPoint(self):
         objsink = self.sink
-        portsink = objsink.getWireSinkPos(self.wire)
+        portsink = objsink.getPortSinkPos(self.sinkPort)
         return (objsink.x + portsink[0], objsink.y + portsink[1]) 
     
     def setPath(self, x, y):
         self.x = x
         self.y = y
         
-    def draw(self, canvas):
+    def draw(self, canvas, debug=False):
         if (self.x == None):
             return
         

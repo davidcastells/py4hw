@@ -295,8 +295,11 @@ class Counter(Logic):
         from .bitwise import Mux2
         from .storage import Reg
         
-        reset = self.addIn('reset', reset)
-        inc = self.addIn('inc', inc)
+        if not(reset is None):
+            reset = self.addIn('reset', reset)
+        if not(inc is None):
+            inc = self.addIn('inc', inc)
+        
         q = self.addOut('q', q)
     
         one = self.wire('one', q.getWidth())
@@ -309,6 +312,11 @@ class Counter(Logic):
         Constant(self, 'one', 1, one)
         Constant(self, 'zero', 0, zero)
         
+        if (inc is None):
+            inc = one
+        if (reset is None):
+            reset = zero
+            
         Mux2(self, 'muxinc', inc, q, add, d1)
         Mux2(self, 'muxreset', reset, d1, zero, d)
 

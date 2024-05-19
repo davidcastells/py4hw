@@ -411,7 +411,7 @@ def InlineVerilogCommnent(obj:Logic):
     
 def BodyReg(obj:Logic):
     clkname = getObjectClockDriver(obj).name
-    str = "reg "+getWidthInfo(obj.q) + " rq = 0;\n"
+    str = "reg "+getWidthInfo(obj.q) + " rq = {};\n".format(obj.reset_value)
     str += "always @(posedge {})\n".format(clkname)
     close = ""
     if not(obj.r is None):
@@ -490,7 +490,7 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
-    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True):
+    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
         """
         Generates Verilog for all entities of the object hierarchy
 
@@ -499,16 +499,19 @@ class VerilogGenerator:
         An string with the Verilog for the Hierarchy.
 
         """
+        
         self.created_structures = []
-        return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity)
+        return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity, forceName)
     
-    def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True):
+    def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
+        
+        
         if (obj is None):
             obj = self.obj
         
         #print('generating {}'.format(obj.getFullPath()))
             
-        str = self._getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity)
+        str = self._getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity, forceName=forceName)
         
         for child in obj.children.values():
             if (self.isInlinable(child)):
@@ -516,12 +519,15 @@ class VerilogGenerator:
                 pass
             else:
                 # skip inlinable modules from verilog generation
-                str += "\n"
-                str += self._getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
+                part = self._getVerilogForHierarchy(child, noInstanceNumberInTopEntity=False)
+                
+                if len(part) > 0:
+                    str += "\n"
+                    str += part
 
         return str        
         
-    def getVerilog(self, obj=None, noInstanceNumber=False):
+    def getVerilog(self, obj=None, noInstanceNumber=False, forceName=None):
         '''
         Create Verilog for a module
 
@@ -539,9 +545,9 @@ class VerilogGenerator:
 
         '''
         self.created_structures = []
-        return self._getVerilog(obj, noInstanceNumber)
+        return self._getVerilog(obj, noInstanceNumber, forceName)
     
-    def _getVerilog(self, obj=None, noInstanceNumber=False):
+    def _getVerilog(self, obj=None, noInstanceNumber=False, forceName=None):
         
         str = "// This file was automatically created by py4hw RTL generator\n"
         
@@ -550,12 +556,15 @@ class VerilogGenerator:
             
         # check if structure was already generated
         
-        structure_name = getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber)
+        if not(forceName is None):
+            structure_name = forceName
+        else:
+            structure_name = getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber)
         
         if (structure_name in self.created_structures):
             return ''
             
-        str += self.createModuleHeader(obj, noInstanceNumber=noInstanceNumber)
+        str += self.createModuleHeader(obj, structure_name)
         
         localWires = collectLocalWires(obj)
         wireNames = getWireNames(obj)
@@ -616,8 +625,8 @@ class VerilogGenerator:
             
         return False
         
-    def createModuleHeader(self, obj:Logic, noInstanceNumber=None):
-        str = "module " + getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber) + " (\n\t"
+    def createModuleHeader(self, obj:Logic, structureName):
+        str = "module " + structureName + " (\n\t"
 
         link = ""
         
