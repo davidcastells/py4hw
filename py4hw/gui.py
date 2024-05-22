@@ -7,6 +7,28 @@ import os
 from .base import Logic
 from .schematic import Schematic
     
+import sys
+import importlib
+
+if sys.version_info >= (3, 9):
+    import importlib.resources as resources
+else:
+    import importlib_resources as resources
+    
+def get_package_path(package_name):
+    if sys.version_info >= (3, 9):
+        return resources.files(package_name)
+    else:
+        return resources.path(package_name, '')
+
+def get_resource_path(package_name, resource_name):
+    if sys.version_info >= (3, 9):
+        package_path = resources.files(package_name)
+        return package_path / resource_name
+    else:
+        with resources.path(package_name, resource_name) as resource_path:
+            return resource_path
+        
 class Workbench():
     
     def getIcon(self, path):
@@ -66,11 +88,10 @@ class Workbench():
         self.rightPane.add(self.schematicAreaPane)
         self.schematicAreaPane.add(self.schematicToolbarPane) 
         
-        import importlib
-        package_path = importlib.resources.files('py4hw')
+        
         # Construct the full path to the image file
-        zoomout_path = package_path / 'zoomout24.png'
-        zoomin_path = package_path / 'zoomin24.png'
+        zoomout_path = get_resource_path('py4hw' , 'zoomout24.png')
+        zoomin_path = get_resource_path('py4hw' , 'zoomin24.png')
         
         icon_zo = self.getIcon(zoomout_path)
         icon_zi = self.getIcon(zoomin_path)

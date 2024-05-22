@@ -7,3 +7,17 @@ py4hw is an HDL library based on python to create digital circuits (mainly) foll
 It is highly influenced by the JHDL principles but using the power of Python.
 
 [Follow the jump start tutorial !](tutorial/README.md)
+
+
+Cite as
+```
+@conference{castells2023streamlining,
+  author       = {David Castells-Rufas and Gemma Rotger and David Novo},
+  title        = {Streamlining FPGA Circuit Design and Verification with Python and py4hw},
+  booktitle    = {XI Southern Programmable Logic Conference},
+  year         = 2023,
+  month        = mar,
+  address      = {San Luis, Argentina},
+  doi          = {10.5281/zenodo.8325670}
+}
+```
