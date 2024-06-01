@@ -739,11 +739,9 @@ class FloatingPointHelper:
     def ieee754_to_sp(v):
         if (v == 0):
             return 0.0
-        
-        s = v >> 31
-        e = (v >> 23) & 0xFF
-        m = (v & ((1<<23)-1))  
-        
+
+        s, e, m = FloatingPointHelper.unpack_ieee754_sp_parts(v)
+                
         if (e == 255):
             if (m == 0):
                 return -math.inf if (s == 1) else math.inf
@@ -756,10 +754,8 @@ class FloatingPointHelper:
     def ieee754_to_dp(v):
         if (v == 0):
             return 0.0
-        
-        s = v >> 63
-        e = (v >> 52) & 0x7FF
-        m = (v & ((1<<52)-1))  
+
+        s,e,m = FloatingPointHelper.unpack_ieee754_dp_parts(v)
         
         if (e == 0x7FF):
             if (m == 0):
@@ -769,6 +765,31 @@ class FloatingPointHelper:
 
         return FloatingPointHelper.ieee754_parts_to_dp(s, e, m)
 
+    @staticmethod
+    def unpack_ieee754_sp_parts(v):
+        s = v >> 31
+        e = (v >> 23) & 0xFF
+        m = (v & ((1<<23)-1))          
+        return s, e, m
+    
+    @staticmethod
+    def unpack_ieee754_dp_parts(v):
+        s = v >> 63
+        e = (v >> 52) & 0x7FF
+        m = (v & ((1<<52)-1))  
+        return s, e, m
+    
+    
+    @staticmethod
+    def pack_ieee754_sp_parts(s, e, m):
+        return ((s & 1) << 31) | ((e & 0xFF) << 23) | (m & ((1<<23)-1))  
+
+    @staticmethod
+    def ieee754_sp_neg(v):
+        s, e, m = FloatingPointHelper.unpack_ieee754_sp_parts(v)
+        s = s ^ 1
+        return FloatingPointHelper.pack_ieee754_sp_parts(s, e, m)
+        
     @staticmethod
     def ieee754_stored_internally(v):
         s,e,m = FloatingPointHelper.sp_to_ieee754_parts(v)
