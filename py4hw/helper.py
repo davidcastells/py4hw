@@ -352,6 +352,8 @@ class IntegerHelper:
 
     @staticmethod
     def c2_to_signed(v, w):
+        v = v & ((1<<w)-1)
+        
         sign = 1 << (w-1)
         if ((v & sign) > 0):
             # negative
