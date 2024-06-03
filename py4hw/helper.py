@@ -501,28 +501,42 @@ class FPNum:
     
     def convert(self, fmt):
         s, e, m, p = self.s, self.e, self.m, self.p
-        s = 0 if s > 0 else -1
+        s = 0 if s > 0 else 1
         
         if (fmt == 'sp'):
-            if (e < -126):
-                # subnormal
-                while (e < -126):
-                    e += 1 
-                    m = m >> 1
-                e = 0
-            else:
-                e = e + 127            
+            e_bias = 127
+            p_std = 1 << 23
+        elif (fmt == 'dp'):
+            e_bias = 1023
+            p_std = 1 << 52
+        else:
+            raise Exception(f'unknown format: {fmt}')
+            
+        # compute the biased exponent
+        if (m == p): 
+            e = e_bias
+            m = 0
+            q = 0 
+        elif (e < -(e_bias-1)):
+            # subnormal
+            while (e < -(e_bias-1)):
+                e += 1 
+                m = m >> 1
+            e = 0
+        else:
+            e = e + e_bias   
+            
+        # compute the standard precision
+        while (p > p_std):
+            p = p >> 1 
+            m = m >> 1 
+        while (p < p_std):
+            p = p << 1 
+            m = m << 1
+            
+        if (fmt == 'sp'):
             x =  self.pack_ieee754_sp_parts(s, e, m)
         elif (fmt == 'dp'):
-            if (e < -1022):
-                # subnormal
-                while (e < -1022):
-                    e += 1
-                    m = m >> 1
-                e = 0
-            else:
-                e = e + 1023
-            m = m
             x = self.pack_ieee754_dp_parts(s, e, m)
 
         return x            
@@ -651,7 +665,7 @@ class FPNum:
 
     @staticmethod
     def pack_ieee754_dp_parts(s, e, m):
-        return ((s & 1) << 31) | ((e & 0x7FF) << 52) | (m & ((1<<52)-1))  
+        return ((s & 1) << 63) | ((e & 0x7FF) << 52) | (m & ((1<<52)-1))  
 
     def convert_float_to_semp(self, v):
         s, e, m, p = 1, 0, v, 1
