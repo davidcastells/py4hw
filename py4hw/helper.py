@@ -456,6 +456,289 @@ class FixedPoint:
 class FixedPointHelper:
     pass
 
+class FPNum:
+    max_prec = 1 << 200
+    
+    def __init__(self, *args):
+        self.inexact = False
+        
+        if len(args) == 1:
+            # should be a float
+            self.convert_float_to_semp(args[0])
+        elif len(args) == 2:
+            # should be a int + string (sp, dp)
+            if (args[1] == 'sp'):
+                self.from_ieee754_sp(args[0])
+            elif (args[1] == 'dp'):
+                self.from_ieee754_dp(args[0])
+        elif (len(args) == 3):
+            # should be a sem
+            self.adjust_sem(args[0], args[1], args[2])
+        elif (len(args) == 4):
+            # should be a sem
+            self.set_semp(args[0], args[1], args[2], args[3])
+            self.adjust_semp()
+        else:
+            raise Exception('invalid parameter')
+    
+    def to_float(self):
+        from decimal import Decimal
+        n2 = Decimal(2)
+        r = n2 ** Decimal(self.e)
+        r = r * Decimal(self.m)
+        r = r / Decimal(self.p)
+        r = r * Decimal(self.s)
+        return float(r)
+    
+    def reducePrecision(self, prec):
+        p = 1 << prec
+        
+        if (p < self.p):
+            while (p < self.p):
+                self.p = self.p >> 1
+                self.m = self.m >> 1
+            self.inexact = True
+    
+    def convert(self, fmt):
+        s, e, m, p = self.s, self.e, self.m, self.p
+        s = 0 if s > 0 else -1
+        
+        if (fmt == 'sp'):
+            if (e < -126):
+                # subnormal
+                while (e < -126):
+                    e += 1 
+                    m = m >> 1
+                e = 0
+            else:
+                e = e + 127            
+            x =  self.pack_ieee754_sp_parts(s, e, m)
+        elif (fmt == 'dp'):
+            if (e < -1022):
+                # subnormal
+                while (e < -1022):
+                    e += 1
+                    m = m >> 1
+                e = 0
+            else:
+                e = e + 1023
+            m = m
+            x = self.pack_ieee754_dp_parts(s, e, m)
+
+        return x            
+        
+    def increase_exponent(self, ne):
+        while (self.e < ne):
+            self.e += 1 
+            self.p = self.p << 1
+
+    def increase_precision(self, np):
+        while (self.p < np):
+            self.p = self.p << 1 
+            self.m = self.m << 1
+            
+    def sub(self, bref):
+        b = FPNum(bref.s * -1, bref.e, bref.m, bref.p)
+        return self.add(b)
+    
+    def add(self, bref):
+        a = FPNum(self.s, self.e, self.m, self.p)
+        b = FPNum(bref.s, bref.e, bref.m, bref.p)
+
+        # ensure equal exponent         
+        if (a.e > b.e): b.increase_exponent(a.e)
+        elif (a.e < b.e): a.increase_exponent(b.e)
+        
+        assert(a.e == b.e)
+        
+        # ensure equal precision
+        if (a.p > b.p): b.increase_precision(a.p)
+        elif (a.p < b.p): a.increase_precision(b.p)
+        
+        assert(a.p == b.p)
+        
+        if (a.s == 1 and b.s == 1) or (a.s == -1 and b.s == -1):
+            s = a.s
+            m = a.m + b.m 
+        elif (a.s == 1 and b.s == -1):
+            if (a.m > b.m): 
+                s = a.s 
+                m = a.m - b.m
+            else:
+                s = b.s
+                m = b.m - a.m
+        elif (a.s == -1 and b.s == 1):
+            if (a.m > b.m):
+                s = a.s
+                m = a.m - b.m
+            else:
+                s = b.s 
+                m = b.m - a.m
+                
+        return FPNum(s, a.e, m, a.p)
+        
+    def div(self, b):
+        rs = self.s * b.s
+        re = self.e - b.e
+        
+        rm = self.m * b.p / b.m
+        rp = self.p
+        
+        return FPNum(rs, re, rm, rp)
+
+    def mul(self, b):
+        rs = self.s * b.s
+        re = self.e + b.e
+        
+        rm = self.m * b.m
+        rp = self.p * b.p
+        
+        return FPNum(rs, re, rm, rp)
+    
+    def div2(self, n):
+        s , e, m, p = self.s, self.e, self.m, self.p << n
+        return FPNum(s, e, m, p)
+        
+        
+    def from_ieee754_sp(self, v):
+        s,e,m = self.unpack_ieee754_sp_parts(v)
+        s = 1 if s == 0 else -1
+        if (e == 0):
+            # subnormal numbers
+            e = -126
+            m = m
+        else:
+            e = e - 127            
+            m = (1 << 23) | m
+
+        p = 1 << 23
+        
+        self.set_semp(s, e, m, p)
+        self.adjust_semp()
+
+    def from_ieee754_dp(self, v):
+        s,e,m = self.unpack_ieee754_dp_parts(v)
+        s = 1 if s == 0 else -1
+        if (e == 0):
+            # subnormal numbers
+            e = -1022
+            m = m
+        else:
+            e = e - 1023
+            m = (1 << 52) | m
+        p = 1 << 52
+        
+        self.set_semp(s, e, m, p)
+        self.adjust_semp()
+        
+    @staticmethod
+    def unpack_ieee754_sp_parts(v):
+        s = v >> 31
+        e = (v >> 23) & 0xFF
+        m = (v & ((1<<23)-1))          
+        return s, e, m
+    
+    @staticmethod
+    def unpack_ieee754_dp_parts(v):
+        s = v >> 63
+        e = (v >> 52) & 0x7FF
+        m = (v & ((1<<52)-1))  
+        return s, e, m
+
+    @staticmethod
+    def pack_ieee754_sp_parts(s, e, m):
+        return ((s & 1) << 31) | ((e & 0xFF) << 23) | (m & ((1<<23)-1))  
+
+    @staticmethod
+    def pack_ieee754_dp_parts(s, e, m):
+        return ((s & 1) << 31) | ((e & 0x7FF) << 52) | (m & ((1<<52)-1))  
+
+    def convert_float_to_semp(self, v):
+        s, e, m, p = 1, 0, v, 1
+        
+        if (v < 0):
+            s, m = -s, -m
+            
+        self.adjust_sem(s, e, m)
+        
+    def adjust_sem(self, s, e, m):
+        # the goal is to have m in the range of 1 to 2
+        self.s = s
+        self.e = e
+        self.m = m
+        self.p = 1
+        
+        n0 = 0
+        n1 = 1
+        n2 = 2
+        
+        if (self.m == n0):
+            return
+        
+        # determine exponent
+        if (self.m > 2):
+            while (self.m > 2):
+                self.m /= n2
+                self.e += 1
+        elif (self.m < 1):
+            while (self.m < 1):
+                self.m *= n2
+                self.e -= 1
+                
+        # determine divisor
+        while ((self.m - int(self.m)) > 0):
+            self.m *= n2
+            self.p *= n2
+                
+        self.m = int(self.m)
+        self.p = int(self.p)
+        
+    def set_semp(self, s, e, m, p):
+        self.s = s
+        self.e = e
+        self.m = m
+        self.p = p
+
+    def adjust_semp(self):
+
+        n2 = 2
+        
+        # eliminate decimal values from the mantisa
+        while ((self.m - int(self.m)) > 0) and (self.p < self.max_prec):
+            self.m *= n2
+            self.p *= n2
+            #print('prec ++:', math.log2(self.p))
+
+        if (self.p == self.max_prec):
+            self.inexact = True
+            if (self.m < 1): self.m = 1
+            
+        self.m = int(self.m)
+        
+        # reduce the precision 
+        while ((self.m & 1)==0) and ((self.p & 1) == 0):
+            self.m = self.m >> 1
+            self.p = self.p >> 1
+            #print('prec --:', math.log2(self.p))
+
+        # adjust the exponent, mantisa has to be between p and 2p
+        p2 = self.p << 1
+        
+        if (self.m > p2):
+            while (self.m > p2):
+                # increase the exponent and reduce the mantisa
+                self.m = self.m >> 1
+                self.e += 1
+                #print('e ++:', self.e)
+
+        elif (self.m < self.p):
+            while (self.m < self.p):
+                self.m = self.m << 1 
+                self.e -= 1                
+                #print('e --:', self.e, self.m)
+                if (self.m == 0):
+                    return
+
 class FloatingPointHelper:
 
     @staticmethod
