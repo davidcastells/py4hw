@@ -150,7 +150,127 @@ class Test_Helper:
         #print('recomposed', iv)
         
         
+    def test_FPNum(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        dp_data = [0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD]
+        
+        for xa in dp_data:
+            a = FPNum(xa, 'dp')
+            nxa = a.convert('dp')
+
+            print('checking dp {:016X} = {:016X}'.format(xa, nxa))    
+            assert(xa == nxa)
+
+        sp_data = [0x400001a3, 0x0000d959]
+
+        for xa in sp_data:
+            a = FPNum(xa, 'sp')
+            nxa = a.convert('sp')
+
+            print('checking sp {:016X} = {:016X}'.format(xa, nxa))    
+    
+            assert(xa == nxa)
             
+    def test_FPNum_to_float(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        dp_data = [10.0]
+
+        for item in dp_data:
+            
+            r = FPNum(item)
+            print('checking sp {} = {}'.format(item, r.to_float))        
+            assert(item == r.to_float())
+
+    def test_FPNum_mul(self):
+        from py4hw.helper import FPNum
+        sp_data = [(0x3F800000, 0x40200000, 0x40600000)]
+
+        for item in sp_data:
+            xa,xb,xe = item
+            
+            a = FPNum(xa, 'sp')
+            b = FPNum(xb, 'sp')
+            r = a.mul(b)
+            xr = r.convert('sp')
+            
+            print('checking mul sp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
+            assert(xr == xe)
+
+    def test_FPNum_fma(self):
+        from py4hw.helper import FPNum
+        sp_data = [(0x3F800000, 0x40200000, 0x3F800000, 0x40600000)]
+
+        for item in sp_data:
+            xa,xb,xc,xe = item
+            
+            a = FPNum(xa, 'sp')
+            b = FPNum(xb, 'sp')
+            c = FPNum(xc, 'sp')
+            r = a.mul(b)
+            r = r.add(c)
+            xr = r.convert('sp')
+            
+            print('checking fma sp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
+            assert(xr == xe)
+        
+    def test_FPNum_add(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x401BB841776EA173)]
+
+        for item in dp_data:
+            xa,xb,xe = item
+            
+            a = FPNum(xa, 'dp')
+            b = FPNum(xb, 'dp')
+            r = a.add(b)
+            xr = r.convert('dp')
+            
+            print('checking add dp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
+            assert(xr == xe)
+            
+            
+
+
+    def test_FPNum_sub(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3FD6C5E193AE4828)]
+    
+        for item in dp_data:
+            xa,xb,xe = item
+            
+            a = FPNum(xa, 'dp')
+            b = FPNum(xb, 'dp')
+            r = a.sub(b)
+            xr = r.convert('dp')
+            
+            print('checking sub sp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
+            assert(xr == xe)
+
+    def test_FPNum_div2(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        dp_data = [(4.0, 1, 2.0),
+                   (10.0, 2, 2.5),]
+
+        for item in dp_data:
+            a,b,e = item
+            
+            a = FPNum(a)
+            r = a.div2(b)
+            r = r.to_float()
+            
+            print('checking div2 sp {} = {}'.format(r, e))        
+            assert(r == e)
+        
 if __name__ == '__main__':
 #    pytest.main(args=['-s', '-q', 'Test_Helper.py'])
     pytest.main(args=['-s', 'Test_Helper.py'])
