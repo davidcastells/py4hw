@@ -163,7 +163,7 @@ class Test_Helper:
             print('checking dp {:016X} = {:016X}'.format(xa, nxa))    
             assert(xa == nxa)
 
-        sp_data = [0x400001a3, 0x0000d959]
+        sp_data = [0x3F800000, 0x400001a3, 0x0000d959]
 
         for xa in sp_data:
             a = FPNum(xa, 'sp')
@@ -187,7 +187,7 @@ class Test_Helper:
 
     def test_FPNum_mul(self):
         from py4hw.helper import FPNum
-        sp_data = [(0x3F800000, 0x40200000, 0x40600000)]
+        sp_data = [(0x3F800000, 0x40200000, 0x40200000)]
 
         for item in sp_data:
             xa,xb,xe = item
@@ -221,19 +221,19 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x401BB841776EA173)]
+        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x40177082eedd42e6)]
 
         for item in dp_data:
             xa,xb,xe = item
             
             a = FPNum(xa, 'dp')
             b = FPNum(xb, 'dp')
+            e = FPNum(xe, 'dp')
             r = a.add(b)
             xr = r.convert('dp')
             
             print('checking add dp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
             assert(xr == xe)
-            
             
 
 
@@ -241,13 +241,15 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3FD6C5E193AE4828)]
+        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3fdb17864eb920a0),
+                   (0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, 0xbfdb17864eb920a0)]
     
         for item in dp_data:
             xa,xb,xe = item
             
             a = FPNum(xa, 'dp')
             b = FPNum(xb, 'dp')
+            e = FPNum(xe, 'dp')
             r = a.sub(b)
             xr = r.convert('dp')
             
