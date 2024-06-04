@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2020/4/2 11:32
-# @Author  : 富贵
-# @FileName: 简单商店应用程序.py
+"""
+Created on Fri Jun 18 09:43:48 2021
+
+@author: dcr
+"""
 from py4hw.base import *
 from py4hw.logic import *
 from py4hw.logic.storage import *
