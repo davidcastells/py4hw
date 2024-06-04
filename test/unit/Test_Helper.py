@@ -8,6 +8,10 @@ Created on Thu Jul 21 12:20:28 2022
 import py4hw
 import pytest
 import math
+from py4hw.helper import FPNum
+from py4hw.helper import IEEE754_HP_PRECISION
+from py4hw.helper import IEEE754_SP_PRECISION
+from py4hw.helper import IEEE754_DP_PRECISION
 
 class Test_Helper:
 
@@ -186,7 +190,6 @@ class Test_Helper:
             assert(item == r.to_float())
 
     def test_FPNum_mul(self):
-        from py4hw.helper import FPNum
         sp_data = [(0x3F800000, 0x40200000, 0x40200000)]
 
         for item in sp_data:
@@ -221,41 +224,179 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x40177082eedd42e6)]
+        data = [('f', 2.9999999999998197 , 3.0000000000001803, 6.0), 
+                ('hp', 0x4100, 0x3C00, 0x4300),
+                ('sp', 0xC49A6333, 0x3F8CCCCD, 0xC49A4000),
+                ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x40177082eedd42e7)]
 
-        for item in dp_data:
-            xa,xb,xe = item
+        for item in data:
+            fmt, xa,xb,xe = item
             
-            a = FPNum(xa, 'dp')
-            b = FPNum(xb, 'dp')
-            e = FPNum(xe, 'dp')
-            r = a.add(b)
-            xr = r.convert('dp')
-            
-            print('checking add dp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
-            assert(xr == xe)
+            if (fmt == 'f'):
+                a = FPNum(xa)
+                b = FPNum(xb)
+                e = FPNum(xe)
+                r = a.add(b)
+                
+                assert(r.to_float() == e.to_float())
+            else:
+                a = FPNum(xa, fmt)
+                b = FPNum(xb, fmt)
+                e = FPNum(xe, fmt)
+                
+                if (fmt == 'hp'):
+                    a.reducePrecision(10)
+                    b.reducePrecision(10)
+                    e.reducePrecision(10)
+                elif (fmt == 'sp'):
+                    a.reducePrecision(23)
+                    b.reducePrecision(23)
+                    e.reducePrecision(23)
+                
+                r = a.add(b)
+                
+                if (fmt == 'hp'):
+                    r.reducePrecisionWithRounding(10)
+                elif (fmt == 'sp'):
+                    r.reducePrecisionWithRounding(23)
+                elif (fmt == 'dp'):
+                    r.reducePrecisionWithRounding(52)
+                    
+                xr = r.convert(fmt)
+                
+                print('checking add {} {:016X} = {:016X}'.format(fmt, xr, xe), r.to_float())        
+                assert(xr == xe)
             
 
 
     def test_FPNum_sub(self):
+        print()
+        dp_data = [('hp', 0x7C00, 0x7C00, 0x7E00),
+                   ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3fdb17864eb920a0),
+                   ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, 0xbfdb17864eb920a0)]
+    
+        for item in dp_data:
+            fmt, xa,xb,xe = item
+            
+            if (fmt == 'f'):
+                a = FPNum(xa)
+                b = FPNum(xb)
+                e = FPNum(xe)
+                r = a.sub(b)
+                
+                assert(r.to_float() == e.to_float())
+            else:
+                a = FPNum(xa, fmt)
+                b = FPNum(xb, fmt)
+                e = FPNum(xe, fmt)
+                
+                if (fmt == 'hp'):
+                    a.reducePrecision(IEEE754_HP_PRECISION)
+                    b.reducePrecision(IEEE754_HP_PRECISION)
+                    e.reducePrecision(IEEE754_HP_PRECISION)
+                elif (fmt == 'sp'):
+                    a.reducePrecision(IEEE754_SP_PRECISION)
+                    b.reducePrecision(IEEE754_SP_PRECISION)
+                    e.reducePrecision(IEEE754_SP_PRECISION)
+                
+                r = a.sub(b)
+                
+                if (fmt == 'hp'):
+                    r.reducePrecisionWithRounding(IEEE754_HP_PRECISION)
+                elif (fmt == 'sp'):
+                    r.reducePrecisionWithRounding(IEEE754_SP_PRECISION)
+                elif (fmt == 'dp'):
+                    r.reducePrecisionWithRounding(IEEE754_DP_PRECISION)
+                    
+                xr = r.convert(fmt)
+                
+                print('checking add {} {:016X} = {:016X}'.format(fmt, xr, xe), r.to_float())        
+                assert(xr == xe)
+
+    def test_FPNum_div(self):
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [(0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3fdb17864eb920a0),
-                   (0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, 0xbfdb17864eb920a0)]
+        data = [('f', 2.9999999999998197 , 3.0000000000001803, 0.9999999999998798), 
+                ('f', 2.0, 32.0, 0.0625),
+                ('sp', 0xC49A6333, 0x3F8CCCCD, 0xC48C5A2E),
+                ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3FF27DDBF6C383EC)]
     
-        for item in dp_data:
-            xa,xb,xe = item
+        for item in data:
+            fmt, xa,xb,xe = item
             
-            a = FPNum(xa, 'dp')
-            b = FPNum(xb, 'dp')
-            e = FPNum(xe, 'dp')
-            r = a.sub(b)
-            xr = r.convert('dp')
+            if (fmt == 'f'):
+                a = FPNum(xa)
+                b = FPNum(xb)
+                e = FPNum(xe)
+                r = a.div(b)
+                
+                print('checking div {} {} = {}'.format(fmt, r.to_float(), e.to_float()))        
+                assert(r.to_float() == e.to_float())
+            else:
+                a = FPNum(xa, fmt)
+                b = FPNum(xb, fmt)
+                e = FPNum(xe, fmt)
+                
+                if (fmt == 'sp'):
+                    a.reducePrecision(23)
+                    b.reducePrecision(23)
+                    e.reducePrecision(23)
+                
+                r = a.div(b)
+                
+                if (fmt == 'sp'):
+                    r.reducePrecisionWithRounding(23)
+                elif (fmt == 'dp'):
+                    r.reducePrecisionWithRounding(52)
+                    
+                xr = r.convert(fmt)
+                
+                print('checking div {} {:016X} = {:016X}'.format(fmt, xr, xe), r.to_float())        
+                assert(xr == xe)
             
-            print('checking sub sp {:016X} = {:016X}'.format(xr, xe), r.to_float())        
-            assert(xr == xe)
-
+    def test_FPNum_sqrt(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        data = [('f', 4 , 2), 
+                ('f', 81, 9),
+                ('sp', 0x40490FDB, 0x3FE2DFC5),
+                ('sp', 0x461C4000, 0x42C80000),
+                ('dp', 0x400921FB53C8D4F1, 0x3FFC5BF8916F587B)]
+        
+        
+    
+        for item in data:
+            fmt, xa,xe = item
+            
+            if (fmt == 'f'):
+                a = FPNum(xa)
+                e = FPNum(xe)
+                r = a.sqrt()
+                
+                print('checking sqrt {} {} = {}'.format(fmt, r.to_float(), e.to_float()))        
+                assert(r.to_float() == e.to_float())
+            else:
+                a = FPNum(xa, fmt)
+                e = FPNum(xe, fmt)
+                
+                if (fmt == 'sp'):
+                    a.reducePrecision(23)
+                    e.reducePrecision(23)
+                
+                r = a.sqrt()
+                
+                if (fmt == 'sp'):
+                    r.reducePrecisionWithRounding(23)
+                elif (fmt == 'dp'):
+                    r.reducePrecisionWithRounding(52)
+                    
+                xr = r.convert(fmt)
+                
+                print('checking sqrt {} {:016X} = {:016X}'.format(fmt, xr, xe), r.to_float())        
+                assert(xr == xe)
+                
     def test_FPNum_div2(self):
         from py4hw.helper import FPNum
         
@@ -273,6 +414,40 @@ class Test_Helper:
             print('checking div2 sp {} = {}'.format(r, e))        
             assert(r == e)
         
+    def test_FPNum_equal(self):
+        print()
+        dp_data = [('hp', 0x7C00, 0x7C00, 0x1),
+                   ('sp', 0xFF800000, 0x40400000, 0x1)
+                   ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x0),
+                   ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, 0x0)]
+    
+        for item in dp_data:
+            fmt, xa,xb,e = item
+            
+            if (fmt == 'f'):
+                a = FPNum(xa)
+                b = FPNum(xb)
+                
+                r = a.equals(b)
+                
+                assert(r.to_float() == e.to_float())
+            else:
+                a = FPNum(xa, fmt)
+                b = FPNum(xb, fmt)
+                
+                if (fmt == 'hp'):
+                    a.reducePrecision(IEEE754_HP_PRECISION)
+                    b.reducePrecision(IEEE754_HP_PRECISION)
+                elif (fmt == 'sp'):
+                    a.reducePrecision(IEEE754_SP_PRECISION)
+                    b.reducePrecision(IEEE754_SP_PRECISION)
+                
+                r = a.equals(b)
+                
+                
+                print('checking add {} {} = {}'.format(fmt, r, e))        
+                assert(r == e)
+                
 if __name__ == '__main__':
 #    pytest.main(args=['-s', '-q', 'Test_Helper.py'])
     pytest.main(args=['-s', 'Test_Helper.py'])
