@@ -12,6 +12,15 @@ from .logic.simulation import *
 from .logic.storage import *
 import math
 
+
+IEEE754_HP_PRECISION = 10
+IEEE754_SP_PRECISION = 23
+IEEE754_DP_PRECISION = 52
+
+IEEE754_HP_EXPONENT_BITS = 5
+IEEE754_SP_EXPONENT_BITS = 5
+IEEE754_DP_EXPONENT_BITS = 5
+
 class LogicHelper:
     """
     Helper class to create logic in a simpler way, 
@@ -461,16 +470,24 @@ class FPNum:
     
     def __init__(self, *args):
         self.inexact = False
+        self.infinity = False
+        self.nan = False
         
-        if len(args) == 1:
+        if (len(args) == 0):
+            pass
+        elif len(args) == 1:
             # should be a float
             self.convert_float_to_semp(args[0])
         elif len(args) == 2:
             # should be a int + string (sp, dp)
-            if (args[1] == 'sp'):
+            if (args[1] == 'hp'):
+                self.from_ieee754_hp(args[0])
+            elif (args[1] == 'sp'):
                 self.from_ieee754_sp(args[0])
             elif (args[1] == 'dp'):
                 self.from_ieee754_dp(args[0])
+            else:
+                raise Exception(f'unknown format {args[1]}')
         elif (len(args) == 3):
             # should be a sem
             self.adjust_sem(args[0], args[1], args[2])
@@ -481,7 +498,31 @@ class FPNum:
         else:
             raise Exception('invalid parameter')
     
+    def components(self):
+        return self.s, self.e, self.m, self.p
+    
+    def copy(self):
+        r = FPNum()
+        r.set_semp(self.s, self.e, self.m, self.p)
+        r.infinity = self.infinity
+        r.nan = self.nan
+        r.inexact = self.inexact
+        return r
+    
+    def isPositiveInfinity(self):
+        return self.infinity and self.s == 1 
+    
+    def isNegativeInfinity(self):
+        return self.infinity and self.s == -1 
+    
     def to_float(self):
+        if (self.infinity):
+            if (self.s == 1): return math.inf
+            elif (self.s == -1): return -math.inf
+            else: raise Exception('no valid sign')
+        if (self.nan):
+            return math.nan
+        
         from decimal import Decimal
         n2 = Decimal(2)
         r = n2 ** Decimal(self.e)
@@ -490,6 +531,22 @@ class FPNum:
         r = r * Decimal(self.s)
         return float(r)
     
+    def reducePrecisionWithRounding(self, prec):
+        p = 1 << prec
+        r = 0
+        i = 0
+        
+        if (p < self.p):
+            while (p < self.p):
+                r = (self.m & 1) << i | r
+                self.p = self.p >> 1
+                self.m = self.m >> 1
+                i += 1
+            self.inexact = True
+            
+            if (r > (1<<(i-1))):
+                self.m += 1
+            
     def reducePrecision(self, prec):
         p = 1 << prec
         
@@ -499,11 +556,58 @@ class FPNum:
                 self.m = self.m >> 1
             self.inexact = True
     
+    def compare(self, bref):
+        if (self.nan or bref.nan): return False 
+        if (self.infinity and bref.infinity and (self.s == bref.s)): return True
+        if (self.infinity or bref.infinity): return False
+
+        a = FPNum(self.s, self.e, self.m, self.p)
+        b = FPNum(bref.s, bref.e, bref.m, bref.p)
+
+        # ensure equal exponent         
+        if (a.e > b.e): b.increase_exponent(a.e)
+        elif (a.e < b.e): a.increase_exponent(b.e)
+        
+        assert(a.e == b.e)
+        
+        # ensure equal precision
+        if (a.p > b.p): b.increase_precision(a.p)
+        elif (a.p < b.p): a.increase_precision(b.p)
+        
+        assert(a.p == b.p)
+
+        if (a.m == b.m): return 0
+        elif (a.m > b.m): return 1
+        elif (a.m < b.m): return -1
+        else: raise Exception()
+            
+
     def convert(self, fmt):
         s, e, m, p = self.s, self.e, self.m, self.p
         s = 0 if s > 0 else 1
         
-        if (fmt == 'sp'):
+        if (self.infinity) or (self.nan):
+            if (fmt == 'hp'):
+                e = 0x1F
+                if (self.nan): m = 0x200
+                x = self.pack_ieee754_hp_parts(s, e, m)
+            elif (fmt == 'sp'):
+                e = 0xFF
+                if (self.nan):
+                    s = 0
+                    m = 0x400000
+                x =  self.pack_ieee754_sp_parts(s, e, m)
+            elif (fmt == 'dp'):
+                e = 0x7FF
+                x = self.pack_ieee754_dp_parts(s, e, m)
+
+            return x        
+        
+        
+        if (fmt == 'hp'):
+            e_bias = 15
+            p_std = 1 << 10
+        elif (fmt == 'sp'):
             e_bias = 127
             p_std = 1 << 23
         elif (fmt == 'dp'):
@@ -534,7 +638,9 @@ class FPNum:
             p = p << 1 
             m = m << 1
             
-        if (fmt == 'sp'):
+        if (fmt == 'hp'):
+            x = self.pack_ieee754_hp_parts(s, e, m)
+        elif (fmt == 'sp'):
             x =  self.pack_ieee754_sp_parts(s, e, m)
         elif (fmt == 'dp'):
             x = self.pack_ieee754_dp_parts(s, e, m)
@@ -552,10 +658,22 @@ class FPNum:
             self.m = self.m << 1
             
     def sub(self, bref):
+        if (self.nan or bref.nan): return FPNum(self.s, self.e, -1, 0) # nan
+        if (self.infinity and bref.infinity and ((self.s * bref.s)==1)): return FPNum(self.s, self.e, -1, 0) # nan
+        if (self.infinity or bref.infinity): 
+            if (self.infinity): return self.copy() # normal
+            if (bref.infinity): return FPNum(bref.s * -1, bref.e, 0, 0) # invert the sign of this infinity
+            
         b = FPNum(bref.s * -1, bref.e, bref.m, bref.p)
         return self.add(b)
     
     def add(self, bref):
+        if (self.nan or bref.nan): return FPNum(self.s, self.e, -1, 0) # nan
+        if (self.infinity and bref.infinity and ((self.s * bref.s)==-1)): return FPNum(self.s, self.e, -1, 0) # nan
+        if (self.infinity or bref.infinity): 
+            if (self.infinity): return self.copy()
+            if (bref.infinity): return bref.copy()
+        
         a = FPNum(self.s, self.e, self.m, self.p)
         b = FPNum(bref.s, bref.e, bref.m, bref.p)
 
@@ -592,15 +710,21 @@ class FPNum:
         return FPNum(s, a.e, m, a.p)
         
     def div(self, b):
+        if (b.m == 0):
+            return FPNum(self.s, self.e, -1, 0) # nan
+        
         rs = self.s * b.s
         re = self.e - b.e
         
-        rm = self.m * b.p / b.m
-        rp = self.p
+        rm = int((self.m * b.p  * self.max_prec) / b.m)
+        rp = self.p * self.max_prec
         
         return FPNum(rs, re, rm, rp)
 
     def mul(self, b):
+        if (self.nan or b.nan): return FPNum(self.s, self.e, -1, 0) # nan
+        if (self.infinity or b.infinity): return FPNum(self.s * b.s, self.e, 0, 0) # infinity
+            
         rs = self.s * b.s
         re = self.e + b.e
         
@@ -612,11 +736,57 @@ class FPNum:
     def div2(self, n):
         s , e, m, p = self.s, self.e, self.m, self.p << n
         return FPNum(s, e, m, p)
+    
+    def sqrt(self, iterations=20):
+        x1 = FPNum(self.s, self.e >> 1, self.m, self.p)
         
+        #print('computing sqrt({})'.format(self.to_float()))
         
+        # Newton-Raphson method 
+        for i in range(iterations):
+            x2 = self.div(x1)      
+            #print(self.to_float(), '/', x1.to_float() , '=', x2.to_float())
+            x2 = x2.add(x1)
+            #print('    +', x1.to_float() , '=', x2.to_float())
+            x2 = x2.div2(1)
+            er = x1.sub(x2)
+            
+            # print('x1:', x1.to_float(), 'x2:', x2.to_float(), 'er:', er.to_float(), er.components())
+            
+            x1 = x2.copy()
+        
+        return x2
+        
+    def from_ieee754_hp(self, v):
+        s,e,m = self.unpack_ieee754_hp_parts(v)
+        s = 1 if s == 0 else -1
+        
+        if (e == 0x1F):
+            self.set_semp(s, e, m, 0) # special cases are signaled with p = 0 
+            return
+        
+        if (e == 0):
+            # subnormal numbers
+            e = -16
+            m = m
+        else:
+            e = e - 15            
+            m = (1 << 10) | m
+
+        p = 1 << 10
+        
+        self.set_semp(s, e, m, p)
+        self.adjust_semp()
+
+    
     def from_ieee754_sp(self, v):
         s,e,m = self.unpack_ieee754_sp_parts(v)
         s = 1 if s == 0 else -1
+        
+        if (e == 0xFF):
+            self.set_semp(s, e, m, 0) # special cases are signaled with p = 0
+            return
+        
         if (e == 0):
             # subnormal numbers
             e = -126
@@ -633,6 +803,11 @@ class FPNum:
     def from_ieee754_dp(self, v):
         s,e,m = self.unpack_ieee754_dp_parts(v)
         s = 1 if s == 0 else -1
+        
+        if (e == 0x7FF):
+            self.set_semp(s, e, m, 0) # special cases are signaled with p = 0
+            return
+        
         if (e == 0):
             # subnormal numbers
             e = -1022
@@ -644,20 +819,31 @@ class FPNum:
         
         self.set_semp(s, e, m, p)
         self.adjust_semp()
-        
+    
+    @staticmethod
+    def unpack_ieee754_hp_parts(v):
+        s = (v >> 15) & 1
+        e = (v >> 10) & 0x1F
+        m = (v & ((1<<10)-1))          
+        return s, e, m
+    
     @staticmethod
     def unpack_ieee754_sp_parts(v):
-        s = v >> 31
+        s = (v >> 31) & 1
         e = (v >> 23) & 0xFF
         m = (v & ((1<<23)-1))          
         return s, e, m
     
     @staticmethod
     def unpack_ieee754_dp_parts(v):
-        s = v >> 63
+        s = (v >> 63) & 1
         e = (v >> 52) & 0x7FF
         m = (v & ((1<<52)-1))  
         return s, e, m
+
+    @staticmethod
+    def pack_ieee754_hp_parts(s, e, m):
+        return ((s & 1) << 15) | ((e & 0x1F) << 10) | (m & ((1<<10)-1))  
 
     @staticmethod
     def pack_ieee754_sp_parts(s, e, m):
@@ -712,23 +898,18 @@ class FPNum:
         self.e = e
         self.m = m
         self.p = p
+        
+        if (p == 0):
+            if (m == 0): self.infinity = True 
+            else:  self.nan = True
+            
 
     def adjust_semp(self):
-
-        n2 = 2
-        
         # eliminate decimal values from the mantisa
-        while ((self.m - int(self.m)) > 0) and (self.p < self.max_prec):
-            self.m *= n2
-            self.p *= n2
-            #print('prec ++:', math.log2(self.p))
-
-        if (self.p == self.max_prec):
-            self.inexact = True
-            if (self.m < 1): self.m = 1
-            
-        self.m = int(self.m)
+        assert(isinstance(self.m, int))
         
+        if (self.p == 0): return # ignore it for special cases
+
         # reduce the precision 
         while ((self.m & 1)==0) and ((self.p & 1) == 0):
             self.m = self.m >> 1
@@ -740,8 +921,9 @@ class FPNum:
         
         if (self.m > p2):
             while (self.m > p2):
-                # increase the exponent and reduce the mantisa
-                self.m = self.m >> 1
+                # increase the exponent and increase the precision
+                self.p = self.p << 1
+                p2 = self.p << 1
                 self.e += 1
                 #print('e ++:', self.e)
 
