@@ -18,8 +18,16 @@ IEEE754_SP_PRECISION = 23
 IEEE754_DP_PRECISION = 52
 
 IEEE754_HP_EXPONENT_BITS = 5
-IEEE754_SP_EXPONENT_BITS = 5
-IEEE754_DP_EXPONENT_BITS = 5
+IEEE754_SP_EXPONENT_BITS = 8
+IEEE754_DP_EXPONENT_BITS = 11
+
+IEEE754_HP_NAN_MANTISA = 0x200
+IEEE754_SP_NAN_MANTISA = 0x400000
+IEEE754_DP_NAN_MANTISA = 0x8000000000000
+
+IEEE754_HP_SNAN_MANTISA = 0x001
+IEEE754_SP_SNAN_MANTISA = 0x000001
+IEEE754_DP_SNAN_MANTISA = 0x0000000000001
 
 class LogicHelper:
     """
@@ -557,9 +565,12 @@ class FPNum:
             self.inexact = True
     
     def compare(self, bref):
-        if (self.nan or bref.nan): return False 
-        if (self.infinity and bref.infinity and (self.s == bref.s)): return True
-        if (self.infinity or bref.infinity): return False
+        if (self.nan or bref.nan): return 1 
+        if (self.infinity and bref.infinity and (self.s == bref.s)): return 0
+        if (self.infinity and bref.infinity and (self.s != bref.s)): return 1
+        if (self.infinity or bref.infinity): 
+            if (self.infinity): return self.s
+            else: return -bref.s
 
         a = FPNum(self.s, self.e, self.m, self.p)
         b = FPNum(bref.s, bref.e, bref.m, bref.p)
@@ -576,11 +587,16 @@ class FPNum:
         
         assert(a.p == b.p)
 
-        if (a.m == b.m): return 0
-        elif (a.m > b.m): return 1
-        elif (a.m < b.m): return -1
+        if (a.m == b.m):  abs_cmp  = 0
+        elif (a.m > b.m): abs_cmp = 1
+        elif (a.m < b.m): abs_cmp = -1
         else: raise Exception()
             
+        if (a.s == 1 and b.s == 1): return abs_cmp
+        elif (a.s == -1 and b.s == -1): return -abs_cmp
+        elif (a.s == -1 and b.s == 1): return -1
+        elif (a.s == 1 and b.s == -1): return 1
+        else: raise Exception()
 
     def convert(self, fmt):
         s, e, m, p = self.s, self.e, self.m, self.p
@@ -589,16 +605,21 @@ class FPNum:
         if (self.infinity) or (self.nan):
             if (fmt == 'hp'):
                 e = 0x1F
-                if (self.nan): m = 0x200
+                if (self.nan): 
+                    s = 0
+                    m = IEEE754_HP_NAN_MANTISA
                 x = self.pack_ieee754_hp_parts(s, e, m)
             elif (fmt == 'sp'):
                 e = 0xFF
                 if (self.nan):
                     s = 0
-                    m = 0x400000
+                    m = IEEE754_SP_NAN_MANTISA
                 x =  self.pack_ieee754_sp_parts(s, e, m)
             elif (fmt == 'dp'):
                 e = 0x7FF
+                if (self.nan):
+                    s = 0
+                    m = IEEE754_DP_NAN_MANTISA
                 x = self.pack_ieee754_dp_parts(s, e, m)
 
             return x        
@@ -606,22 +627,27 @@ class FPNum:
         
         if (fmt == 'hp'):
             e_bias = 15
+            e_mask = 0x1F
             p_std = 1 << 10
         elif (fmt == 'sp'):
             e_bias = 127
+            e_mask = 0xFF
             p_std = 1 << 23
         elif (fmt == 'dp'):
             e_bias = 1023
+            e_mask = 0x7FF
             p_std = 1 << 52
         else:
             raise Exception(f'unknown format: {fmt}')
             
         # compute the biased exponent
-        if (m == p): 
-            e = e_bias
-            m = 0
-            q = 0 
-        elif (e < -(e_bias-1)):
+        #if (m == p): 
+        #    e = e_bias
+        #    m = 0
+        #    q = 0 
+        #el
+        
+        if (e < -(e_bias-1)):
             # subnormal
             while (e < -(e_bias-1)):
                 e += 1 
@@ -630,13 +656,22 @@ class FPNum:
         else:
             e = e + e_bias   
             
-        # compute the standard precision
-        while (p > p_std):
-            p = p >> 1 
-            m = m >> 1 
-        while (p < p_std):
-            p = p << 1 
-            m = m << 1
+        if (e < 0):
+            # - infinity
+            e = e_bias<<1
+            m = 0            
+        elif (e >= e_mask):
+            # + infinity
+            e = e_mask
+            m = 0
+        else:
+            # compute the standard precision
+            while (p > p_std):
+                p = p >> 1 
+                m = m >> 1 
+            while (p < p_std):
+                p = p << 1 
+                m = m << 1
             
         if (fmt == 'hp'):
             x = self.pack_ieee754_hp_parts(s, e, m)
@@ -854,12 +889,22 @@ class FPNum:
         return ((s & 1) << 63) | ((e & 0x7FF) << 52) | (m & ((1<<52)-1))  
 
     def convert_float_to_semp(self, v):
+        if (math.isinf(v)):
+            self.s , self.e, self.m , self.p =  1 if v > 0 else -1, 0, 0, 0
+            self.infinity , self.nan = True, False
+            return
+        elif (math.isnan(v)):
+            self.s , self.e, self.m , self.p =  1, 0, -1, 0
+            self.infinity , self.nan = False, True
+            return
+            
         s, e, m, p = 1, 0, v, 1
         
         if (v < 0):
             s, m = -s, -m
             
         self.adjust_sem(s, e, m)
+        self.adjust_semp()
         
     def adjust_sem(self, s, e, m):
         # the goal is to have m in the range of 1 to 2
@@ -876,8 +921,8 @@ class FPNum:
             return
         
         # determine exponent
-        if (self.m > 2):
-            while (self.m > 2):
+        if (self.m >= 2):
+            while (self.m >= 2):
                 self.m /= n2
                 self.e += 1
         elif (self.m < 1):
@@ -919,8 +964,8 @@ class FPNum:
         # adjust the exponent, mantisa has to be between p and 2p
         p2 = self.p << 1
         
-        if (self.m > p2):
-            while (self.m > p2):
+        if (self.m >= p2):
+            while (self.m >= p2):
                 # increase the exponent and increase the precision
                 self.p = self.p << 1
                 p2 = self.p << 1
@@ -934,6 +979,8 @@ class FPNum:
                 #print('e --:', self.e, self.m)
                 if (self.m == 0):
                     return
+        
+            
 
 class FloatingPointHelper:
 
