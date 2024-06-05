@@ -158,30 +158,46 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD]
+        data = [('hp', 0x4000),
+                ('sp', 0x3F800000),
+                ('sp', 0x400001a3),
+                ('sp', 0x0000d959),
+                ('dp', 0x400921FB53C8D4F1),
+                ('dp', 0x4005BF0A89F1B0DD)]
         
-        for xa in dp_data:
-            a = FPNum(xa, 'dp')
-            nxa = a.convert('dp')
+        for item in data:
+            fmt, xa = item
+            a = FPNum(xa, fmt)
+            nxa = a.convert(fmt)
 
-            print('checking dp {:016X} = {:016X}'.format(xa, nxa))    
+            print('checking {} {:016X} = {:016X}'.format(fmt, xa, nxa))    
             assert(xa == nxa)
 
-        sp_data = [0x3F800000, 0x400001a3, 0x0000d959]
+    def test_FPNum_convert(self):
+        from py4hw.helper import FPNum
+        
+        print()
+        data = [('hp', 2, 0x4000),
+                ('hp', 0x80002002, 0x7c00),
+                ('sp', 1, 0x3F800000),
+                ('sp', 2.0000998973846436, 0x400001a3),
+                ('sp', 7.797e-41, 0x0000d959),
+                ('dp', 3.14159265, 0x400921FB53C8D4F1),
+                ('dp', 2.71828182, 0x4005BF0A89F1B0DD)]
+        
+        for item in data:
+            fmt, xa, xb = item
+            a = FPNum(xa)
+            nxb = a.convert(fmt)
 
-        for xa in sp_data:
-            a = FPNum(xa, 'sp')
-            nxa = a.convert('sp')
-
-            print('checking sp {:016X} = {:016X}'.format(xa, nxa))    
-    
-            assert(xa == nxa)
+            print('checking convert {} = {:016X} exp: {:016X}'.format(fmt, nxb, xb))    
+            assert(xb == nxb)
             
     def test_FPNum_to_float(self):
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [10.0]
+        dp_data = [1.0, 2.0, 10.0]
 
         for item in dp_data:
             
@@ -414,12 +430,13 @@ class Test_Helper:
             print('checking div2 sp {} = {}'.format(r, e))        
             assert(r == e)
         
-    def test_FPNum_equal(self):
+    def test_FPNum_compare(self):
         print()
-        dp_data = [('hp', 0x7C00, 0x7C00, 0x1),
-                   ('sp', 0xFF800000, 0x40400000, 0x1)
-                   ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x0),
-                   ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, 0x0)]
+        dp_data = [('hp', 0x7C00, 0x7C00, 0),
+                   ('sp', 0xFF800000, 0x40400000, -1),
+                   ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 1),
+                   ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, -1),
+                   ('dp', 0xFFFFFFFFFFFFBD7B, 0xFFFFFFFFFFFFBD71, -1)]
     
         for item in dp_data:
             fmt, xa,xb,e = item
@@ -428,9 +445,9 @@ class Test_Helper:
                 a = FPNum(xa)
                 b = FPNum(xb)
                 
-                r = a.equals(b)
+                r = a.compare(b)
                 
-                assert(r.to_float() == e.to_float())
+                assert(r == e)
             else:
                 a = FPNum(xa, fmt)
                 b = FPNum(xb, fmt)
@@ -442,10 +459,9 @@ class Test_Helper:
                     a.reducePrecision(IEEE754_SP_PRECISION)
                     b.reducePrecision(IEEE754_SP_PRECISION)
                 
-                r = a.equals(b)
+                r = a.compare(b) 
                 
-                
-                print('checking add {} {} = {}'.format(fmt, r, e))        
+                print('checking compare {} {} with {} = {} exp:{}'.format(fmt, a.to_float(), b.to_float(), r, e))        
                 assert(r == e)
                 
 if __name__ == '__main__':
