@@ -177,11 +177,14 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        data = [('hp', 2, 0x4000),
+        data = [('hp', 0, 0),
+                ('hp', 2, 0x4000),
                 ('hp', 0x80002002, 0x7c00),
+                ('sp', 0, 0),
                 ('sp', 1, 0x3F800000),
                 ('sp', 2.0000998973846436, 0x400001a3),
                 ('sp', 7.797e-41, 0x0000d959),
+                ('dp', 0, 0),
                 ('dp', 3.14159265, 0x400921FB53C8D4F1),
                 ('dp', 2.71828182, 0x4005BF0A89F1B0DD)]
         
@@ -197,7 +200,7 @@ class Test_Helper:
         from py4hw.helper import FPNum
         
         print()
-        dp_data = [1.0, 2.0, 10.0]
+        dp_data = [0.0, 1.0, 2.0, 10.0]
 
         for item in dp_data:
             
@@ -436,7 +439,7 @@ class Test_Helper:
                    ('sp', 0xFF800000, 0x40400000, -1),
                    ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 1),
                    ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, -1),
-                   ('dp', 0xFFFFFFFFFFFFBD7B, 0xFFFFFFFFFFFFBD71, -1)]
+                   ('dp', 0xFFFFFFFFFFFFBD7B, 0xFFFFFFFFFFFFBD71, 0)]
     
         for item in dp_data:
             fmt, xa,xb,e = item
