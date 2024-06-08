@@ -578,7 +578,7 @@ class FPNum:
             self.inexact = True
     
     def compare(self, bref):
-        if (self.nan or bref.nan): return 1 
+        if (self.nan or bref.nan): return 0 
         if (self.infinity and bref.infinity and (self.s == bref.s)): return 0
         if (self.infinity and bref.infinity and (self.s != bref.s)): return 1
         if (self.infinity or bref.infinity): 
@@ -638,6 +638,11 @@ class FPNum:
 
             return x        
         
+        if (m==0):
+            if   (fmt == 'hp'): return self.pack_ieee754_hp_parts(0, 0, 0)
+            elif (fmt == 'sp'): return self.pack_ieee754_sp_parts(0, 0, 0)
+            elif (fmt == 'dp'): return self.pack_ieee754_dp_parts(0, 0, 0)
+            
         
         if (fmt == 'hp'):
             e_bias = 15
@@ -943,8 +948,9 @@ class FPNum:
         n1 = 1
         n2 = 2
         
-        if (self.m == n0):
-            return
+        if (self.m == 0):
+            self.m = int(m)
+            return 
         
         # determine exponent
         if (self.m >= 2):
