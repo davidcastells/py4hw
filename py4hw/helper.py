@@ -539,7 +539,20 @@ class FPNum:
         r = r * Decimal(self.s)
         return float(r)
     
+    def reduceExponentPrecision(self, prec):
+        mask = (1 << prec) - 1
+        e_bias = mask >> 1 
+        
+        if (self.e < -(e_bias-1)):
+            # subnormal
+            while (self.e < -(e_bias-1)):
+                self.e += 1 
+                self.p = self.p << 1
+        elif (self.e >= e_mask):
+            self.infinity = True
+        
     def reducePrecisionWithRounding(self, prec):
+        # prec is the number of bits of the precision
         p = 1 << prec
         r = 0
         i = 0
@@ -601,7 +614,8 @@ class FPNum:
     def convert(self, fmt):
         s, e, m, p = self.s, self.e, self.m, self.p
         s = 0 if s > 0 else 1
-        
+
+        # deal with special cases        
         if (self.infinity) or (self.nan):
             if (fmt == 'hp'):
                 e = 0x1F
@@ -640,31 +654,39 @@ class FPNum:
         else:
             raise Exception(f'unknown format: {fmt}')
             
-        # compute the biased exponent
-        #if (m == p): 
-        #    e = e_bias
-        #    m = 0
-        #    q = 0 
-        #el
         
         if (e < -(e_bias-1)):
-            # subnormal
+            # if exponent is smaller that e_bias-1, then it is a subnormal
             while (e < -(e_bias-1)):
                 e += 1 
-                m = m >> 1
+                p = p << 1
             e = 0
         else:
-            e = e + e_bias   
+            if (e == -(e_bias-1)) and (p > m):
+                # also a subnormal number
+                e = 0
+            else: e = e + e_bias   
             
         if (e < 0):
-            # - infinity
-            e = e_bias<<1
+            # very small number
+            e = 0
             m = 0            
         elif (e >= e_mask):
-            # + infinity
+            # infinity
             e = e_mask
             m = 0
         else:
+            if (e == 0):
+                # subnormal numbers no not need further mantisa processing
+                pass
+            else:
+                if (p > m):
+                    m << 1
+                    e -= 1
+                    
+                assert(m & p)   # ensure higher bit is active
+                m = m ^ p       # eliminate the higher bit
+            
             # compute the standard precision
             while (p > p_std):
                 p = p >> 1 
@@ -692,6 +714,10 @@ class FPNum:
             self.p = self.p << 1 
             self.m = self.m << 1
             
+    def neg(self):
+        return FPNum(self.s * -1, self.e, self.m, self.p)
+        
+    
     def sub(self, bref):
         if (self.nan or bref.nan): return FPNum(self.s, self.e, -1, 0) # nan
         if (self.infinity and bref.infinity and ((self.s * bref.s)==1)): return FPNum(self.s, self.e, -1, 0) # nan
