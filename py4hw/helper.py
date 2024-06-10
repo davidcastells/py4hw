@@ -686,9 +686,13 @@ class FPNum:
                 pass
             else:
                 if (p > m):
-                    m << 1
+                    m = m << 1
                     e -= 1
+                if (m >= (p<<1)):
+                    p = p << 1
+                    e += 1
                     
+                if not(m & p): print('ERROR converting', self.components(), 'to', fmt)
                 assert(m & p)   # ensure higher bit is active
                 m = m ^ p       # eliminate the higher bit
             
