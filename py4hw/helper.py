@@ -723,6 +723,9 @@ class FPNum:
             self.p = self.p << 1 
             self.m = self.m << 1
             
+    def abs(self):
+        return FPNum(1, self.e, self.m, self.p)
+        
     def neg(self):
         return FPNum(self.s * -1, self.e, self.m, self.p)
         
@@ -946,7 +949,8 @@ class FPNum:
             
         s, e, m, p = 1, 0, v, 1
         
-        if (v < 0):
+        if (v == 0) and (math.copysign(1, v) == -1): s = -1
+        elif (v < 0):
             s, m = -s, -m
             
         self.adjust_sem(s, e, m)
