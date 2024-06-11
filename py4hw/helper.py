@@ -780,8 +780,15 @@ class FPNum:
         return FPNum(s, a.e, m, a.p)
         
     def div(self, b):
+        # Zeri is a special case
         if (b.m == 0):
-            return FPNum(self.s, self.e, -1, 0) # nan
+            if (self.m == 0):
+                return FPNum(self.s, self.e, -1, 0) # nan
+            else:
+                r = self.copy()
+                r.infinity = True
+                r.s = self.s * b.s
+                return r
         
         rs = self.s * b.s
         re = self.e - b.e

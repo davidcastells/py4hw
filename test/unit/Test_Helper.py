@@ -339,6 +339,8 @@ class Test_Helper:
         print()
         data = [('f', 2.9999999999998197 , 3.0000000000001803, 0.9999999999998798), 
                 ('f', 2.0, 32.0, 0.0625),
+                ('f', 0, 0, math.nan),
+                ('f', 1, 0, math.inf),
                 ('sp', 0xC49A6333, 0x3F8CCCCD, 0xC48C5A2E),
                 ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3FF27DDBF6C383EC)]
     
@@ -352,7 +354,11 @@ class Test_Helper:
                 r = a.div(b)
                 
                 print('checking div {} {} = {}'.format(fmt, r.to_float(), e.to_float()))        
-                assert(r.to_float() == e.to_float())
+                
+                if (math.isnan(xe)):
+                    assert(math.isnan(r.to_float()))
+                else:
+                    assert(r.to_float() == e.to_float())
             else:
                 a = FPNum(xa, fmt)
                 b = FPNum(xb, fmt)
