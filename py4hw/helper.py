@@ -810,6 +810,10 @@ class FPNum:
     def sqrt(self, iterations=20):
         x1 = FPNum(self.s, self.e >> 1, self.m, self.p)
         
+        # zero is an special case
+        if (self.m == 0):
+            return self.copy()
+        
         #print('computing sqrt({})'.format(self.to_float()))
         
         # Newton-Raphson method 
