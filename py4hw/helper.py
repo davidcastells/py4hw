@@ -21,6 +21,11 @@ IEEE754_HP_EXPONENT_BITS = 5
 IEEE754_SP_EXPONENT_BITS = 8
 IEEE754_DP_EXPONENT_BITS = 11
 
+IEEE754_HP_INF_MANTISA = 0x0
+IEEE754_SP_INF_MANTISA = 0x0
+IEEE754_DP_INF_MANTISA = 0x0
+
+
 IEEE754_HP_NAN_MANTISA = 0x200
 IEEE754_SP_NAN_MANTISA = 0x400000
 IEEE754_DP_NAN_MANTISA = 0x8000000000000
@@ -622,26 +627,32 @@ class FPNum:
                 if (self.nan): 
                     s = 0
                     m = IEEE754_HP_NAN_MANTISA
+                else:
+                    m = IEEE754_HP_INF_MANTISA
                 x = self.pack_ieee754_hp_parts(s, e, m)
             elif (fmt == 'sp'):
                 e = 0xFF
                 if (self.nan):
                     s = 0
                     m = IEEE754_SP_NAN_MANTISA
+                else:
+                    m = IEEE754_SP_INF_MANTISA
                 x =  self.pack_ieee754_sp_parts(s, e, m)
             elif (fmt == 'dp'):
                 e = 0x7FF
                 if (self.nan):
                     s = 0
                     m = IEEE754_DP_NAN_MANTISA
+                else:
+                    m = IEEE754_DP_INF_MANTISA
                 x = self.pack_ieee754_dp_parts(s, e, m)
 
             return x        
         
         if (m==0):
-            if   (fmt == 'hp'): return self.pack_ieee754_hp_parts(0, 0, 0)
-            elif (fmt == 'sp'): return self.pack_ieee754_sp_parts(0, 0, 0)
-            elif (fmt == 'dp'): return self.pack_ieee754_dp_parts(0, 0, 0)
+            if   (fmt == 'hp'): return self.pack_ieee754_hp_parts(s, 0, 0)
+            elif (fmt == 'sp'): return self.pack_ieee754_sp_parts(s, 0, 0)
+            elif (fmt == 'dp'): return self.pack_ieee754_dp_parts(s, 0, 0)
             
         
         if (fmt == 'hp'):
