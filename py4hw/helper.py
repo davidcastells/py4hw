@@ -835,6 +835,12 @@ class FPNum:
         if (self.m == 0):
             return self.copy()
         
+        if (self.s == -1):
+            # sqrt of negative numbers is Nan
+            r = self.copy()
+            r.nan = True
+            return r
+        
         #print('computing sqrt({})'.format(self.to_float()))
         
         # Newton-Raphson method 
