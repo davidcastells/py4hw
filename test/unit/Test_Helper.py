@@ -390,6 +390,7 @@ class Test_Helper:
                 ('f', 0, 0),
                 ('f', -0, -0),
                 ('f', 1, 1),
+                ('hp', 0xFFFFFFFFFFFFBC00, 0x0000000000007E00),
                 ('sp', 0x40490FDB, 0x3FE2DFC5),
                 ('sp', 0x461C4000, 0x42C80000),
                 ('dp', 0x400921FB53C8D4F1, 0x3FFC5BF8916F587B)]
