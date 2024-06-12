@@ -445,7 +445,9 @@ class Test_Helper:
         
     def test_FPNum_compare(self):
         print()
-        dp_data = [('hp', 0x7C00, 0x7C00, 0),
+        dp_data = [('f', 0, 0, 0),
+                   ('f', 0, -0, 0),
+                   ('hp', 0x7C00, 0x7C00, 0),
                    ('sp', 0xFF800000, 0x40400000, -1),
                    ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 1),
                    ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, -1),
