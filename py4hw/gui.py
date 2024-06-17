@@ -10,22 +10,22 @@ from .schematic import Schematic
 import sys
 import importlib
 
-if sys.version_info >= (3, 9):
-    import importlib.resources as resources
-else:
-    import importlib_resources as resources
-    
+        
 def get_package_path(package_name):
     if sys.version_info >= (3, 9):
+        import importlib.resources as resources
         return resources.files(package_name)
     else:
+        import importlib_resources as resources
         return resources.path(package_name, '')
 
 def get_resource_path(package_name, resource_name):
     if sys.version_info >= (3, 9):
+        import importlib.resources as resources
         package_path = resources.files(package_name)
         return package_path / resource_name
     else:
+        import importlib.resources as resources
         with resources.path(package_name, resource_name) as resource_path:
             return resource_path
         
