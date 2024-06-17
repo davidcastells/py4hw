@@ -470,6 +470,22 @@ class FixedPoint:
         r.v = v
         return r
     
+    def createConstant(self, parent, name):
+        w = self.sw + self.iw + self.fw
+        mask = ((1<<w)-1)
+        wire = parent.wire(name, w)
+        Constant(parent, name, self.v & mask, wire)
+        return wire
+    
+    def dump(self):
+        fmt = f'|[:0{self.sw}b]|[:0{self.iw}b]|[:0{self.fw}b]|'
+        fmt = fmt.replace('[','{')
+        fmt = fmt.replace(']','}')
+        s = self.v >> (self.iw + self.fw) & 1
+        i = self.v >> (self.fw) & ((1<<self.iw)-1)
+        f = self.v & ((1<<self.fw)-1)
+        return fmt.format(s,i,f)
+        
 class FixedPointHelper:
     pass
 
