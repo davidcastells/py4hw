@@ -181,7 +181,7 @@ class Test_Helper:
                 ('hp', 2, 0x4000),
                 ('hp', 0x80002002, 0x7c00),
                 ('sp', 0, 0),
-                ('sp', -0.0000076293945, 0xb7000000),
+                ('sp', -0.0000076293946, 0xb7000000),
                 ('sp', 1, 0x3F800000),
                 ('sp', 2.0000998973846436, 0x400001a3),
                 ('sp', 7.797e-41, 0x0000d959),
@@ -339,6 +339,8 @@ class Test_Helper:
         print()
         data = [('f', 2.9999999999998197 , 3.0000000000001803, 0.9999999999998798), 
                 ('f', 2.0, 32.0, 0.0625),
+                ('f', 0, 0, math.nan),
+                ('f', 1, 0, math.inf),
                 ('sp', 0xC49A6333, 0x3F8CCCCD, 0xC48C5A2E),
                 ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 0x3FF27DDBF6C383EC)]
     
@@ -352,7 +354,11 @@ class Test_Helper:
                 r = a.div(b)
                 
                 print('checking div {} {} = {}'.format(fmt, r.to_float(), e.to_float()))        
-                assert(r.to_float() == e.to_float())
+                
+                if (math.isnan(xe)):
+                    assert(math.isnan(r.to_float()))
+                else:
+                    assert(r.to_float() == e.to_float())
             else:
                 a = FPNum(xa, fmt)
                 b = FPNum(xb, fmt)
@@ -381,6 +387,10 @@ class Test_Helper:
         print()
         data = [('f', 4 , 2), 
                 ('f', 81, 9),
+                ('f', 0, 0),
+                ('f', -0, -0),
+                ('f', 1, 1),
+                ('hp', 0xFFFFFFFFFFFFBC00, 0x0000000000007E00),
                 ('sp', 0x40490FDB, 0x3FE2DFC5),
                 ('sp', 0x461C4000, 0x42C80000),
                 ('dp', 0x400921FB53C8D4F1, 0x3FFC5BF8916F587B)]
@@ -436,7 +446,9 @@ class Test_Helper:
         
     def test_FPNum_compare(self):
         print()
-        dp_data = [('hp', 0x7C00, 0x7C00, 0),
+        dp_data = [('f', 0, 0, 0),
+                   ('f', 0, -0, 0),
+                   ('hp', 0x7C00, 0x7C00, 0),
                    ('sp', 0xFF800000, 0x40400000, -1),
                    ('dp', 0x400921FB53C8D4F1, 0x4005BF0A89F1B0DD, 1),
                    ('dp', 0x4005BF0A89F1B0DD, 0x400921FB53C8D4F1, -1),

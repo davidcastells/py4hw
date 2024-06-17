@@ -21,6 +21,11 @@ IEEE754_HP_EXPONENT_BITS = 5
 IEEE754_SP_EXPONENT_BITS = 8
 IEEE754_DP_EXPONENT_BITS = 11
 
+IEEE754_HP_INF_MANTISA = 0x0
+IEEE754_SP_INF_MANTISA = 0x0
+IEEE754_DP_INF_MANTISA = 0x0
+
+
 IEEE754_HP_NAN_MANTISA = 0x200
 IEEE754_SP_NAN_MANTISA = 0x400000
 IEEE754_DP_NAN_MANTISA = 0x8000000000000
@@ -638,26 +643,32 @@ class FPNum:
                 if (self.nan): 
                     s = 0
                     m = IEEE754_HP_NAN_MANTISA
+                else:
+                    m = IEEE754_HP_INF_MANTISA
                 x = self.pack_ieee754_hp_parts(s, e, m)
             elif (fmt == 'sp'):
                 e = 0xFF
                 if (self.nan):
                     s = 0
                     m = IEEE754_SP_NAN_MANTISA
+                else:
+                    m = IEEE754_SP_INF_MANTISA
                 x =  self.pack_ieee754_sp_parts(s, e, m)
             elif (fmt == 'dp'):
                 e = 0x7FF
                 if (self.nan):
                     s = 0
                     m = IEEE754_DP_NAN_MANTISA
+                else:
+                    m = IEEE754_DP_INF_MANTISA
                 x = self.pack_ieee754_dp_parts(s, e, m)
 
             return x        
         
         if (m==0):
-            if   (fmt == 'hp'): return self.pack_ieee754_hp_parts(0, 0, 0)
-            elif (fmt == 'sp'): return self.pack_ieee754_sp_parts(0, 0, 0)
-            elif (fmt == 'dp'): return self.pack_ieee754_dp_parts(0, 0, 0)
+            if   (fmt == 'hp'): return self.pack_ieee754_hp_parts(s, 0, 0)
+            elif (fmt == 'sp'): return self.pack_ieee754_sp_parts(s, 0, 0)
+            elif (fmt == 'dp'): return self.pack_ieee754_dp_parts(s, 0, 0)
             
         
         if (fmt == 'hp'):
@@ -739,6 +750,9 @@ class FPNum:
             self.p = self.p << 1 
             self.m = self.m << 1
             
+    def abs(self):
+        return FPNum(1, self.e, self.m, self.p)
+        
     def neg(self):
         return FPNum(self.s * -1, self.e, self.m, self.p)
         
@@ -796,8 +810,15 @@ class FPNum:
         return FPNum(s, a.e, m, a.p)
         
     def div(self, b):
+        # Zeri is a special case
         if (b.m == 0):
-            return FPNum(self.s, self.e, -1, 0) # nan
+            if (self.m == 0):
+                return FPNum(self.s, self.e, -1, 0) # nan
+            else:
+                r = self.copy()
+                r.infinity = True
+                r.s = self.s * b.s
+                return r
         
         rs = self.s * b.s
         re = self.e - b.e
@@ -825,6 +846,16 @@ class FPNum:
     
     def sqrt(self, iterations=20):
         x1 = FPNum(self.s, self.e >> 1, self.m, self.p)
+        
+        # zero is an special case
+        if (self.m == 0):
+            return self.copy()
+        
+        if (self.s == -1):
+            # sqrt of negative numbers is Nan
+            r = self.copy()
+            r.nan = True
+            return r
         
         #print('computing sqrt({})'.format(self.to_float()))
         
@@ -951,7 +982,8 @@ class FPNum:
             
         s, e, m, p = 1, 0, v, 1
         
-        if (v < 0):
+        if (v == 0) and (math.copysign(1, v) == -1): s = -1
+        elif (v < 0):
             s, m = -s, -m
             
         self.adjust_sem(s, e, m)
