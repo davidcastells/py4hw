@@ -18,11 +18,11 @@ In fact, you can generate Verilog code at a very fine-grain.
 
 - Cycle-based Simulation
 - Clear separation of design styles 
--  Structural
--  Behavioural
--   Combinational
--   Sequential (RTL)
--   Algorithmic
+   - Structural
+   - Behavioural
+      - Combinational
+      - Sequential (RTL)
+      - Algorithmic
 - Schematic Rendering
 - Interactive Simulation
 - Verilog Generation (for Structural, Combinational and Sequential design styles)
