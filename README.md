@@ -1,28 +1,28 @@
 # py4hw
 
 [![PyPI version](https://badge.fury.io/py/py4hw.svg)](https://badge.fury.io/py/py4hw)
-[![Join the chat at https://gitter.im/davidcastells/py4hw](https://badges.gitter.im/davidcastells/py4hw.svg)](https://gitter.im/davidcastells/py4hw?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 py4hw is an HDL library based on python to create digital circuits (mainly) following a structural design methodology. 
-It is highly influenced by the JHDL principles but using the power of Python.
+It is highly influenced by some principles used in JHDL but using the power of Python.
 
 When people see Python and HDL in the same sentence they automatically associate it with two ideas:
-1 - This is an attempt to generate Verilog from Python code
-2 - This will generate terribly inefficient Verilog
 
-The answer to both questions is *** NO ***.
-py4hw is *** NOT ** intended to be a python HLS tool. It actually starts from a bottom-up approach modelling basic logic gates.
+1. This is an attempt to generate Verilog from Python code
+2. This will generate terribly inefficient Verilog
+
+The answer to both questions is **NO**.
+py4hw is **NOT** intended to be a python HLS tool. It actually starts from a bottom-up approach modelling basic logic gates.
 In fact, you can generate Verilog code at a very fine-grain.
  
 ## Features ##
 
 - Cycle-based Simulation
 - Clear separation of design styles 
--  Structural
--  Behavioural
--   Combinational
--   Sequential (RTL)
--   Algorithmic
+   - Structural
+   - Behavioural
+      - Combinational
+      - Sequential (RTL)
+      - Algorithmic
 - Schematic Rendering
 - Interactive Simulation
 - Verilog Generation (for Structural, Combinational and Sequential design styles)
