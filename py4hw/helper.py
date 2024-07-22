@@ -282,6 +282,13 @@ class LogicHelper:
         Range(self.parent, name, a, up, down, r)
         return r
         
+    def hw_shift_left_constant(self, a:Wire, n:int) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w+n)
+        ShiftLeftConstant(self.parent, name, a, n, r)
+        return r
+    
     def hw_xor2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
@@ -384,6 +391,8 @@ class IntegerHelper:
             return v
         
 def signExtend(v, w, nw):
+    # converts a signed or unsigned value to a c2 representation
+    v = (v & ((1<<w)-1)) # first mask all possible additional bits
     s = (v >> (w-1)) & 1
     ns = 0
     if (s == 1):
