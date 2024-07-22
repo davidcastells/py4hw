@@ -146,8 +146,6 @@ class ZeroExtend(Logic):
 
 
 
-
-
 class Mul(Logic):
     """
     Combinational Arithmetic Multiplier
@@ -368,24 +366,38 @@ class ModuloCounter(Logic):
         
         
 class ShiftRight(Logic):
-    def __init__(self, parent:Logic, name:str, a, b, r):
+    def __init__(self, parent:Logic, name:str, a, b, r, arithmetic=False):
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
         b = self.addIn('b', b)
         r = self.addOut('r', r)
             
+        w = a.getWidth()
         wb = b.getWidth()
+
+        if (wb > 5):
+            print('WARNING shift registers with shifting value width > 5 are not common')
         
-        num = int(math.pow(2, wb))
-        ins = []
-        
-        for i in range(num):
+        last = a
+        for i in range(wb):
             shifted = self.wire('shifted{}'.format(i), r.getWidth())
-            ShiftRightConstant(self, 'shifted{}'.format(i), a, i, shifted)
-            ins.append(shifted)
             
-        Mux(self, 'mux', b, ins, r)
+            if (arithmetic):
+                # we replicate the MSB bit for (1<<i) for the sign extension
+                signExtended = self.wire(f'sign_extended_{i}', w + (1<<i))
+                SignExtend(self, f'sign_extended_{i}', last, signExtended)
+                ShiftRightConstant(self, 'shifted{}'.format(i), signExtended, 1<<i, shifted)
+            else:
+                ShiftRightConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
+            
+            doShift = self.wire(f'doShift{i}')
+            Bit(self, f'doShift{i}', b, i, doShift)
+            prer = self.wire(f'shift_{i}', a.getWidth())
+            Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
+            last = prer
+            
+        Buf(self, 'r', prer, r)
 
 class ShiftLeft(Logic):
     def __init__(self, parent:Logic, name:str, a, b, r):
@@ -395,17 +407,24 @@ class ShiftLeft(Logic):
         b = self.addIn('b', b)
         r = self.addOut('r', r)
             
+        w = a.getWidth()
         wb = b.getWidth()
         
-        num = int(math.pow(2, wb))
-        ins = []
-        
-        for i in range(num):
-            shifted = self.wire('shifted{}'.format(i), r.getWidth())
-            ShiftLeftConstant(self, 'shifted{}'.format(i), a, i, shifted)
-            ins.append(shifted)
+        if (wb > 5):
+            print('WARNING shift registers with shifting value width > 5 are not common')
             
-        Mux(self, 'mux', b, ins, r)
+        last = a
+        for i in range(wb):
+            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            ShiftLeftConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
+            
+            doShift = self.wire(f'doShift{i}')
+            Bit(self, f'doShift{i}', b, i, doShift)
+            prer = self.wire(f'shift_{i}', a.getWidth())
+            Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
+            last = prer
+            
+        Buf(self, 'r', prer, r)
         
 class BinaryToBCD(Logic):
     """
