@@ -549,8 +549,11 @@ class OneHotMux(Logic):
 
         for idx, sel in enumerate(sels):
             inv = ins[idx]
-            self.addIn('sel{}'.format(idx), sel)
-            self.addIn('in{}'.format(idx), inv)
+            
+            sel_name = sel.name
+            in_name = inv.name 
+            self.addIn(sel_name, sel)
+            self.addIn(in_name, inv)
             selx = self.wire('selx{}'.format(idx), inv.getWidth())
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 
