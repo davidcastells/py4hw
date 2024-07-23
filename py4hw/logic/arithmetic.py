@@ -376,7 +376,7 @@ class ShiftRight(Logic):
         w = a.getWidth()
         wb = b.getWidth()
 
-        if (wb > 5):
+        if (wb > 6):
             print('WARNING shift registers with shifting value width > 5 are not common')
         
         last = a
@@ -410,7 +410,7 @@ class ShiftLeft(Logic):
         w = a.getWidth()
         wb = b.getWidth()
         
-        if (wb > 5):
+        if (wb > 6):
             print('WARNING shift registers with shifting value width > 5 are not common')
             
         last = a
