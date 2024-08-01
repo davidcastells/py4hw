@@ -44,6 +44,8 @@ Contributors are more than welcome :-)
 I've identifyied a number of low-effort aspects that should be done
 
 - change the use of nbwavedrom by wavedrom
+- correct synchronization of wire names and waveforms in WaveformWindow and support for scrolling, zooming and paning.
+- avoid complete redrawing in interactive workbench
 
 ..and other high effort tasks
 
