@@ -7,11 +7,11 @@ It is highly influenced by some principles used in JHDL but using the power of P
 
 When people see Python and HDL in the same sentence they automatically associate it with two ideas:
 
-1. This is an attempt to generate Verilog from Python code
+1. This is an attempt to generate Verilog from Python code with an HLS approach
 2. This will generate terribly inefficient Verilog
 
 The answer to both questions is **NO**.
-py4hw is **NOT** intended to be a python HLS tool. It actually starts from a bottom-up approach modelling basic logic gates.
+py4hw is **NOT** [yet] intended to be a python HLS tool. It actually starts from a bottom-up approach modelling basic logic gates.
 In fact, you can generate Verilog code at a very fine-grain.
  
 ## Features ##
@@ -50,7 +50,7 @@ I've identifyied a number of low-effort aspects that should be done
 - improve the place & route algorithm in the schematic viewer
 - collapse interfaces in the schematic viewer
 - support additional hardware platforms 
-
+- transpile algorithmic into RTL
 
 ## Publications ##
 
