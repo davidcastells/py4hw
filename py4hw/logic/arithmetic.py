@@ -191,7 +191,12 @@ class Div(Logic):
         self.r = self.addOut("r", r)
 
     def propagate(self):
-        self.r.put(self.a.get() // self.b.get())
+        # @todo verilog implementation of div is unpredictable
+        import random
+        if (self.b.get() == 0):
+            self.r.put(random.randint(0, 1<<self.r.getWidth()))
+        else:
+            self.r.put(self.a.get() // self.b.get())
 
 class Mod(Logic):
     """
@@ -205,7 +210,12 @@ class Mod(Logic):
         self.r = self.addOut("r", r)
 
     def propagate(self):
-        self.r.put(self.a.get() % self.b.get())
+        # @todo verilog implementation of div is unpredictable
+        import random
+        if (self.b.get() == 0):
+            self.r.put(random.randint(0, 1<<self.r.getWidth()))
+        else:
+            self.r.put(self.a.get() % self.b.get())
 
 
 class SignedDiv(Logic):
@@ -372,28 +382,48 @@ class ShiftRight(Logic):
         a = self.addIn('a', a)
         b = self.addIn('b', b)
         r = self.addOut('r', r)
-            
-        w = a.getWidth()
+        
+        last = a
+        w = last.getWidth()
         wb = b.getWidth()
+        
+        if (isinstance(arithmetic, Wire)):
+            self.addIn('arithmetic', arithmetic)
+            
+            signExtended = self.wire(f'sign_extended', w + (1<<wb))
+            SignExtend(self, f'sign_extended', last, signExtended)
+            
+            zeroExtended = self.wire(f'zero_extended', w + (1<<wb))
+            ZeroExtend(self, f'zero_extended', last, zeroExtended)
+
+            last = self.wire(f'extended', w + (1<<wb))
+            
+            Mux2(self, 'extended', arithmetic, zeroExtended, signExtended, last)
+            w = last.getWidth()           
+            
+        else:
+            if (arithmetic):
+                #
+                signExtended = self.wire(f'sign_extended', w + (1<<wb))
+                SignExtend(self, f'sign_extended', last, signExtended)
+                last = signExtended
+                w = last.getWidth()
+            else:
+                pass
+            
 
         if (wb > 6):
             print('WARNING shift registers with shifting value width > 5 are not common')
         
-        last = a
+        
         for i in range(wb):
-            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            shifted = self.wire('shifted{}'.format(i), w )
             
-            if (arithmetic):
-                # we replicate the MSB bit for (1<<i) for the sign extension
-                signExtended = self.wire(f'sign_extended_{i}', w + (1<<i))
-                SignExtend(self, f'sign_extended_{i}', last, signExtended)
-                ShiftRightConstant(self, 'shifted{}'.format(i), signExtended, 1<<i, shifted)
-            else:
-                ShiftRightConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
+            ShiftRightConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
             
             doShift = self.wire(f'doShift{i}')
             Bit(self, f'doShift{i}', b, i, doShift)
-            prer = self.wire(f'shift_{i}', a.getWidth())
+            prer = self.wire(f'shift_{i}', w)
             Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
             last = prer
             
@@ -425,6 +455,62 @@ class ShiftLeft(Logic):
             last = prer
             
         Buf(self, 'r', prer, r)
+
+class RotateRight(Logic):
+    def __init__(self, parent:Logic, name:str, a, b, r):
+        super().__init__(parent, name)
+
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+            
+        w = a.getWidth()
+        wb = b.getWidth()
+        
+        if (wb > 6):
+            print('WARNING shift registers with shifting value width > 5 are not common')
+            
+        last = a
+        for i in range(wb):
+            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            RotateRightConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
+            
+            doShift = self.wire(f'doShift{i}')
+            Bit(self, f'doShift{i}', b, i, doShift)
+            prer = self.wire(f'shift_{i}', a.getWidth())
+            Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
+            last = prer
+            
+        Buf(self, 'r', prer, r)
+
+
+class RotateLeft(Logic):
+    def __init__(self, parent:Logic, name:str, a, b, r):
+        super().__init__(parent, name)
+
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+            
+        w = a.getWidth()
+        wb = b.getWidth()
+        
+        if (wb > 6):
+            print('WARNING shift registers with shifting value width > 5 are not common')
+            
+        last = a
+        for i in range(wb):
+            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            RotateLeftConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
+            
+            doShift = self.wire(f'doShift{i}')
+            Bit(self, f'doShift{i}', b, i, doShift)
+            prer = self.wire(f'shift_{i}', a.getWidth())
+            Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
+            last = prer
+            
+        Buf(self, 'r', prer, r)
+
         
 class BinaryToBCD(Logic):
     """
