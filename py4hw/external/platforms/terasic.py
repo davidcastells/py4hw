@@ -61,15 +61,18 @@ class DE1SoC(py4hw.HWSystem):
         
         super().__init__(name='DE1SoC')
         
+        self.clk_freq = 50E6
         clk50 = self.wire('CLOCK_50')
         #clk50 = self.addIn('CLOCK_50', clk50)
-        clockDriver = py4hw.ClockDriver('CLOCK_50', 50E6, 0, wire=clk50)
+        clockDriver = py4hw.ClockDriver('CLOCK_50', self.clk_freq , 0, wire=clk50)
         
         print('Initial', self.getFullPath(),  self._wires)
         
         self.clockDriver = clockDriver
+        
     
-    
+    def setTargetClkFreq(self, freq):
+        self.clk_freq = freq
     
     def build(self,  projectDir):
         if not(os.path.exists(projectDir)):
@@ -95,7 +98,8 @@ class DE1SoC(py4hw.HWSystem):
             file.write(qsf_code)
             
         with open(sdc_file, 'w') as file:
-            file.write('create_clock  -period 20 [get_ports CLOCK_50]\n')
+            period_in_ns = 1E9 / self.clk_freq
+            file.write('create_clock  -period {} [get_ports CLOCK_50]\n'.format(period_in_ns))
             
         tool = 'quartus'
         
@@ -104,7 +108,7 @@ class DE1SoC(py4hw.HWSystem):
                  {'name' : qsf_file, 'file_type' : 'tclSource'}
                  ]
 
-        parameters = {'clk_freq_hz' : {'datatype' : 'int', 'default' : 50000000, 'paramtype' : 'vlogparam'},
+        parameters = {'clk_freq_hz' : {'datatype' : 'int', 'default' : int(self.clk_freq), 'paramtype' : 'vlogparam'},
               'vcd' : {'datatype' : 'bool', 'paramtype' : 'plusarg'},
               'family': {'datatype': 'string', 'paramtype': 'generic', 'default':'Cyclone V'},
               'device': {'datatype': 'string', 'paramtype': 'generic', 'default':'5CSEMA5F31C6'},
