@@ -379,6 +379,33 @@ class ShiftRightConstant(Logic):
 
     def propagate(self):
         self.r.put(self.a.get() >> self.n)
+
+class RotateLeftConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        a = self.a.get()
+        n = self.n
+        w = self.a.getWidth()
+        self.r.put((a << n) | (a >> (w - n)))
+
+
+class RotateRightConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        a = self.a.get()
+        n = self.n
+        w = self.a.getWidth()
+        self.r.put((a >> n) | (a << (w - n)))
                 
 class Xor2(Logic):
     """
