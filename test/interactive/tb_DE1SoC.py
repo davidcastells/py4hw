@@ -82,7 +82,7 @@ print('DE1SoC clk driver', sys.clockDriver.name)
 inc = sys.wire('inc')
 reset = sys.wire('reset')
 
-N = 100000
+N = 100000000000
 binary_digits = int(math.ceil(math.log2(N)))
 bcd_digits = int(math.ceil(math.log10(N)))
 
@@ -105,13 +105,20 @@ py4hw.BinaryToBCD(sys, 'bcd', count, count_bcd)
 hexs = [sys.getOutputHex(i) for i in range(6)]
 bcds = [None] * bcd_digits
 
+skip_bcd = 0
+
+if (bcd_digits > 6):
+    skip_bcd = bcd_digits - 6
+    print('Skiping lower digits', skip_bcd)
+
 for i in range(bcd_digits):
     bcd_name = 'bcd{}'.format(i)
     hex_name = 'hex{}'.format(i)
     bcds[i] = sys.wire(bcd_name, 4)
     py4hw.Range(sys, bcd_name, count_bcd, 4*i+3, 4*i, bcds[i])
 
-    py4hw.Digit7Segment(sys, hex_name, bcds[i], hexs[i])
+    if (i-skip_bcd) > 0:
+        py4hw.Digit7Segment(sys, hex_name, bcds[i], hexs[i-skip_bcd])
 
 
 for i in range(bcd_digits, 6):
@@ -131,5 +138,5 @@ vga_pattern.clockDriver = py4hw.ClockDriver('clk25', 25E6, wire=vga_clk)
 py4hw.gui.Workbench(sys)
 
 dir = '/tmp/testDE1SoC'
-sys.build(dir)
+#sys.build(dir)
 sys.download(dir)
