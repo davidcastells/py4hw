@@ -25,6 +25,7 @@ IEEE754_HP_INF_MANTISA = 0x0
 IEEE754_SP_INF_MANTISA = 0x0
 IEEE754_DP_INF_MANTISA = 0x0
 
+IEEE754_DP_INFNAN_EXPONENT = 0x7FF
 
 IEEE754_HP_NAN_MANTISA = 0x200
 IEEE754_SP_NAN_MANTISA = 0x400000
@@ -282,6 +283,13 @@ class LogicHelper:
         Range(self.parent, name, a, up, down, r)
         return r
         
+    def hw_shift_left_constant(self, a:Wire, n:int) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w+n)
+        ShiftLeftConstant(self.parent, name, a, n, r)
+        return r
+    
     def hw_xor2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
@@ -384,6 +392,8 @@ class IntegerHelper:
             return v
         
 def signExtend(v, w, nw):
+    # converts a signed or unsigned value to a c2 representation
+    v = (v & ((1<<w)-1)) # first mask all possible additional bits
     s = (v >> (w-1)) & 1
     ns = 0
     if (s == 1):
@@ -475,6 +485,22 @@ class FixedPoint:
         r.v = v
         return r
     
+    def createConstant(self, parent, name):
+        w = self.sw + self.iw + self.fw
+        mask = ((1<<w)-1)
+        wire = parent.wire(name, w)
+        Constant(parent, name, self.v & mask, wire)
+        return wire
+    
+    def dump(self):
+        fmt = f'|[:0{self.sw}b]|[:0{self.iw}b]|[:0{self.fw}b]|'
+        fmt = fmt.replace('[','{')
+        fmt = fmt.replace(']','}')
+        s = self.v >> (self.iw + self.fw) & 1
+        i = self.v >> (self.fw) & ((1<<self.iw)-1)
+        f = self.v & ((1<<self.fw)-1)
+        return fmt.format(s,i,f)
+        
 class FixedPointHelper:
     pass
 

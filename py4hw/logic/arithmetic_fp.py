@@ -317,6 +317,64 @@ class InttoFP_SP(Logic):
         Mux2(self, 'r', is_zero, pre_r, g.hw_constant(32, 0), r)
         
         
+class FixedPointtoFP_SP(Logic):
+    def __init__(self, parent:Logic, name:str, a:Wire, f, r:Wire, p_lost:Wire):
+        # @todo by now we do a dirty implementation
+        # we really should do something similar to the above method
+        super().__init__(parent, name)
+
+        # This is really cumbersome
+        from ..helper import LogicHelper
+
+        assert(a.getWidth() <= 32)  # by now we need w <= 32, when covering this case 
+                                    # 
+        assert(r.getWidth() == 32)        
+        
+        self.addIn('a', a)
+        self.addOut('r', r)
+        
+        if not(p_lost is None):
+            self.addOut('p_lost', p_lost)
+
+        g = LogicHelper(self)
+        
+        sign = self.wire('sign')
+        f5 = self.wire('f5', a.getWidth())
+        
+        Abs(self, 'f5', a, f5, inverted=sign)
+        
+        #ai = self.wire('ai', a.getWidth() - f[2])
+        #af = self.wire('af', f[2])
+
+        #py4hw.Range(self, 'ai', a.getWidth()-1, a.getWidth() - f[2])
+        #py4hw.Range(self, 'af', f[2]-1, 0)
+        
+        clz = self.wire('clz', 5)
+        is_zero = self.wire('is_zero')
+        CountLeadingZeros(self, 'clz', f5, clz, is_zero)
+
+        pre_shifted = self.wire('pre_shifted', 32)
+        ShiftLeftConstant(self, 'pre_shifted', f5, 32-a.getWidth(), pre_shifted)
+
+        shifted = self.wire('shited', 32)
+        ShiftLeft(self, 'shift', pre_shifted, clz, shifted)
+
+        # we skip the first 1, as it is implicit
+        fraction = g.hw_range(shifted, 30, 30-23+1)
+
+        if not(p_lost is None):        
+            pre_p_lost = g.hw_not_equal_constant(g.hw_range(shifted, 30-23, 0), 0)
+            Buf(self, 'p_lost', pre_p_lost, p_lost)
+        
+        exponent = g.hw_sub(g.hw_constant(8, 127+f[1]), clz)
+        
+        #is_zero = g.hw_equal_constant(a, 0)
+        pre_r = self.wire('pre_r', 32)
+        ConcatenateMSBF(self, 'pre_r', [sign, exponent, fraction], pre_r)
+        Mux2(self, 'r', is_zero, pre_r, g.hw_constant(32, 0), r)
+
+        
+
 class FPMult_SP(Logic):
     # 
     def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, r:Wire):

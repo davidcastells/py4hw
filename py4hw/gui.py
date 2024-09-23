@@ -10,34 +10,42 @@ from .schematic import Schematic
 import sys
 import importlib
 
-if sys.version_info >= (3, 9):
-    import importlib.resources as resources
-else:
-    import importlib_resources as resources
-    
+        
 def get_package_path(package_name):
     if sys.version_info >= (3, 9):
+        import importlib.resources as resources
         return resources.files(package_name)
     else:
+        import importlib_resources as resources
         return resources.path(package_name, '')
 
 def get_resource_path(package_name, resource_name):
     if sys.version_info >= (3, 9):
+        import importlib.resources as resources
         package_path = resources.files(package_name)
         return package_path / resource_name
     else:
+        import importlib.resources as resources
         with resources.path(package_name, resource_name) as resource_path:
             return resource_path
-        
+    
+def getIcon(path):
+    #script_directory = os.path.dirname(os.path.abspath(__file__))
+    #icon_path = os.path.join(script_directory, path)
+    
+    icon = Image.open(path)
+    icon = ImageTk.PhotoImage(icon)
+    return icon
+
+def getResourceIcon(name):
+    path = get_resource_path('py4hw' , name)
+
+    return getIcon(path)
+
+
 class Workbench():
     
-    def getIcon(self, path):
-        #script_directory = os.path.dirname(os.path.abspath(__file__))
-        #icon_path = os.path.join(script_directory, path)
-        
-        icon = Image.open(path)
-        icon = ImageTk.PhotoImage(icon)
-        return icon
+    
         
     def __init__(self, sys:Logic):
     
@@ -90,11 +98,9 @@ class Workbench():
         
         
         # Construct the full path to the image file
-        zoomout_path = get_resource_path('py4hw' , 'zoomout24.png')
-        zoomin_path = get_resource_path('py4hw' , 'zoomin24.png')
         
-        icon_zo = self.getIcon(zoomout_path)
-        icon_zi = self.getIcon(zoomin_path)
+        icon_zo = getResourceIcon('zoomout24.png')
+        icon_zi = getResourceIcon('zoomin24.png')
         
         btnZoomIn = ttk.Button(self.schematicToolbarPane,  image=icon_zi, text="Zoom in", command=self.guiZoomIn)
         btnZoomOut = ttk.Button(self.schematicToolbarPane, image=icon_zo, text="Zoom out", command=self.guiZoomOut)

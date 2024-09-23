@@ -77,12 +77,11 @@ class FixedPointMult(Logic):
         
         SignExtend(self, 'sa', a, sa)
         SignExtend(self, 'sb', b, sb)
-        
-        # @todo by now we only support same format
-        assert(af == bf)
-        assert(af == rf)
-        
+                
         m = self.wire('m', a.getWidth()+b.getWidth())
         Mul(self, 'm', sa, sb, m)
         
-        Range(self, 'r', m, r.getWidth()+rf[2], rf[2], r)
+        # Range(self, 'r', m, r.getWidth()+rf[2], rf[2], r)
+        low = af[2]+bf[2]-rf[2]
+        high = low + r.getWidth()
+        Range(self, 'r', m, high, low, r)

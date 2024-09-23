@@ -196,6 +196,87 @@ class Comparator(Logic):
         And2(self, "GT", notEQ, notLT, gt)
 
 
+class ComparatorSignedUnsigned(Logic):
+    """
+    A Greater Than, Equal and Less Than comparator circuit that considers a and b having sign or not
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, gtu: Wire, eq: Wire, ltu: Wire, gt:Wire, lt:Wire):
+        """
+        Constructor of the comparator circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            parent circuit.
+        name : str
+            instance name.
+        a : Wire
+            operand a.
+        b : Wire
+            operand b.
+        gt : Wire
+            1 if a > b.
+        eq : Wire
+            1 if a == b.
+        lt : Wire
+            1 if a < b.
+
+        Returns
+        -------
+        the object.
+
+        """
+        
+        from .bitwise import Equal
+        from .bitwise import And2
+        from .bitwise import Not
+        from .bitwise import Xor2
+        from .bitwise import Mux2
+        from .arithmetic import Sub
+        from .arithmetic import Sign
+
+        super().__init__(parent, name)
+        
+        if (a.getWidth() != b.getWidth()):
+            raise Exception('a and b must have equal width')
+            
+        a = self.addIn("a", a)
+        b = self.addIn("b", b)
+        gt = self.addOut("gt", gt)
+        gtu = self.addOut("gtu", gtu)
+        eq = self.addOut("eq", eq)
+        lt = self.addOut("lt", lt)
+        ltu = self.addOut("ltu", ltu)
+
+        sa = self.wire('sa')
+        sb = self.wire('sb')
+        difs = self.wire('difs')
+        
+        Sign(self, "signA", a, sa)
+        Sign(self, "signB", b, sb)
+        Xor2(self, 'diff_signs', sa, sb, difs)
+        
+
+        sub = Wire(self, "sub", a.getWidth()+1)
+        notLTU = Wire(self, "nLTU", 1)
+        notEQ = Wire(self, "nEQ", 1)
+
+        Sub(self, "Comparison", a, b, sub)
+
+        # LT
+        Sign(self, "LessThanUnsigned", sub, ltu)
+        Xor2(self, 'lt', ltu, difs, lt)
+
+        # EQ
+        EqualConstant(self, "Equal", sub, 0, eq)
+
+        # GT
+        Not(self, "nLTU", ltu, notLTU)
+        Not(self, "nEQ", eq, notEQ)
+        And2(self, "GTU", notEQ, notLTU, gtu)
+        Xor2(self, 'gt', gtu, difs, gt)
+        
 class Max2(Logic):
     """
     A circuit that computes the maximum from two inputs

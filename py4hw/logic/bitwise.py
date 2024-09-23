@@ -379,6 +379,33 @@ class ShiftRightConstant(Logic):
 
     def propagate(self):
         self.r.put(self.a.get() >> self.n)
+
+class RotateLeftConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        a = self.a.get()
+        n = self.n
+        w = self.a.getWidth()
+        self.r.put((a << n) | (a >> (w - n)))
+
+
+class RotateRightConstant(Logic):
+    def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+
+    def propagate(self):
+        a = self.a.get()
+        n = self.n
+        w = self.a.getWidth()
+        self.r.put((a >> n) | (a << (w - n)))
                 
 class Xor2(Logic):
     """
@@ -549,8 +576,11 @@ class OneHotMux(Logic):
 
         for idx, sel in enumerate(sels):
             inv = ins[idx]
-            self.addIn('sel{}'.format(idx), sel)
-            self.addIn('in{}'.format(idx), inv)
+            
+            sel_name = sel.name
+            in_name = inv.name 
+            self.addIn(sel_name, sel)
+            self.addIn(in_name, inv)
             selx = self.wire('selx{}'.format(idx), inv.getWidth())
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 

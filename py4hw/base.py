@@ -848,3 +848,13 @@ def getObjectClockDriver(obj:Logic) -> ClockDriver:
         raise Exception('No clock driver at top level')
     else:
         return getObjectClockDriver(obj.parent)
+    
+    
+def AbstractLogicInit(self, parent:Logic, name:str):
+    super(self.__class__, self).__init__(parent, name)
+    
+def AbstractLogic(class_name):
+    return type(class_name, # class name
+                (Logic,), # base classes
+                {'__init__': AbstractLogicInit} # methods
+                )

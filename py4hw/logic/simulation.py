@@ -18,16 +18,16 @@ from tkinter import ttk
 class FieldInspector:
     def __init__(self, obj, field):
         self.obj = obj
-        self.field = field
+        self.name = field
         
     def getFormat(self):
         return '{}'
     
     def get(self):
-        return getattr(self.obj, self.field)
+        return getattr(self.obj, self.name)
     
     def getFullPath(self):
-        return self.obj.getFullPath() + '/' + self.field
+        return self.obj.getFullPath() + '/' + self.name
         
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
@@ -125,10 +125,18 @@ class Waveform(Logic):
 
     def draw(self):
         import matplotlib.pyplot as plt
-        fig, axs = plt.subplots(len(self.data.keys())+1, sharex=True)
+        fig, axs = plt.subplots(len(self.wires)+1, sharex=True)
+        
+        obj = self.wires[0]
+        if (isinstance(obj, FieldInspector)):
+            w = obj
+            ww = -1
+        else:
+            w = Waveform.getwire(obj)
+            ww = w.getWidth()
         
         
-        numclocks = len(self.data[self.wires[0]])
+        numclocks = len(self.data[w])
         clock = 1 - np.arange(numclocks*2) % 2
         tclock = 0.5 * np.arange(numclocks*2)
         t =  np.arange(numclocks)
@@ -136,11 +144,15 @@ class Waveform(Logic):
         axs[0].step(tclock, clock, 'r', linewidth = 2, where='post')
         axs[0].set_ylabel('clock', rotation=0)
         
-        for idx, x in enumerate(self.wires):
-           axs[idx+1].step(t, self.data[x], linewidth=2, where='post')
-           axs[idx+1].set_ylabel(x.name, rotation=0)
+        for idx, obj in enumerate(self.wires):
+            w = Waveform.getwire(obj)
+
+            axs[idx+1].step(t, self.data[w], linewidth=2, where='post')
+            axs[idx+1].set_ylabel(w.name, rotation=0)
         
         return fig, axs
+    
+
     
     def draw_wavedrom(self, shortNames=False):
         """
@@ -234,34 +246,43 @@ class Waveform(Logic):
         
         return ret
     
-    def gui(self, root=None):
+    def gui(self, root=None, shortNames=False):
         
-        window = WaveformWindow(root, self)
+        window = WaveformWindow(root, self, shortNames)
 
 class WaveformWindow:
     
-    def __init__(self, root, wvf):
+    def __init__(self, root, wvf, shortNames):
+        from py4hw.gui import getResourceIcon 
         if (root is None):
             self.root = tkinter.Tk()
         else:
             self.root = root
 
         self.waveform = wvf
+        self.shortNames = shortNames
             
         self.root.title('Waveform viewer ' + wvf.name)
         
-        ttk.Style().configure("Treeview", fg="light yellow")
-        font = tkinter.font.Font(size=8)
-        ttk.Style().configure("Prolepsis.Treeview", font=font)
-
+        font = tkinter.font.Font(size=9)
+        
+        style = ttk.Style()
+        style.configure("Treeview", fg="light yellow")
+        style.configure("Treeview", rowheight=23) 
+        style.configure("Prolepsis.Treeview", font=font)
+        
         self.topPane = PanedWindow(self.root, orient=VERTICAL)
 
         self.toolbar= Frame(self.topPane, bd=1, relief=RAISED)
         
-        zoomInButton = Button(self.toolbar, text='zoomIn', relief=FLAT,  command=self.zoomIn)
-        zoomInButton.pack(side=LEFT, padx=2, pady=2)
-        zoomOutButton = Button(self.toolbar, text='zoomOut', relief=FLAT,  command=self.zoomOut)
-        zoomOutButton.pack(side=LEFT, padx=2, pady=2)
+        icon_zo = getResourceIcon('zoomout24.png')
+        icon_zi = getResourceIcon('zoomin24.png')
+        
+        zoomInButton = ttk.Button(self.toolbar,  image=icon_zi, text="Zoom in", command=self.zoomIn)
+        zoomOutButton = ttk.Button(self.toolbar, image=icon_zo, text="Zoom out", command=self.zoomOut)
+
+        zoomInButton.pack(side=tkinter.LEFT)
+        zoomOutButton.pack(side=tkinter.LEFT)
 
         self.topPane.add(self.toolbar)
 
@@ -278,14 +299,23 @@ class WaveformWindow:
 
         self.linesPane = PanedWindow(self.mainPane, relief = SUNKEN, width=100, height=100)
         self.mainPane.add(self.linesPane)
+
+        self.hclock = 20
+        self.hw = self.hclock * self.getNumClocks()
         
-        self.canvas = Canvas(self.linesPane, bg='white', scrollregion=(0,0,1000,1000))
+        self.canvas = Canvas(self.linesPane, bg='white', scrollregion=(0,0, self.hw,1000))
         #self.canvas.configure(yscrollcommand=self.scroll.set)
         self.canvas.configure(yscrollincrement='20')
         
-        self.linesPane.add(self.canvas)
+        self.h_scroll = ttk.Scrollbar(self.linesPane, orient=HORIZONTAL, command=self.canvas.xview)
+        self.v_scroll = ttk.Scrollbar(self.linesPane, orient=VERTICAL, command=self.sync_scrolls)
+        self.canvas.configure(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
 
-        self.hclock = 20
+        
+        self.linesPane.add(self.canvas)
+        self.h_scroll.pack(side=tkinter.BOTTOM, fill=X)
+        self.v_scroll.pack(side=tkinter.RIGHT, fill=Y)
+
         self.drawWaveforms()
 
         self.topPane.pack(fill=BOTH, expand=True)
@@ -297,11 +327,22 @@ class WaveformWindow:
 
     def zoomIn(self):
         self.hclock *= 1.1
+        self.hw = self.hclock * self.getNumClocks()
+
+        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
     
     def zoomOut(self):
         self.hclock /= 1.1
+        self.hw = self.hclock * self.getNumClocks()
+
+        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
+    
+    def sync_scrolls(self, *args):
+        self.hierarchyTree.yview(*args)
+        self.v_scroll.set(*args)
+        self.canvas.yview_moveto(args[0])
     
     def yview(self, *args):
         print(*args)
@@ -331,7 +372,12 @@ class WaveformWindow:
         wd = self.waveform.getDict()
         
         for wav in wd.keys():
-            dc_iid = tv.insert("", tkinter.END, text=wav.getFullPath(), open=True)
+            if (self.shortNames):
+                name = wav.name
+            else:
+                name = wav.getFullPath()
+
+            dc_iid = tv.insert("", tkinter.END, text=name, open=True)
         
         # self.map_id_obj[dc_iid] = self.sys
     
@@ -357,35 +403,42 @@ class WaveformWindow:
         self.drawWaveforms()
         self.canvas.update()
 
-        
+    def getNumClocks(self):
+        wd = self.waveform.getDict()
+        return len(list(wd.values())[0])
+    
     def drawWaveforms(self):
-        off = 45
-        vspace = 20
+        off = 43
+        vspace = 21
         wd = self.waveform.getDict()
 
         self.setColor('blue')
         
-        hclock = self.hclock
+        hclock = self.hclock # this is the width of the clock (in pixels ?)
         vsig = 15
         vtext = 7
         htrans = 3
         
-        for idx, wav in enumerate(wd.keys()):
-            if isinstance(wav, Wire):
-                w = wav.getWidth()
-            else:
-                w = wav.wire.getWidth()
-                
-            data = wd[wav]
+        for idx, obj in enumerate(self.waveform.wires):
             
-            if (w == 1):
+            if (isinstance(obj, FieldInspector)):
+                w = obj
+                ww = -1
+            else:
+                w = Waveform.getwire(obj)
+                ww = w.getWidth()
+                
+            data = wd[w]
+            fmt = self.waveform.format[idx]
+            
+            if (ww == 1):
                 lastval = None
             else:
                 lastval = '?' # arbitrary value 
             
             for clk in range(len(data)):
                 val = data[clk]
-                if (w == 1):
+                if (ww == 1):
                     # binary wires
                     self.drawLine(clk*hclock, off + idx*vspace - val*vsig, 
                                   (clk+1)*hclock, off + idx*vspace - val*vsig)     
@@ -407,7 +460,8 @@ class WaveformWindow:
                                   (clk+1)*hclock - htrans, off + idx*vspace - vsig)     
                         self.drawLine(clk*hclock + htrans, off + idx*vspace , 
                                   (clk+1)*hclock - htrans, off + idx*vspace )     
-                        self.drawText(clk*hclock + htrans, off + idx*vspace - vtext, hex(val), 'w')
+
+                        self.drawText(clk*hclock + htrans, off + idx*vspace - vtext, fmt.format(val), 'w')
                     else:
                         self.drawLine(clk*hclock - htrans, off + idx*vspace - vsig, 
                                   (clk+1)*hclock - htrans, off + idx*vspace - vsig)     
@@ -430,6 +484,7 @@ class WaveformWindow:
             ha = 'center'
             
         self.canvas.create_text(x,y, anchor=anchor, text=text)
+        
 @deprecated # use Waveform, just maintened for reference
 class OldWaveform(Logic):
 
