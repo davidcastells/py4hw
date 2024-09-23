@@ -18,16 +18,16 @@ from tkinter import ttk
 class FieldInspector:
     def __init__(self, obj, field):
         self.obj = obj
-        self.field = field
+        self.name = field
         
     def getFormat(self):
         return '{}'
     
     def get(self):
-        return getattr(self.obj, self.field)
+        return getattr(self.obj, self.name)
     
     def getFullPath(self):
-        return self.obj.getFullPath() + '/' + self.field
+        return self.obj.getFullPath() + '/' + self.name
         
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
@@ -246,13 +246,13 @@ class Waveform(Logic):
         
         return ret
     
-    def gui(self, root=None):
+    def gui(self, root=None, shortNames=False):
         
-        window = WaveformWindow(root, self)
+        window = WaveformWindow(root, self, shortNames)
 
 class WaveformWindow:
     
-    def __init__(self, root, wvf):
+    def __init__(self, root, wvf, shortNames):
         from py4hw.gui import getResourceIcon 
         if (root is None):
             self.root = tkinter.Tk()
@@ -260,6 +260,7 @@ class WaveformWindow:
             self.root = root
 
         self.waveform = wvf
+        self.shortNames = shortNames
             
         self.root.title('Waveform viewer ' + wvf.name)
         
@@ -298,14 +299,23 @@ class WaveformWindow:
 
         self.linesPane = PanedWindow(self.mainPane, relief = SUNKEN, width=100, height=100)
         self.mainPane.add(self.linesPane)
+
+        self.hclock = 20
+        self.hw = self.hclock * self.getNumClocks()
         
-        self.canvas = Canvas(self.linesPane, bg='white', scrollregion=(0,0,1000,1000))
+        self.canvas = Canvas(self.linesPane, bg='white', scrollregion=(0,0, self.hw,1000))
         #self.canvas.configure(yscrollcommand=self.scroll.set)
         self.canvas.configure(yscrollincrement='20')
         
-        self.linesPane.add(self.canvas)
+        self.h_scroll = ttk.Scrollbar(self.linesPane, orient=HORIZONTAL, command=self.canvas.xview)
+        self.v_scroll = ttk.Scrollbar(self.linesPane, orient=VERTICAL, command=self.sync_scrolls)
+        self.canvas.configure(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
 
-        self.hclock = 20
+        
+        self.linesPane.add(self.canvas)
+        self.h_scroll.pack(side=tkinter.BOTTOM, fill=X)
+        self.v_scroll.pack(side=tkinter.RIGHT, fill=Y)
+
         self.drawWaveforms()
 
         self.topPane.pack(fill=BOTH, expand=True)
@@ -317,11 +327,22 @@ class WaveformWindow:
 
     def zoomIn(self):
         self.hclock *= 1.1
+        self.hw = self.hclock * self.getNumClocks()
+
+        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
     
     def zoomOut(self):
         self.hclock /= 1.1
+        self.hw = self.hclock * self.getNumClocks()
+
+        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
+    
+    def sync_scrolls(self, *args):
+        self.hierarchyTree.yview(*args)
+        self.v_scroll.set(*args)
+        self.canvas.yview_moveto(args[0])
     
     def yview(self, *args):
         print(*args)
@@ -351,7 +372,12 @@ class WaveformWindow:
         wd = self.waveform.getDict()
         
         for wav in wd.keys():
-            dc_iid = tv.insert("", tkinter.END, text=wav.getFullPath(), open=True)
+            if (self.shortNames):
+                name = wav.name
+            else:
+                name = wav.getFullPath()
+
+            dc_iid = tv.insert("", tkinter.END, text=name, open=True)
         
         # self.map_id_obj[dc_iid] = self.sys
     
@@ -377,7 +403,10 @@ class WaveformWindow:
         self.drawWaveforms()
         self.canvas.update()
 
-        
+    def getNumClocks(self):
+        wd = self.waveform.getDict()
+        return len(list(wd.values())[0])
+    
     def drawWaveforms(self):
         off = 43
         vspace = 21
@@ -385,7 +414,7 @@ class WaveformWindow:
 
         self.setColor('blue')
         
-        hclock = self.hclock
+        hclock = self.hclock # this is the width of the clock (in pixels ?)
         vsig = 15
         vtext = 7
         htrans = 3
@@ -455,6 +484,7 @@ class WaveformWindow:
             ha = 'center'
             
         self.canvas.create_text(x,y, anchor=anchor, text=text)
+        
 @deprecated # use Waveform, just maintened for reference
 class OldWaveform(Logic):
 
