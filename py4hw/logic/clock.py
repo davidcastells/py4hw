@@ -52,5 +52,5 @@ class ClockDivider(Logic):
         reset = hlp.hw_constant(1,0)
         dut = ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=t)
     
-        TReg(self, 'clkout', t, e=inc, q=clkout)
+        TReg(self, 'clkout', t, enable=inc, q=clkout)
         
