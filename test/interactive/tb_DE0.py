@@ -14,7 +14,7 @@ class VGATestPattern(py4hw.Logic):
     def __init__(self, parent, name, vga_if):
         super().__init__(parent, name)
         
-        
+       
         self.vga_if = self.addInterfaceSource('', vga_if)
         self.x = 0
         self.y = 0
@@ -75,14 +75,14 @@ class VGATestPattern(py4hw.Logic):
             if (self.y >= 525):
                 self.y = 0
                 
-sys = plt.DE1SoC()
+sys = plt.DE0()
 
-print('DE1SoC clk driver', sys.clockDriver.name)
+print('DE0 clk driver', sys.clockDriver.name)
 
 inc = sys.wire('inc')
 reset = sys.wire('reset')
 
-N = 100000
+N = 10000
 binary_digits = int(math.ceil(math.log2(N)))
 bcd_digits = int(math.ceil(math.log10(N)))
 
@@ -102,7 +102,9 @@ py4hw.Bit(sys, 'inc', key, 1, inc)
 py4hw.ModuloCounter(sys, 'cout', N, reset, inc, count, carryout)
 py4hw.BinaryToBCD(sys, 'bcd', count, count_bcd)
 
-hexs = [sys.getOutputHex(i) for i in range(6)]
+numHexs = 4
+
+hexs = [sys.getOutputHex(i) for i in range(numHexs)]
 bcds = [None] * bcd_digits
 
 for i in range(bcd_digits):
@@ -114,7 +116,7 @@ for i in range(bcd_digits):
     py4hw.Digit7Segment(sys, hex_name, bcds[i], hexs[i])
 
 
-for i in range(bcd_digits, 6):
+for i in range(bcd_digits, numHexs):
     py4hw.Constant(sys, 'hex{}'.format(i), 0, hexs[i])
 
 
@@ -128,8 +130,8 @@ vga_pattern = VGATestPattern(sys, 'vga', vga_if)
 vga_pattern.clockDriver = py4hw.ClockDriver('clk25', 25E6, wire=vga_clk)
 
 
-py4hw.gui.Workbench(sys)
+# py4hw.gui.Workbench(sys)
 
-dir = '/tmp/testDE1SoC'
+dir = '/tmp/testDE0'
 sys.build(dir)
 sys.download(dir)
