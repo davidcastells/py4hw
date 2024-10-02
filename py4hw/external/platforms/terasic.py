@@ -186,6 +186,18 @@ class DE0(py4hw.HWSystem):
         self.addOut(name, p)
         return pn
     
+    def getGPIO_in(self, connector:int, i:int):
+        name = f'GPIO{connector}_D[{i}]'
+        w = self.wire(name)
+        self.addIn(name, w)
+        return w
+    
+    def getGPIO_out(self, connector:int, i:int):
+        name = f'GPIO{connector}_D[{i}]'
+        w = self.wire(name)
+        self.addOut(name, w)
+        return w
+    
     def getI2C(self):
         fpga_i2c_sclk = self.addOut('FPGA_I2C_SCLK', self.wire('FPGA_I2C_SCLK'))
         fpga_i2c_sdat = self.addInOut('FPGA_I2C_SDAT', self.wire('FPGA_I2C_SDAT'))
