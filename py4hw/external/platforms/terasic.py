@@ -47,6 +47,16 @@ class I2CInterface(py4hw.Interface):
         self.SDA_OE = self.addSourceToSink('SDA_OE', 1)
         self.SDA_IN = self.addSinkToSource('SDA_IN', 1)
 
+class UARTInterface(py4hw.Interface):
+    def __init__(self, parent, name:str):
+        super().__init__(parent, name)
+        
+        self.tx = self.addSourceToSink('UART_TXD', 1)
+        self.rx = self.addSinkToSource('UART_RXD', 1)
+        self.rts = self.addSourceToSink('UART_RTS', 1)
+        self.cts = self.addSinkToSource('UART_CTS', 1)
+
+
 class AudioInterface(py4hw.Interface):
     def __init__(self, parent, name:str):
         super().__init__(parent, name)
@@ -187,6 +197,19 @@ class DE0(py4hw.HWSystem):
         
         return i2c
     
+    def getUART(self):
+        #uart_txd = self.addOut('UART_TXD', self.wire('UART_TXD'))
+        #uart_rxd = self.addIn('UART_RXD', self.wire('UART_RXD'))
+        # uart_rts = self.addOut('UART_RTS', self.wire('UART_RTS'))
+        # uart_cts = self.addIn('UART_CTS', self.wire('UART_CTS'))
+        
+        uart = UARTInterface(self, 'uart')
+        
+        self.addInterfaceSource('', uart)
+        
+        return uart
+
+
     def getAudio(self):
         
         audio = AudioInterface(self, 'audio')
