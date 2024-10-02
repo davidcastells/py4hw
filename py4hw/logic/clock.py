@@ -21,7 +21,7 @@ class GatedClock(Logic):
         
         
 class ClockDivider(Logic):
-    def __init__(self, parent, name, freq_in, freq_out, clkout):
+    def __init__(self, parent, name, freq_in, freq_out, clkout, reset=None):
         from py4hw.helper import LogicHelper
         from py4hw.logic.arithmetic import ModuloCounter
         from py4hw.logic.storage import TReg
@@ -49,8 +49,44 @@ class ClockDivider(Logic):
         q = self.wire('q', qw)
         t = self.wire('t')
         inc = hlp.hw_constant(1,1)
-        reset = hlp.hw_constant(1,0)
+        if (reset is None):
+            reset = hlp.hw_constant(1,0)
+        else:
+            reset = self.addIn('reset', reset)
+            
         dut = ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=t)
     
-        TReg(self, 'clkout', t, e=inc, q=clkout)
+        TReg(self, 'clkout', t, enable=inc, q=clkout)
         
+        
+class EdgeDetector(Logic):
+    def __init__(self, parent, name, a, r, direction):
+        from py4hw.logic.storage import Reg
+        from py4hw.logic.bitwise import Not
+        from py4hw.logic.bitwise import And2
+        from py4hw.logic.bitwise import Xor2
+        
+        super().__init__(parent, name)
+        
+        if a.getWidth() != 1:
+            raise Exception('by now only 1 bit wires supported')
+            
+        self.addIn('a', a)
+        self.addOut('r', r)
+        
+        z1 = self.wire('z1')
+        na = self.wire('na')
+        nz1 = self.wire('nz1')
+        
+        Reg(self, 'z1', a, z1)
+        
+        if (direction == 'pos'):
+            Not(self, 'nz1', z1, nz1)
+            And2(self, 'r', a, nz1, r)
+        elif (direction == 'neg'):
+            Not(self, 'na', a, na)
+            And2(self, 'r', na, z1, r)
+        elif (direction == 'both'):
+            Xor2(self, 'r', a, z1, r)
+        else:
+            raise Exception(f'direction {direction} not supported' )
