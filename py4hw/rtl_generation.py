@@ -114,10 +114,14 @@ def isReservedVerilogKeyword(str):
         return True
     return False
 
+wire_names_cache_obj = None
+wire_names_cache = None
+
 def getWireNames(obj:Logic):
     """
-    Collects the wires of the obj and their names in the
-    its scope 
+    Collects the wires of the obj and their names in 
+    its scope. Since this does not change and it could be called multiple 
+    times during the RTL generation process, we maintain a cached copy. 
 
     Parameters
     ----------
@@ -129,6 +133,12 @@ def getWireNames(obj:Logic):
         A dictionary keyed by wire objects returning their name
         in the obj scope
     """
+    global wire_names_cache_obj
+    global wire_names_cache
+
+    if (obj == wire_names_cache_obj):
+        return wire_names_cache
+
     ret = {}
     
     # process all the wires connected to child instances
@@ -146,7 +156,10 @@ def getWireNames(obj:Logic):
         
     for outp in obj.inOutPorts:
         ret[outp.wire] = getPortName(outp) 
-        
+ 
+    wire_names_cache_obj = obj
+    wire_names_cache = ret
+       
     return ret
     
 def collectPortWires( obj:Logic):

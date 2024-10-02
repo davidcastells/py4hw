@@ -37,7 +37,7 @@ class intel_lpm_counter(py4hw.Logic):
             str += '  .sclr(reset),\n'
 
         str += "  .updown(1'b1));\n"
-        str += ' param\n'
+        str += ' defparam\n'
         str += '   i0.lpm_direction = "UP",\n'
         str += '   i0.lpm_port_updown = "PORT_UNUSED",\n'
         str += '   i0.lpm_type = "LPM_COUNTER",\n'
