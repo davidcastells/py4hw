@@ -304,6 +304,9 @@ class Wire:
         self.value = val & mask
 
     def prepare(self, val:int):
+        if (self in Wire.prepared):
+            print('WARNING! wire {} already prepared'.format(self.getFullPath()))
+            
         mask = (1<<self.width) -1
         self.next = val & mask
         Wire.prepared.append(self)
@@ -373,6 +376,7 @@ class Wire:
         None.
 
         """
+        
         for w in Wire.prepared:
             w.settle()
             
