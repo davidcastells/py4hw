@@ -72,7 +72,7 @@ sysFreq = 50E6
 uartFreq = 115200
 
 py4hw.Constant(sys, 'tx_oe', 1, gpio_oe[0])
-dut = UART.UARTMsgGenerator(sys, 'msg', gpio_out[0], sysFreq, uartFreq, 'Hello crazy World\r\n')
+dut = UART.UARTMsgGenerator(sys, 'msg', gpio_out[0], sysFreq, uartFreq, 'Hello py4hw world in Terasic DE0\r\n')
 
 
 py4hw.gui.Workbench(sys)
