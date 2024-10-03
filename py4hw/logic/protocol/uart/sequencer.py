@@ -62,7 +62,9 @@ class MsgSequencer(Logic):
             link = ', '
         ret += 'end\n'
         
-        drv = py4hw.getObjectClockDriver(self)
+        from py4hw.logic.clock import getObjectClockDriver
+        
+        drv = getObjectClockDriver(self)
         
         ret += f'always @(posedge {drv.name}) begin\n'
         ret += '   if (state == 0) begin\n'
