@@ -201,8 +201,9 @@ class DE0(py4hw.HWSystem):
         wouts = self.wires(name + '_out', 32, 1)
         woes = self.wires(name + '_oe', 32, 1)
         
-        py4hw.BitsMSBF(self, 'wins', win, wins)
-        py4hw.ConcatenateMSBF(self, 'wouts', wouts, wout)
+        py4hw.BitsLSBF(self, 'wins', win, wins)
+        py4hw.ConcatenateLSBF(self, 'wouts', wouts, wout)
+        py4hw.ConcatenateLSBF(self, 'woes', woes, woe)
         
         return [wins, wouts, woes]
     
