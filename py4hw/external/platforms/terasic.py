@@ -195,7 +195,7 @@ class DE0(py4hw.HWSystem):
         wout = self.wire(name + '_out', 32) # in
         woe = self.wire(name + '_oe', 32) # in
         
-        py4hw.BidirBuf(self, 'name', win, wout, woe, wbidir)
+        py4hw.BidirBusBuf(self, 'name', win, wout, woe, wbidir)
         
         wins = self.wires(name + '_in', 32, 1)
         wouts = self.wires(name + '_out', 32, 1)
