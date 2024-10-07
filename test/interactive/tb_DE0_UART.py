@@ -157,25 +157,25 @@ py4hw.Bit(sys, 'inc', key, 1, inc)
 
 #py4hw.Constant(sys, 'inc', 1, inc)
 #py4hw.Constant(sys, 'reset', 0, reset)
-py4hw.ModuloCounter(sys, 'cout', N, reset, inc, count, carryout)
-py4hw.BinaryToBCD(sys, 'bcd', count, count_bcd)
+#py4hw.ModuloCounter(sys, 'cout', N, reset, inc, count, carryout)
+#py4hw.BinaryToBCD(sys, 'bcd', count, count_bcd)
 
 numHexs = 4
 
 hexs = [sys.getOutputHex(i) for i in range(numHexs)]
-bcds = [None] * bcd_digits
+#bcds = [None] * bcd_digits
 
-for i in range(bcd_digits):
-    bcd_name = 'bcd{}'.format(i)
-    hex_name = 'hex{}'.format(i)
-    bcds[i] = sys.wire(bcd_name, 4)
-    py4hw.Range(sys, bcd_name, count_bcd, 4*i+3, 4*i, bcds[i])
+#for i in range(bcd_digits):
+#    bcd_name = 'bcd{}'.format(i)
+#    hex_name = 'hex{}'.format(i)
+#    bcds[i] = sys.wire(bcd_name, 4)
+#    py4hw.Range(sys, bcd_name, count_bcd, 4*i+3, 4*i, bcds[i])
+#
+#    py4hw.Digit7Segment(sys, hex_name, bcds[i], hexs[i])
 
-    py4hw.Digit7Segment(sys, hex_name, bcds[i], hexs[i])
 
-
-for i in range(bcd_digits, numHexs):
-    py4hw.Constant(sys, 'hex{}'.format(i), 0, hexs[i])
+#for i in range(bcd_digits, numHexs):
+#    py4hw.Constant(sys, 'hex{}'.format(i), 0, hexs[i])
 
 
 #vga_clk = sys.wire('VGA_CLK')
@@ -202,6 +202,8 @@ msg_ready = sys.wire('msg_ready')
 msg_valid = sys.wire('msg_valid')
 ser_ready = sys.wire('ser_ready')
 ser_valid = sys.wire('ser_valid')
+des_ready = sys.wire('des_ready')
+des_valid = sys.wire('des_valid')
 msg_char = sys.wire('msg_char', 8)
 
 
@@ -210,13 +212,24 @@ UART.MsgSequencer(sys, 'msg_generator', msg_ready, msg_valid, msg_char,  'Hello 
 uartClk = sys.wire('uart_clk')
 tx_clk_pulse = sys.wire('tx_clk_pulse')
 
-py4hw.ClockDivider(sys, 'uart_clk', sysFreq, uartFreq, uartClk)
-py4hw.EdgeDetector(sys, 'pos_edge', uartClk, tx_clk_pulse, 'pos')
-
 tx = gpio_out[0]
+rx = gpio_in[1]
+
+desync = sys.wire('desync')
+rx_sample = sys.wire('rx_sample')
+
+UART.ClockGenerationAndRecovery(sys, 'uart_clock', rx, desync, tx_clk_pulse, rx_sample, sysFreq, uartFreq)
+
 
 UART.UARTSerializer(sys, 'ser', ser_ready, ser_valid, msg_char, tx_clk_pulse, tx)
 UART.ReadyFlowControl(sys, 'flowcontrol', msg_ready, msg_valid, tx_clk_pulse, ser_ready, ser_valid, 20)
+
+
+des_v = sys.wire('des_v', 8)
+
+UART.UARTDeserializer(sys, 'des', rx, rx_sample, des_ready, des_valid, des_v, desync)
+
+MsgToHex(sys, 'msg_to_hex', des_ready, des_valid, des_v, hexs)
 
 py4hw.gui.Workbench(sys)
 
