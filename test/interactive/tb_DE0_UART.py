@@ -10,6 +10,128 @@ import math
 import py4hw.external.platforms as plt
 import py4hw.logic.protocol.uart as UART
 
+class MsgToHex(py4hw.Logic):
+    def __init__(self, parent, name, ready, valid, v, hex):
+        super().__init__(parent, name)
+        
+        self.valid = self.addIn('valid', valid)
+        self.ready = self.addOut('ready', ready)
+        self.v = self.addIn('v', v)
+        
+        self.hex = hex
+        
+        for idx, item in enumerate(hex):
+            self.addOut(f'hex{idx}', hex[idx])
+        
+        self.digit_count = 0
+        self.hex_count = 0
+        self.state = 0
+        self.temp = 0
+        
+    def clock(self):
+        if (self.state == 0): # IDLE
+            if (self.valid.get()):
+                # I am always ready
+                self.state = 1
+                self.ready.prepare(0)
+
+                print('v=', self.v.get(), 'temp=', self.temp, 'digit count=', self.digit_count)
+
+                if (self.v.get() >= ord('0') and self.v.get() <= ord('9')):
+                    self.temp = (self.temp << 4) + self.v.get() - ord('0')
+                    
+                    if (self.digit_count == 0):
+                        self.digit_count += 1
+                    else:
+                        self.digit_count = 0
+                        self.hex[self.hex_count].prepare(self.temp)
+                        self.state = 2
+                else:
+                    # any other character produces a reset
+                    self.digit_count = 0
+                    self.hex_count = 0
+                    self.temp = 0
+            else:
+                self.ready.prepare(1)
+        elif (self.state == 1): # VALID
+            self.state = 0
+            self.ready.prepare(1)
+            
+            #self.hex[self.count].prepare(self.v.get())
+            #self.
+            
+        elif (self.state == 2): # INC hex count
+            self.temp = 0
+            self.hex_count += 1
+            self.state = 1
+            
+    def verilogBody(self):
+        ret = ''
+
+        ret += 'reg [1:0] state = 0;\n'
+        ret += 'reg [6:0] temp = 0;\n'
+        ret += 'reg rready = 0;\n'
+        ret += 'reg [7:0] digit_count = 0;\n'
+        ret += 'reg [7:0] hex_count = 0;\n'
+        
+        for idx, item in enumerate(hex):
+            ret += f'reg [6:0] rhex{idx} = 0;\n'
+            
+        ret += 'assign ready = rready;\n'
+        
+        for idx, item in enumerate(hex):
+            ret += f'assign hex{idx} = rhex{idx};\n'
+
+        drv = py4hw.getObjectClockDriver(self)
+        
+        ret += f'always @(posedge {drv.name}) begin\n'
+        
+        ret += 'if (state == 0)\n'
+        ret += '    begin\n'
+        ret += '    if (valid == 1)\n'
+        ret += '        begin\n'
+        ret += '        state <= 1;\n'
+        ret += '        rready <= 0;\n'
+        ret += f"        if (v >= {ord('0')} && v <= {ord('9')})\n"
+        ret += '            begin\n'
+        ret += f"            temp <= (temp << 4) | (v - {ord('0')});\n"
+        ret += '            if (digit_count == 0)\n'
+        ret += '                begin\n'
+        ret += '                digit_count <= digit_count + 1;\n'
+        ret += '                end\n'
+        ret += '            else\n'
+        ret += '                begin\n'
+        ret += '                digit_count <= 0;\n'
+        ret += '                case (hex_count)\n'
+        for idx, item in enumerate(hex):
+            ret += f'                  {idx}: rhex{idx} <= temp;\n'
+        ret += '                endcase \n'
+        ret += '                state <= 2;\n'
+        ret += '                end\n'
+        ret += '            end\n'
+        ret += '        else\n'
+        ret += '            begin\n'
+        ret += '            digit_count <= 0;\n'
+        ret += '            hex_count <= 0;\n'
+        ret += '            temp <= 0;\n'
+        ret += '            end\n'
+        ret += '        end\n'
+        ret += '    else\n'
+        ret += '        rready <= 1;\n'
+        ret += '    end\n'
+        ret += 'else if (state == 1) \n'
+        ret += '    begin\n'
+        ret += '    state <= 0;\n'
+        ret += '    rready <= 1;\n'
+        ret += '    end\n'
+        ret += 'else if (state == 2) \n'
+        ret += '    begin\n'
+        ret += '    temp <= 0;\n'
+        ret += '    hex_count <= hex_count + 1;\n'
+        ret += '    state <= 1;\n'
+        ret += '    end\n'
+        ret += '    end\n'
+        return ret
 
 sys = plt.DE0()
 
@@ -72,8 +194,29 @@ sysFreq = 50E6
 uartFreq = 115200
 
 py4hw.Constant(sys, 'tx_oe', 1, gpio_oe[0])
-dut = UART.UARTMsgGenerator(sys, 'msg', gpio_out[0], sysFreq, uartFreq, 'Hello crazy World\r\n')
 
+
+# dut = UART.UARTMsgGenerator(sys, 'msg', gpio_out[0], sysFreq, uartFreq, 'Hello crazy World\r\n')
+
+msg_ready = sys.wire('msg_ready')
+msg_valid = sys.wire('msg_valid')
+ser_ready = sys.wire('ser_ready')
+ser_valid = sys.wire('ser_valid')
+msg_char = sys.wire('msg_char', 8)
+
+
+UART.MsgSequencer(sys, 'msg_generator', msg_ready, msg_valid, msg_char,  'Hello crazy World\r\n')
+
+uartClk = sys.wire('uart_clk')
+tx_clk_pulse = sys.wire('tx_clk_pulse')
+
+py4hw.ClockDivider(sys, 'uart_clk', sysFreq, uartFreq, uartClk)
+py4hw.EdgeDetector(sys, 'pos_edge', uartClk, tx_clk_pulse, 'pos')
+
+tx = gpio_out[0]
+
+UART.UARTSerializer(sys, 'ser', ser_ready, ser_valid, msg_char, tx_clk_pulse, tx)
+UART.ReadyFlowControl(sys, 'flowcontrol', msg_ready, msg_valid, tx_clk_pulse, ser_ready, ser_valid, 20)
 
 py4hw.gui.Workbench(sys)
 
