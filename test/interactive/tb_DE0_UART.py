@@ -74,12 +74,12 @@ class MsgToHex(py4hw.Logic):
         ret += 'reg [7:0] digit_count = 0;\n'
         ret += 'reg [7:0] hex_count = 0;\n'
         
-        for idx, item in enumerate(hex):
+        for idx, item in enumerate(self.hex):
             ret += f'reg [6:0] rhex{idx} = 0;\n'
             
         ret += 'assign ready = rready;\n'
         
-        for idx, item in enumerate(hex):
+        for idx, item in enumerate(self.hex):
             ret += f'assign hex{idx} = rhex{idx};\n'
 
         drv = py4hw.getObjectClockDriver(self)
@@ -103,7 +103,7 @@ class MsgToHex(py4hw.Logic):
         ret += '                begin\n'
         ret += '                digit_count <= 0;\n'
         ret += '                case (hex_count)\n'
-        for idx, item in enumerate(hex):
+        for idx, item in enumerate(self.hex):
             ret += f'                  {idx}: rhex{idx} <= temp;\n'
         ret += '                endcase \n'
         ret += '                state <= 2;\n'
