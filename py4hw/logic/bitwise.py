@@ -155,22 +155,6 @@ class Buf(Logic):
     def propagate(self):
         self.r.put(self.a.get())
 
-class BidirBusBuf(Logic):
-    def __init__(self, parent, name: str, pin : Wire , pout : Wire, poe : Wire, bidir : BidirWire):
-        super().__init__(parent, name)
-    
-        self.addOut('pin', pin)
-        self.addIn('pout', pout)
-        self.addIn('poe', poe)
-        self.addInOut('bidir', bidir)
-        
-        pin_bits = self.wires('pin', pin.getWidth(), 1)
-        pout_bits = self.wires('pout', pout.getWidth(), 1)
-        poe_bits = self.wires('poe', poe.getWidth(), 1)
-                              
-        ConcatenateLSBF(self, 'pin', pin_bits, pin)
-        BitsLSBF(self, 'pout', pout, pout_bits)
-        BitsLSBF(self, 'poe', poe, poe_bits)
     
 class BidirBuf(Logic):
     
