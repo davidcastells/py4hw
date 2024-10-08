@@ -144,7 +144,11 @@ def getWireNames(obj:Logic):
     # process all the wires connected to child instances
     for child in obj.children.values():
         for wire in collectPortWires(child):
-            ret[wire]= "w_" + wire.name
+            if (isinstance(wire, Wire)):
+                # avoid reporting fake wires
+                ret[wire]= "w_" + wire.name
+            else:
+                ret[wire] = wire.name
  
     # overwrite the wires that are part of the interface
     for inp in obj.inPorts:
@@ -180,15 +184,18 @@ def collectPortWires( obj:Logic):
     ret = []
     
     for inp in obj.inPorts:
-        if (not(inp.wire is None)):
+        wire = inp.wire 
+        if (not(wire is None)):
             ret.append(inp.wire)
 
     for outp in obj.outPorts:
-        if (not(outp.wire is None)):
+        wire = outp.wire 
+        if (not(wire is None)):
             ret.append(outp.wire)
             
     for outp in obj.inOutPorts:
-        if (not(outp.wire is None)):
+        wire = outp.wire
+        if (not(wire is None)):
             ret.append(outp.wire)
 
     return ret
@@ -241,6 +248,10 @@ def getWireName(scope:Logic, w:Wire):
     return wNames[w]
 
 def getParentWireName(child:Logic, w:Wire):
+    if  (isinstance(w, FakeWire)):
+        # return name for fake wires
+        return w.name
+    
     wNames = getWireNames(child.parent)
     return wNames[w]
     
@@ -570,6 +581,9 @@ class VerilogGenerator:
         wireNames = getWireNames(obj)
         
         for wire in localWires:
+            if (isinstance(wire, FakeWire)):
+                continue
+            
             name = wireNames[wire]
             ww = wire.getWidth()
             if (ww > 1):
