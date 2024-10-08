@@ -68,6 +68,7 @@ class AudioInterface(py4hw.Interface):
         self.AUD_XCK = self.addSourceToSink('AUD_XCK', 1)
         self.AUD_BCLK = self.addSourceToSink('AUD_BCLK', 1)
 
+    
 class DE0(py4hw.HWSystem):
     
     def __init__(self):
@@ -188,22 +189,31 @@ class DE0(py4hw.HWSystem):
     
     def getGPIO(self, connector:int):
         name = f'GPIO{connector}_D'
-        wbidir = self.wire(name + '_bidir', 32)
-        self.addInOut(name, wbidir)
+        #wbidirs = self.wires(name + '_bidir', 32, 1)
+        
+        wbidirs = []
+        
+        for i in range(32):
+            wbidirs.append( py4hw.FakeWire(f'{name}[{i}]'))
+        
+        self.addInOut(name, self.wire(name, 32))
         
         win = self.wire(name + '_in', 32) # out
         wout = self.wire(name + '_out', 32) # in
         woe = self.wire(name + '_oe', 32) # in
         
-        py4hw.BidirBusBuf(self, 'name', win, wout, woe, wbidir)
-        
         wins = self.wires(name + '_in', 32, 1)
         wouts = self.wires(name + '_out', 32, 1)
         woes = self.wires(name + '_oe', 32, 1)
         
-        py4hw.BitsLSBF(self, 'wins', win, wins)
-        py4hw.ConcatenateLSBF(self, 'wouts', wouts, wout)
-        py4hw.ConcatenateLSBF(self, 'woes', woes, woe)
+        for i in range(32):
+            py4hw.BidirBuf(self, f'name{i}', wins[i], wouts[i], woes[i], wbidirs[i])
+        
+        
+        
+        #py4hw.BitsLSBF(self, 'wins', win, wins)
+        #py4hw.ConcatenateLSBF(self, 'wouts', wouts, wout)
+        #py4hw.ConcatenateLSBF(self, 'woes', woes, woe)
         
         return [wins, wouts, woes]
     
