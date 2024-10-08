@@ -534,6 +534,9 @@ class FakeWire():
     
     def getWidth(self):
         return self.w
+    
+    def getFullPath(self):
+        return self.name
 
 class InPort:
     """
