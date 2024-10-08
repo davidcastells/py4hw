@@ -188,7 +188,7 @@ class DE0(py4hw.HWSystem):
         return pn
     
     def getGPIO(self, connector:int):
-        from py4hw.external.intel.ip.alt import alt_io_buf
+        from py4hw.external.altera.ip.cycloneiii import cycloneiii_io_buf
         name = f'GPIO{connector}_D'
         #wbidirs = self.wires(name + '_bidir', 32, 1)
         
@@ -208,7 +208,7 @@ class DE0(py4hw.HWSystem):
         woes = self.wires(name + '_oe', 32, 1)
         
         for i in range(32):
-            alt_io_buf(self, f'{name}_{i}', wins[i], wouts[i], woes[i], wbidirs[i])
+            cycloneiii_io_buf(self, f'{name}_{i}', wins[i], wouts[i], woes[i], wbidirs[i])
         
         
         
