@@ -85,10 +85,11 @@ class UARTDeserializer(Logic):
             self.valid.prepare(0)
             self.count = 0
             self.clock_desync.prepare(0)
-            self.v.prepare(0)
+            #self.v.prepare(0)
             
-            if (self.rx_sample.get()):
+            if (self.rx_sample.get() and (self.rx.get() == 0)):
                 self.state = 2 # START BIT, now go to Regular
+                self.v.prepare(0)
                 
         elif (self.state == 1): # START BIT
             if (self.rx_sample.get()):
