@@ -519,6 +519,22 @@ class BidirWire(Wire):
         self.parent = newparent
         newparent.appendWire(self)
         
+class FakeWire():
+    # By now we use FakeWire to refer to a specific subwire of a bidirectional
+    # port.
+    def __init__(self, name, w=1):
+        self.name = name
+        self.w = w
+
+    def addSource(self, source):
+        pass
+    
+    def addSink(self, sink):
+        pass
+    
+    def getWidth(self):
+        return self.w
+
 class InPort:
     """
     An Input port
