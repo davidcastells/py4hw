@@ -62,7 +62,7 @@ class ClockGenerationAndRecovery(Logic):
         ClockDivider(self, 'sync_uart_clk', sysFreq, uartFreq, syncUartClk, reset=start)
         
         EdgeDetector(self, 'pos_edge', uartClk, tx_clk_pulse, 'pos')
-        EdgeDetector(self, 'start', rx, start, 'pos')
+        EdgeDetector(self, 'start', rx, start, 'neg')
         EdgeDetector(self, 'sample', syncUartClk, pre_rx_sample, 'neg')
         
         And2(self, 'rx_sample', pre_rx_sample, active, rx_sample)
