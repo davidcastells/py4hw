@@ -9,6 +9,8 @@ import py4hw
 import math
 import py4hw.external.platforms as plt
 import py4hw.logic.protocol.uart as UART
+import serial # If not there, install it with "pip install pyserial"
+import time
 
 class MsgToHex(py4hw.Logic):
     def __init__(self, parent, name, ready, valid, v, hex):
@@ -44,7 +46,6 @@ class MsgToHex(py4hw.Logic):
                         self.digit_count += 1
                     else:
                         self.digit_count = 0
-                        self.hex[self.hex_count].prepare(self.temp)
                         self.state = 2
                 elif (self.v.get() >= ord('A') and self.v.get() <= ord('F')):
                     self.temp = (self.temp << 4) + self.v.get() + 10 - ord('A')
@@ -53,7 +54,6 @@ class MsgToHex(py4hw.Logic):
                         self.digit_count += 1
                     else:
                         self.digit_count = 0
-                        self.hex[self.hex_count].prepare(self.temp)
                         self.state = 2
                 else:
                     # any other character produces a reset
@@ -66,10 +66,8 @@ class MsgToHex(py4hw.Logic):
             self.state = 0
             self.ready.prepare(1)
             
-            #self.hex[self.count].prepare(self.v.get())
-            #self.
-            
-        elif (self.state == 2): # INC hex count
+        elif (self.state == 2): # Output HEX, INC hex count
+            self.hex[self.hex_count].prepare(self.temp)
             self.temp = 0
             self.hex_count += 1
             self.state = 1
@@ -111,10 +109,6 @@ class MsgToHex(py4hw.Logic):
         ret += '            else\n'
         ret += '                begin\n'
         ret += '                digit_count <= 0;\n'
-        ret += '                case (hex_count)\n'
-        for idx, item in enumerate(self.hex):
-            ret += f'                  {idx}: rhex{idx} <= temp;\n'
-        ret += '                endcase \n'
         ret += '                state <= 2;\n'
         ret += '                end\n'
         ret += '            end\n'
@@ -128,10 +122,6 @@ class MsgToHex(py4hw.Logic):
         ret += '            else\n'
         ret += '                begin\n'
         ret += '                digit_count <= 0;\n'
-        ret += '                case (hex_count)\n'
-        for idx, item in enumerate(self.hex):
-            ret += f'                  {idx}: rhex{idx} <= temp;\n'
-        ret += '                endcase \n'
         ret += '                state <= 2;\n'
         ret += '                end\n'
         ret += '            end\n'
@@ -152,6 +142,10 @@ class MsgToHex(py4hw.Logic):
         ret += '    end\n'
         ret += 'else if (state == 2) \n'
         ret += '    begin\n'
+        ret += '                case (hex_count)\n'
+        for idx, item in enumerate(self.hex):
+            ret += f'                  {idx}: rhex{idx} <= temp;\n'
+        ret += '                endcase \n'
         ret += '    temp <= 0;\n'
         ret += '    hex_count <= hex_count + 1;\n'
         ret += '    state <= 1;\n'
@@ -159,6 +153,32 @@ class MsgToHex(py4hw.Logic):
         ret += '    end\n'
         return ret
 
+
+def uartSend(ser, m):
+    for c in m:
+        ser.write(c.encode())
+        time.sleep(0.01)
+        
+    
+banner_subset = '    '        
+char_to_code = {' ':'00', '\n':'x', 
+                'H':'76', 'E':'79', 'L':'38', 'O':'3F',
+                'F':'71', 'R':'77', 'M':'37',
+                'P':'73', 'Y':'72', 'T':'31', 'N':'37'}
+
+def uartSendChar(ser, c):
+    uartSend(ser, char_to_code[c])
+    
+def addBannerChar(ser, c):
+    global banner_subset
+    banner_subset = banner_subset + c
+    banner_subset = banner_subset[1:5]
+    
+    for c in banner_subset:
+        uartSendChar(c)
+        
+    uartSendChar('\n')
+    
 sys = plt.DE0()
 
 print('DE0 clk driver', sys.clockDriver.name)
@@ -264,3 +284,19 @@ if (True):
     dir = '/tmp/testDE0'
     sys.build(dir)
     sys.download(dir)
+
+
+ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+if not(ser.is_open):
+    raise Exception('port not open')
+    
+msg = ser.readline.decode('utf-8').strip()
+print('UART Rx=', msg)
+
+banner = 'HELLO FROM PYTHON'
+i = 0
+
+while True:
+    addBannerChar(ser, banner[i])    
+    i = (i +1 ) % len(banner)
+    time.sleep(1)
