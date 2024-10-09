@@ -34,6 +34,8 @@ class ClockSyncFSM(Logic):
             if (self.stop.get()):
                 self.state = 0
                 self.active.prepare(0)
+            else:
+                self.active.prepare(1)
                 
 
 class ClockGenerationAndRecovery(Logic):
