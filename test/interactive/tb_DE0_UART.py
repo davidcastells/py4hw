@@ -174,10 +174,10 @@ def addBannerChar(ser, c):
     banner_subset = banner_subset + c
     banner_subset = banner_subset[1:5]
     
-    for c in banner_subset:
-        uartSendChar(c)
+    for i in range(4):
+        uartSendChar(ser, banner_subset[3-i])
         
-    uartSendChar('\n')
+    uartSendChar(ser, '\n')
     
 sys = plt.DE0()
 
@@ -290,10 +290,10 @@ ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=Fa
 if not(ser.is_open):
     raise Exception('port not open')
     
-msg = ser.readline.decode('utf-8').strip()
+msg = ser.readline().decode('utf-8').strip()
 print('UART Rx=', msg)
 
-banner = 'HELLO FROM PYTHON'
+banner = 'HELLO FROM PYTHON '
 i = 0
 
 while True:
