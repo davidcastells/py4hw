@@ -46,6 +46,15 @@ class MsgToHex(py4hw.Logic):
                         self.digit_count = 0
                         self.hex[self.hex_count].prepare(self.temp)
                         self.state = 2
+                elif (self.v.get() >= ord('A') and self.v.get() <= ord('F')):
+                    self.temp = (self.temp << 4) + self.v.get() + 10 - ord('A')
+                    
+                    if (self.digit_count == 0):
+                        self.digit_count += 1
+                    else:
+                        self.digit_count = 0
+                        self.hex[self.hex_count].prepare(self.temp)
+                        self.state = 2
                 else:
                     # any other character produces a reset
                     self.digit_count = 0
@@ -95,6 +104,23 @@ class MsgToHex(py4hw.Logic):
         ret += f"        if (v >= {ord('0')} && v <= {ord('9')})\n"
         ret += '            begin\n'
         ret += f"            temp <= (temp << 4) | (v - {ord('0')});\n"
+        ret += '            if (digit_count == 0)\n'
+        ret += '                begin\n'
+        ret += '                digit_count <= digit_count + 1;\n'
+        ret += '                end\n'
+        ret += '            else\n'
+        ret += '                begin\n'
+        ret += '                digit_count <= 0;\n'
+        ret += '                case (hex_count)\n'
+        for idx, item in enumerate(self.hex):
+            ret += f'                  {idx}: rhex{idx} <= temp;\n'
+        ret += '                endcase \n'
+        ret += '                state <= 2;\n'
+        ret += '                end\n'
+        ret += '            end\n'
+        ret += f"        else if (v >= {ord('A')} && v <= {ord('F')})\n"
+        ret += '            begin\n'
+        ret += f"            temp <= (temp << 4) | (v + 10 - {ord('A')});\n"
         ret += '            if (digit_count == 0)\n'
         ret += '                begin\n'
         ret += '                digit_count <= digit_count + 1;\n'
