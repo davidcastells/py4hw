@@ -63,6 +63,8 @@ class ClockGenerationAndRecovery(Logic):
         
         EdgeDetector(self, 'pos_edge', uartClk, tx_clk_pulse, 'pos')
         EdgeDetector(self, 'start', rx, start, 'neg')
-        EdgeDetector(self, 'sample', syncUartClk, pre_rx_sample, 'neg')
+        
+        # the RX synchonized clock is reset with the neg edge of RX and starts with value 0, then sample must occur at positive edge
+        EdgeDetector(self, 'sample', syncUartClk, pre_rx_sample, 'pos') 
         
         And2(self, 'rx_sample', pre_rx_sample, active, rx_sample)
