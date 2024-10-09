@@ -56,7 +56,7 @@ class ClockDivider(Logic):
             
         dut = ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=t)
     
-        TReg(self, 'clkout', t, enable=inc, q=clkout)
+        TReg(self, 'clkout', t, enable=inc, q=clkout, reset=reset)
 
         
         
