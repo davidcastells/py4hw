@@ -100,7 +100,7 @@ class UARTDeserializer(Logic):
                 if (self.count == 8):
                     self.state = 3
                 else:
-                    self.v.prepare(self.v.get() << 1 | self.rx.get())
+                    self.v.prepare((self.v.get() >> 1) | (self.rx.get() << 7))
                     print('incorporating', self.rx.get(), 'to V ', self.v.next)
                     self.count += 1
         elif (self.state == 3): # STOP BIT
