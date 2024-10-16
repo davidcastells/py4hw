@@ -133,6 +133,9 @@ class Python2VerilogTranspiler:
         
         node = ReplaceIf().visit(node)
         node = ReplaceWireCalls().visit(node)
+        
+        node = PropagateConstants().process(node)
+        
         node = ReplaceExpr().visit(node)
         node = ReplaceOperators().visit(node)
         node = ReplaceOperators().visit(node) # repeat to handle Compare
@@ -244,9 +247,53 @@ class Python2VerilogTranspiler:
     
     
     
+class PropagateConstants(ast.NodeTransformer):
+    # Propagate constants.
+    # Meaning that operations between constants are collapsed, and calls to functions
+    # with constant arguments are evaluated
+    def process(self, node):
+        
+        self.anyChange = True
+        
+        while (self.anyChange):
+            self.anyChange = False
+            node = self.visit(node)
+            
+        return node
+    
+    def has_constant_args(self, call_node):
+        """Checks if an ast.Call node has all constant arguments."""
+        constant_nodes = (ast.Num, ast.Str, ast.Bytes)
+        for arg in call_node.args:
+            if not isinstance(arg, constant_nodes):
+                return False
+        for keyword in call_node.keywords:
+            if not isinstance(keyword.value, constant_nodes):
+                return False
+                
+        return True
+
+    def visit_Call(self, node):
+        from py4hw.rtl_generation import getAstName
+
+        attr = getAstName(node.func)
+        
+        if (self.has_constant_args(node)):
+            import astunparse
+            #print(astunparse.unparse(node), eval(astunparse.unparse(node)))
+            return VerilogConstant(eval(astunparse.unparse(node)))
+        
+        #print('checking call', attr)
+        #if (attr == 'print'):
+        #    # remove prints
+        #    return VerilogComment('print removed')
+        #
+        #node = ast.NodeTransformer.generic_visit(self, node)
+        
+        return node 
     
 class ReplaceIf(ast.NodeTransformer):
-        
+    # Transforms Python If into Verilog If
     def visit_If(self, node):
         #print('transpiling if')
         condition = node.test
@@ -423,6 +470,7 @@ class ReplaceWiresAndVariables(ast.NodeTransformer):
         return VerilogVariable(name, 'integer')
     
 class ReplaceConstant(ast.NodeTransformer):
+    # Replace Python Constant by a Verilog Constant
     def visit_Constant(self, node):
         
         return VerilogConstant(node.value)
@@ -680,6 +728,8 @@ class VerilogOperator(ast.AST):
             return '=='
         elif (isinstance(operator, ast.Lt)):
             return '<'        
+        elif (isinstance(operator, ast.LtE)):
+            return '<='
         elif (isinstance(operator, ast.Gt)):
             return '>'
         elif (isinstance(operator, ast.GtE)):
