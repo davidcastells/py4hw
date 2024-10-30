@@ -640,7 +640,22 @@ class VerilogGenerator:
         return False
         
     def createModuleHeader(self, obj:Logic, structureName):
-        str = "module " + structureName + " (\n\t"
+        str = "module " + structureName 
+        
+        # Add parameters
+        paramNames = obj.getParameterNames()
+        if not(paramNames is None):
+            str += " #( \n\t"
+            link = ""
+            
+            for paramName in paramNames:
+                str += link + 'parameter ' +  paramName
+                link = ',\n\t'
+                
+            str += ')\n'
+                
+            
+        str += " (\n\t"
 
         link = ""
         
@@ -745,7 +760,24 @@ class VerilogGenerator:
 
     def instantiateStructural(self, child:Logic):
         parent = child.parent
-        str = getVerilogModuleName(child) + " " +  getInstanceName(child)
+        str = getVerilogModuleName(child) + " " 
+        
+        paramNames = child.getParameterNames()
+        if not(paramNames is None):
+            str += '#('
+            link = ''
+            
+            for paramName in paramNames:
+                paramValue = child.getParameterValue(paramName)
+                
+                if isinstance(paramValue, Parameter):
+                    paramValue = paramValue.name
+                    
+                str += link + f'.{paramName}({paramValue})'
+                link = ','
+            str += ') '
+            
+        str += getInstanceName(child)
         str += "("
         link = ""
         
@@ -860,6 +892,8 @@ def getAstName(obj):
         return obj.id
     elif (isinstance(obj, ast.Attribute)):
         return getAstName(obj.attr)
+    elif (isinstance(obj, ast.Constant)):
+        return obj.value
     elif (isinstance(obj, str)):
         return obj
     elif (isinstance(obj, list)):
