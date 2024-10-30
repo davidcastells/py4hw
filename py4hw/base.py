@@ -72,6 +72,15 @@ class Logic:
     def getParameterValue(self, name):
         return self.parameters[name]
     
+    def getParameter(self, name):
+        return Parameter(self, name)        
+    
+    def getParameterNames(self):
+        if not(hasattr(self, 'parameters')):
+            return None
+        
+        return self.parameters.keys()
+    
     def addInterfaceSource(self, name:str, interface):
         """
         Adds the source ports of the interface to the 
@@ -279,6 +288,11 @@ class Logic:
             return objFound.getFromFullPath( path[pos1:])
         else:
             return objFound;
+        
+class Parameter:
+    def __init__(self, obj, name):
+        self.obj = obj
+        self.name = name
         
 class Wire:
     """
