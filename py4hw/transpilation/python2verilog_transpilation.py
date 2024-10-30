@@ -111,6 +111,7 @@ class Python2VerilogTranspiler:
             module = getMethod(self.obj, 'initial')
             node = getBody(module)
         
+            node = ReplaceParameterCalls().visit(node)
             node = ReplaceWireCalls().visit(node)
             node = ReplaceExpr().visit(node)
             node = ReplaceOperators().visit(node)
@@ -132,6 +133,7 @@ class Python2VerilogTranspiler:
         node = RemoveAssert().visit(node)
         
         node = ReplaceIf().visit(node)
+        node = ReplaceParameterCalls().visit(node)
         node = ReplaceWireCalls().visit(node)
         
         node = PropagateConstants().process(node)
@@ -341,6 +343,28 @@ class ReplaceDocStrings(ast.NodeTransformer):
                 obj = VerilogComment(obj.value)
             newbody.append(obj)
         return VerilogProcess(newbody, node.sensitivity_list)
+    
+class ReplaceParameterCalls(ast.NodeTransformer):
+        
+    def visit_Call(self, node):
+        from py4hw.rtl_generation import getAstName
+
+        attr = getAstName(node.func)
+        
+        #print('checking call', attr)
+        if (attr == 'getParameterValue'):
+            import astunparse
+            #if isinstance(node.func.value, ast.Attribute):
+            paramname = getAstName(node.args[0])
+            #print('REPLACING getParameterValue ',  astunparse.unparse(node.args[0]), node.args[0])
+            return VerilogParameter(paramname)
+        
+        else:
+            print('WARNING: unhandled call {}'.format(attr))
+                 
+        node = ast.NodeTransformer.generic_visit(self, node)
+        
+        return node
     
 class ReplaceWireCalls(ast.NodeTransformer):
         
@@ -769,6 +793,18 @@ class VerilogWire(ast.AST):
 
     def toVerilog(self):
         return self.name
+    
+class VerilogParameter(ast.AST):
+    '''
+    AST node for Verilog Wires
+    '''
+    def __init__(self, name:str):
+        self.name = name
+        self._fields = tuple(['name', 'dummy'])
+
+    def toVerilog(self):
+        return self.name
+    
 
 class VerilogVariable(ast.AST):
     '''
