@@ -63,6 +63,15 @@ class Logic:
         self.inOutPorts.append(port)
         return wire;
 
+    def addParameter(self, name, value):
+        if not(hasattr(self, 'parameters')):
+            self.parameters = {}
+            
+        self.parameters[name] = value
+        
+    def getParameterValue(self, name):
+        return self.parameters[name]
+    
     def addInterfaceSource(self, name:str, interface):
         """
         Adds the source ports of the interface to the 
