@@ -360,7 +360,8 @@ class ReplaceParameterCalls(ast.NodeTransformer):
             return VerilogParameter(paramname)
         
         else:
-            print('WARNING: unhandled call {}'.format(attr))
+            #print('WARNING: unhandled call {}'.format(attr))
+            pass
                  
         node = ast.NodeTransformer.generic_visit(self, node)
         
