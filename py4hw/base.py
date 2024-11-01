@@ -789,6 +789,7 @@ class Interface:
         None.
 
         """
+        assert(isinstance(width, int))
         w = self.parent.wire(self.name + "_" + name, width)
         self.sourceToSink.append([name, w])
         return w;
