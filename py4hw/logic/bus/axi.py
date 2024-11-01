@@ -27,7 +27,8 @@ class AXI4Interface(Interface):
         
         self.bvalid = self.addSinkToSource('bvalid', 1)
         self.bready = self.addSourceToSink('bready', 1)
-        self.rresp = self.addSinkToSource('rresp', 2)
+        self.bresp = self.addSinkToSource('bresp', 2)
+
         
         self.arvalid = self.addSourceToSink('arvalid', 1)
         self.arready = self.addSinkToSource('arready', 1)
@@ -37,6 +38,7 @@ class AXI4Interface(Interface):
         self.rready = self.addSourceToSink('rready', 1)
         self.rdata = self.addSinkToSource('rdata', dw)
         self.rlast = self.addSinkToSource('rlast', 1)
+        self.rresp = self.addSinkToSource('rresp', 2)
 
 class AXI4LiteInterface(Interface):
     def __init__(self, parent, name:str, aw, dw):
