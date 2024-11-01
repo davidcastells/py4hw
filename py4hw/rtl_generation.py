@@ -428,7 +428,7 @@ def BodyReg(obj:Logic):
     if not(obj.r is None):
         str += "if (r == 1)\n"
         str += "begin\n"
-        str += "   rq <= 0;\n"
+        str += "   rq <= {};\n".format(obj.reset_value)
         str += "end\n";
         str += "else\n";
         str += "begin\n";
