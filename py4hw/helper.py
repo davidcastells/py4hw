@@ -45,6 +45,13 @@ class LogicHelper:
         self.parent = parent
         self.inum = 0   # instance number
         
+    def _getNewName(self)->str:
+        while (True):
+            name = 'i{}'.format(self.inum)
+            self.inum += 1
+            if not(name in self.parent.children.keys()):
+                return name
+        
     def hw_abs(self, a:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
@@ -56,25 +63,6 @@ class LogicHelper:
         wa = a.getWidth()
         wb = b.getWidth()
         wr = max(wa,wb)+1
-        name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        Add(self.parent, name, a, b, r)
-        return r
-    
-    def hw_delay(self, a:Wire, en:Wire, delay:int) -> Wire:
-        wa = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, wa)
-        if (en is None):
-            en = self.hw_constant(1,1)
-        DelayLine(self.parent, name, a, en=en, reset=None, r=r, delay=delay)
-        return r
-    
-
-    def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
-        wa = a.getWidth()
-        wb = b.getWidth()
-        wr = max(wa,wb)
         name = self._getNewName()
         r = self.parent.wire(name, wr)
         Add(self.parent, name, a, b, r)
@@ -107,7 +95,7 @@ class LogicHelper:
         r = self.parent.wire(name, w)
         And(self.parent, name, a, r)
         return r
-
+    
     def hw_bit(self, a:Wire, bit:int) -> Wire:
         name = self._getNewName()
         r = self.parent.wire(name)
@@ -127,21 +115,14 @@ class LogicHelper:
         r = self.parent.wires(name, w, 1)
         BitsLSBF(self.parent, name, a, r)
         return r
-
-    def hw_reg(self, a:Wire, enable=None, reset=None) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Reg(self.parent, name, d=a, q=r, enable=enable, reset=reset)
-        return r
-
+    
     def hw_buf(self, a:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
         r = self.parent.wire(name, w)
         Buf(self.parent, name, a, r)
         return r
-
+    
     def hw_concatenate_msbf(self, ins:list) -> Wire:
         name = self._getNewName()
         w = 0
@@ -167,6 +148,48 @@ class LogicHelper:
         r = self.parent.wire(name, width)
         Constant(self.parent, name, v, r)
         return r
+    
+    def hw_delay(self, a:Wire, en:Wire, delay:int) -> Wire:
+        wa = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, wa)
+        if (en is None):
+            en = self.hw_constant(1,1)
+        DelayLine(self.parent, name, a, en=en, reset=None, r=r, delay=delay)
+        return r
+    
+    def hw_div(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Div(self.parent, name, a, b, r)
+        return r    
+
+    def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Add(self.parent, name, a, b, r)
+        return r
+    
+    
+
+    
+
+    def hw_reg(self, a:Wire, enable=None, reset=None, reset_value=None) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Reg(self.parent, name, d=a, q=r, enable=enable, reset=reset, reset_value=reset_value)
+        return r
+
+    
+
+    
 
     def hw_mod(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
@@ -177,14 +200,7 @@ class LogicHelper:
         Mod(self.parent, name, a, b, r)
         return r
 
-    def hw_div(self, a:Wire, b:Wire) -> Wire:
-        wa = a.getWidth()
-        wb = b.getWidth()
-        wr = max(wa,wb)
-        name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        Div(self.parent, name, a, b, r)
-        return r
+    
     
     def hw_signed_div(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
@@ -207,6 +223,13 @@ class LogicHelper:
         name = self._getNewName()
         r = self.parent.wire(name)
         EqualConstant(self.parent, name, a, b, r)
+        return r
+    
+    def hw_if(self, cond:Wire, true_option:Wire, false_option:Wire) -> Wire:
+        w = true_option.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Mux2(self.parent, name, cond, false_option, true_option, r)
         return r
             
     def hw_not_equal_constant(self, a:Wire, b:int) -> Wire:
@@ -248,12 +271,45 @@ class LogicHelper:
         Or2(self.parent, self._getNewName(), gt, eq, ge)
         return ge
     
-    def _getNewName(self)->str:
-        while (True):
-            name = 'i{}'.format(self.inum)
-            self.inum += 1
-            if not(name in self.parent.children.keys()):
-                return name
+    def hw_mul(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = wa+wb
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Mul(self.parent, name, a, b, r)
+        return r
+        
+    def hw_mux2(self, sel:Wire, s0:Wire, s1:Wire) -> Wire:
+        w = s0.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Mux2(self.parent, name, sel, s0, s1, r)
+        return r
+
+    def hw_mux(self, sel:Wire, options:list) -> Wire:
+        name = self._getNewName()
+        w = options[0].getWidth()
+        r = self.parent.wire(name, w)
+        Mux(self.parent, name, sel, options, r)
+        return r
+
+    def hw_neg(self, a:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Neg(self.parent, name, a, r)
+        return r
+
+    def hw_not(self, a:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Not(self.parent, name, a, r)
+        return r
+
+
+    
     
     
     def hw_or2(self, a:Wire, b:Wire) -> Wire:
@@ -298,43 +354,7 @@ class LogicHelper:
         return r
 
     
-    def hw_mul(self, a:Wire, b:Wire) -> Wire:
-        wa = a.getWidth()
-        wb = b.getWidth()
-        wr = wa+wb
-        name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        Mul(self.parent, name, a, b, r)
-        return r
-        
-    def hw_mux2(self, sel:Wire, s0:Wire, s1:Wire) -> Wire:
-        w = s0.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Mux2(self.parent, name, sel, s0, s1, r)
-        return r
-
-    def hw_mux(self, sel:Wire, options:list) -> Wire:
-        name = self._getNewName()
-        w = options[0].getWidth()
-        r = self.parent.wire(name, w)
-        Mux(self.parent, name, sel, options, r)
-        return r
-
-    def hw_neg(self, a:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Neg(self.parent, name, a, r)
-        return r
-
-    def hw_not(self, a:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Not(self.parent, name, a, r)
-        return r
-
+    
     def hw_sub(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
