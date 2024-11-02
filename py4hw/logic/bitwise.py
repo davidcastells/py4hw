@@ -202,6 +202,8 @@ class Constant(Logic):
 
     def __init__(self, parent: Logic, name: str, value: int, r: Wire):
         super().__init__(parent, name)
+        assert(isinstance(value, int))
+        assert(isinstance(r, Wire))
         self.value = value
         self.r = self.addOut("r", r)
 
