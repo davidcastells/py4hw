@@ -8,7 +8,7 @@ from py4hw.base import *
 
 class AXI4Interface(Interface):
 
-    def __init__(self, parent, name:str, aw, dw):
+    def __init__(self, parent, name:str, aw, dw, aridw=None, ridw=None):
         super().__init__(parent, name)
 
         # output -> source to sink
@@ -34,11 +34,19 @@ class AXI4Interface(Interface):
         self.arready = self.addSinkToSource('arready', 1)
         self.araddr = self.addSourceToSink('araddr', aw)
         self.arlen = self.addSourceToSink('arlen', 8)
+        self.arsize = self.addSourceToSink('arsize', 3) # data transfer size in bytes = 2^awsize
+
+        if not(aridw is None):
+            self.arid = self.addSinkToSource('arid', aridw)
+        
         self.rvalid = self.addSinkToSource('rvalid', 1)
         self.rready = self.addSourceToSink('rready', 1)
         self.rdata = self.addSinkToSource('rdata', dw)
         self.rlast = self.addSinkToSource('rlast', 1)
         self.rresp = self.addSinkToSource('rresp', 2)
+        
+        if not(ridw is None):
+            self.rid = self.addSinkToSource('rid', ridw)
 
 class AXI4LiteInterface(Interface):
     def __init__(self, parent, name:str, aw, dw):
