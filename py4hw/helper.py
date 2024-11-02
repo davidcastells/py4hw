@@ -167,6 +167,20 @@ class LogicHelper:
         Div(self.parent, name, a, b, r)
         return r    
 
+    def hw_equal(self, a:Wire, b:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        Equal(self.parent, name, a, b, r)
+        return r
+ 
+    def hw_equal_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        EqualConstant(self.parent, name, a, b, r)
+        return r
+
     def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
         wb = b.getWidth()
@@ -211,19 +225,6 @@ class LogicHelper:
         SignedDiv(self.parent, name, a, b, r)
         return r    
 
-    def hw_equal(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name)
-        Equal(self.parent, name, a, b, r)
-        return r
- 
-    def hw_equal_constant(self, a:Wire, b:int) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name)
-        EqualConstant(self.parent, name, a, b, r)
-        return r
     
     def hw_if(self, cond:Wire, true_option:Wire, false_option:Wire) -> Wire:
         w = true_option.getWidth()
@@ -356,7 +357,7 @@ class LogicHelper:
     
     
     def hw_sub(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
+        w = max(a.getWidth(), b.getWidth())
         name = self._getNewName()
         r = self.parent.wire(name, w)
         Sub(self.parent, name, a, b, r)
