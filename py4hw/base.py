@@ -70,7 +70,11 @@ class Logic:
         self.parameters[name] = value
         
     def getParameterValue(self, name):
-        return self.parameters[name]
+        value = self.parameters[name]
+        
+        if (isinstance(value, Parameter)):
+            value = value.obj.parameters[value.name]
+        return value
     
     def getParameter(self, name):
         return Parameter(self, name)        
