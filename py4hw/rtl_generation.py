@@ -640,6 +640,8 @@ class VerilogGenerator:
         return False
         
     def createModuleHeader(self, obj:Logic, structureName):
+        # Created the Module Header containing inputs, ouputs and parameters
+        
         str = "module " + structureName 
         
         # Add parameters
@@ -768,7 +770,7 @@ class VerilogGenerator:
             link = ''
             
             for paramName in paramNames:
-                paramValue = child.getParameterValue(paramName)
+                paramValue = child.getParameterInstantiationValue(paramName)
                 
                 if isinstance(paramValue, Parameter):
                     paramValue = paramValue.name
