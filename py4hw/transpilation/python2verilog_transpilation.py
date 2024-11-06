@@ -358,7 +358,10 @@ class ReplaceParameterCalls(ast.NodeTransformer):
             paramname = getAstName(node.args[0])
             #print('REPLACING getParameterValue ',  astunparse.unparse(node.args[0]), node.args[0])
             return VerilogParameter(paramname)
-        
+        elif (attr == 'getParameter'):
+            paramname = getAstName(node.args[0])
+            return VerilogParameter(paramname)
+            
         else:
             #print('WARNING: unhandled call {}'.format(attr))
             pass
