@@ -76,6 +76,18 @@ class Logic:
             value = value.obj.parameters[value.name]
         return value
     
+    def getParameterInstantiationValue(self, name):
+        # returns the final name associated with this parameter, used in rtl
+        # generation.
+        # If the parent instantiates the parameter with a value, we return it
+        # If the parent instantiates the parameter with a parent parameter, we return it
+        value = self.parameters[name]
+
+        if (isinstance(value, Parameter)):
+            return value.name
+        else:
+            return value            
+    
     def getParameter(self, name):
         return Parameter(self, name)        
     
