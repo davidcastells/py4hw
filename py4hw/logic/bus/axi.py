@@ -37,7 +37,7 @@ class AXI4Interface(Interface):
         self.arsize = self.addSourceToSink('arsize', 3) # data transfer size in bytes = 2^awsize
 
         if not(aridw is None):
-            self.arid = self.addSinkToSource('arid', aridw)
+            self.arid = self.addSourceToSink('arid', aridw)
         
         self.rvalid = self.addSinkToSource('rvalid', 1)
         self.rready = self.addSourceToSink('rready', 1)
