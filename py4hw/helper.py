@@ -181,6 +181,13 @@ class LogicHelper:
         EqualConstant(self.parent, name, a, b, r)
         return r
 
+    def hw_select_default(self, sels:list, ins:list, default:Wire) -> Wire:
+        name = self._getNewName()
+        w = max([obj.getWidth() for obj in ins])
+        r = self.parent.wire(name, w)        
+        SelectDefault(self.parent, name, sels, ins, default, r)
+        return r        
+        
     def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
         wb = b.getWidth()
@@ -189,8 +196,6 @@ class LogicHelper:
         r = self.parent.wire(name, wr)
         Add(self.parent, name, a, b, r)
         return r
-    
-    
 
     
 
@@ -339,6 +344,13 @@ class LogicHelper:
         r = self.parent.wire(name, w)
         Range(self.parent, name, a, up, down, r)
         return r
+    
+    def hw_repeat(self, a:Wire, n:int) -> Wire:
+        w = n * a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Repeat(self.parent, name, a, r)
+        return r
         
     def hw_shift_left_constant(self, a:Wire, n:int) -> Wire:
         w = a.getWidth()
@@ -347,15 +359,17 @@ class LogicHelper:
         ShiftLeftConstant(self.parent, name, a, n, r)
         return r
     
-    def hw_xor2(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Xor2(self.parent, name, a, b, r)
-        return r
 
     
     
+
+    def hw_sign(self, a:Wire) -> Wire:
+        w = 1
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Sign(self.parent, name, a, r)
+        return r
+
     def hw_sub(self, a:Wire, b:Wire) -> Wire:
         w = max(a.getWidth(), b.getWidth())
         name = self._getNewName()
@@ -363,11 +377,11 @@ class LogicHelper:
         Sub(self.parent, name, a, b, r)
         return r
 
-    def hw_sign(self, a:Wire) -> Wire:
-        w = 1
+    def hw_xor2(self, a:Wire, b:Wire) -> Wire:
+        w = a.getWidth()
         name = self._getNewName()
         r = self.parent.wire(name, w)
-        Sign(self.parent, name, a, r)
+        Xor2(self.parent, name, a, b, r)
         return r
     
     def sign_extend(self, a:Wire, w) -> Wire:
