@@ -362,29 +362,34 @@ class Schematic:
         self.placeInstances()
         self.placeOutputPorts()
 
-        self.bruteForceSort()
-        self.columnAssignment()
-        
-        self.createNets(debug=debug) 
-        self.passthroughCreation()
-        self.removeArrowsSpecialCases()
-        
-        self.rowAssignment()
-        
-
-        self.trackAssignment()
-        self.replaceAsColRow()
-        
-        #self.replaceByAdjacencyMatrix()
-        
-        # self.replaceByDependency()
-        
-        #self.replaceVerticalCompress()
-        # #self.replaceHorizontalCompress()
-        
-
-        self.routeNets()
-        
+        try:
+            self.bruteForceSort()
+            self.columnAssignment()
+            
+            self.createNets(debug=debug) 
+            self.passthroughCreation()
+            self.removeArrowsSpecialCases()
+        except Exception as e:
+            print(e)
+            
+        try:
+            self.rowAssignment()
+            
+    
+            self.trackAssignment()
+            self.replaceAsColRow()
+            
+            #self.replaceByAdjacencyMatrix()
+            
+            # self.replaceByDependency()
+            
+            #self.replaceVerticalCompress()
+            # #self.replaceHorizontalCompress()
+            
+    
+            self.routeNets()
+        except Exception as e:
+            print(e)
         
     def draw(self):
         self.drawAll()
