@@ -102,14 +102,17 @@ def getPorts(obj):
             name = sourceInfo[0]
             wire = sourceInfo[1]
             sourcePort = wire.getSource()
-            ret.append(sourcePort)
+            
+            if not(sourcePort is None):
+                ret.append(sourcePort)
             
         for sinkInfo in obj.sinkToSource:
             name = sinkInfo[0]
             wire = sinkInfo[1]
             
             sourcePort = wire.getSource()
-            ret.append(sourcePort)
+            if not(sourcePort is None):
+                ret.append(sourcePort)
 
     return ret
 
