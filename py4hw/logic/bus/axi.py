@@ -38,6 +38,8 @@ class AXI4Interface(Interface):
 
         if not(aridw is None):
             self.arid = self.addSourceToSink('arid', aridw)
+        else:
+            self.arid = None
         
         self.rvalid = self.addSinkToSource('rvalid', 1)
         self.rready = self.addSourceToSink('rready', 1)
@@ -47,7 +49,53 @@ class AXI4Interface(Interface):
         
         if not(ridw is None):
             self.rid = self.addSinkToSource('rid', ridw)
+        else:
+            self.rid = None
 
+    def getWriteSubInterface(self):
+        sub = Interface(self.parent, '{}_sub_write'.format(self.name))
+        
+        sub.awvalid = sub.addSourceToSinkRef(self, 'awvalid')
+        sub.awready = sub.addSinkToSourceRef(self, 'awready')
+        sub.awaddr = sub.addSourceToSinkRef(self, 'awaddr')
+        sub.awlen = sub.addSourceToSinkRef(self, 'awlen')
+        sub.awsize = sub.addSourceToSinkRef(self, 'awsize') # data transfer size in bytes = 2^awsize
+        
+        sub.wvalid = sub.addSourceToSinkRef(self, 'wvalid')
+        sub.wready = sub.addSinkToSourceRef(self, 'wready')
+        sub.wdata = sub.addSourceToSinkRef(self, 'wdata')
+        sub.wstrb = sub.addSourceToSinkRef(self, 'wstrb')
+        sub.wlast = sub.addSourceToSinkRef(self, 'wlast')
+        
+        sub.bvalid = sub.addSinkToSourceRef(self, 'bvalid')
+        sub.bready = sub.addSourceToSinkRef(self, 'bready')
+        sub.bresp = sub.addSinkToSourceRef(self, 'bresp')
+        
+        return sub
+    
+    def getReadSubInterface(self):
+        sub = Interface(self.parent, '{}_sub_read'.format(self.name))
+        
+        sub.arvalid = sub.addSourceToSinkRef(self, 'arvalid')
+        sub.arready = sub.addSinkToSourceRef(self, 'arready')
+        sub.araddr = sub.addSourceToSinkRef(self, 'araddr')
+        sub.arlen = sub.addSourceToSinkRef(self, 'arlen')
+        sub.arsize = sub.addSourceToSinkRef(self, 'arsize') # data transfer size in bytes = 2^awsize
+
+        if not(self.arid is None):
+            sub.arid = sub.addSourceToSinkRef(self, 'arid')
+        
+        sub.rvalid = sub.addSinkToSourceRef(self, 'rvalid')
+        sub.rready = sub.addSourceToSinkRef(self, 'rready')
+        sub.rdata = sub.addSinkToSourceRef(self, 'rdata')
+        sub.rlast = sub.addSinkToSourceRef(self, 'rlast')
+        sub.rresp = sub.addSinkToSourceRef(self, 'rresp')
+        
+        if not(self.rid is None):
+            sub.rid = sub.addSinkToSourceRef(self, 'rid')
+            
+        return sub
+        
 class AXI4LiteInterface(Interface):
     def __init__(self, parent, name:str, aw, dw):
         super().__init__(parent, name)
