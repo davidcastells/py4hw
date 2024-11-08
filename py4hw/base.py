@@ -27,6 +27,8 @@ class Logic:
     
         self.children = {}          # children are keyed by name
         self.clockDriver = None     # every circuit has a clock driver, if None it is inherited from parent
+                                    # the clock driver in place for an object can be obtained by the function
+                                    # getObjectClockDriver(obj)
         
         self._wires = {}        # dictionary of wires created by the object
         
