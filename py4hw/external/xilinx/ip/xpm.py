@@ -39,6 +39,9 @@ class xilinx_xpm_fifo_sync(py4hw.Logic):
     def verilogBody(self):
         str = ''
 
+        from py4hw.base import getObjectClockDriver            
+        clk_name = getObjectClockDriver(self).name
+
         str += '// Xilinx Parameterized Macro, Version 2016.4\n'
         str += 'xpm_fifo_sync # (\n'
         str += '.FIFO_MEMORY_TYPE("auto"),           //string; "auto", "block", "distributed", or "ultra";\n'
@@ -56,15 +59,12 @@ class xilinx_xpm_fifo_sync(py4hw.Logic):
         str += '.DOUT_RESET_VALUE          ("0"),              //string,\n'
         str += '.WAKEUP_TIME               (0)                 //positive integer; 0 or 2;\n'
         
+        str += ') inst_rd_xpm_fifo_sync (\n'
+        str += ".sleep(1'b0), .rst( reset) ,\n"
+        str += f'.wr_clk        ( {clk_name}) ,\n'
+        str += '.wr_en(wr_en), .din(din), .full(full), .prog_full(prog_full),\n'
+        
         str += '''        
-) inst_rd_xpm_fifo_sync (
-  .sleep         ( 1'b0             ) ,
-  .rst           ( reset           ) ,
-  .wr_clk        ( clk50           ) ,
-  .wr_en         ( wr_en        ) ,
-  .din           ( din         ) ,
-  .full          ( full      ) ,
-  .prog_full     ( prog_full) ,
   .wr_data_count (                  ) ,
   .overflow      (                  ) ,
   .wr_rst_busy   (                  ) ,
