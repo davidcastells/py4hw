@@ -501,7 +501,8 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
-    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
+    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, 
+                               forceName=None, createdStructures=[]):
         """
         Generates Verilog for all entities of the object hierarchy
 
@@ -511,7 +512,7 @@ class VerilogGenerator:
 
         """
         
-        self.created_structures = []
+        self.created_structures = createdStructures
         return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity, forceName)
     
     def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
