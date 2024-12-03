@@ -63,9 +63,8 @@ class UARTSerializer(Logic):
             if (self.uart_clock_posedge.get()):
                 self.state = 0
                 
+
 class UARTDeserializer(Logic):
-    # WARNING @todo this is wrong, wire order is LSB first, 
-    # idle wire state is 1, and start bit is zero
     def __init__(self, parent, name, rx, rx_sample, ready, valid, v, clock_desync):
         super().__init__(parent, name)
         
@@ -73,44 +72,59 @@ class UARTDeserializer(Logic):
         self.ready = self.addIn('ready', ready)
         self.valid = self.addOut('valid', valid)
         self.v = self.addOut('v', v)
-        
+
+
         self.rx_sample = self.addIn('rx_sample', rx_sample)
         self.clock_desync = self.addOut('clock_desync', clock_desync)
         
         self.state = 0
         self.count = 0
-        
+        self.state_v = 0
+        self.temp = 0
+
     def clock(self):
+        # FSM to receive rx and save the incoming value in v
         if (self.state == 0): # IDLE
-            self.valid.prepare(0)
-            self.count = 0
             self.clock_desync.prepare(0)
-            #self.v.prepare(0)
+            self.count = 0
+            self.temp = 0
             
             if (self.rx_sample.get() and (self.rx.get() == 0)):
                 self.state = 2 # START BIT, now go to Regular
-                self.v.prepare(0)
                 
-        elif (self.state == 1): # START BIT
-            if (self.rx_sample.get()):
-                self.state = 2 # REGULAR BIT
-                self.count = 0
+                
         elif (self.state == 2): # REGULAR BIT
             if (self.rx_sample.get()):
                 if (self.count == 8):
-                    self.state = 3
+                    self.state = 0
+                    self.state_v = 1
+                    self.v.prepare(self.temp) 
+                    self.clock_desync.prepare(1)
+
                 else:
-                    self.v.prepare((self.v.get() >> 1) | (self.rx.get() << 7))
-                    print('incorporating', self.rx.get(), 'to V ', self.v.next)
+                    self.temp = ((self.temp >> 1) | (self.rx.get() << 7) )
+                    #print('incorporating', self.rx.get(), 'to V ', self.temp)
                     self.count += 1
-        elif (self.state == 3): # STOP BIT
-            if (self.rx_sample.get()):
-                self.state = 4
-        elif (self.state == 4):
+                    
+        #elif (self.state == 3): # STOP BIT
+        #    self.clock_desync.prepare(0)
+        #    if (self.rx_sample.get()):
+        #        if (self.rx.get() == 0):
+        #            self.state = 2 # START BIT, following character is consecutive, no idle time
+        #        else:
+        #            self.state = 0 
+
+        # FSM to send v to the next module
+
+        #if (self.state_v == 0): # IDLE
+        #    pass
+
+        if (self.state_v == 1): #START
             if (self.ready.get()):
-                self.state = 5
                 self.valid.prepare(1)
-        elif (self.state == 5):
-            self.state = 0
-            self.valid.prepare(0)
-            self.clock_desync.prepare(1)
+                self.state_v = 2
+                
+        elif (self.state_v == 2): # SEND
+            if (self.ready.get()):
+                self.valid.prepare(0)
+                self.state_v = 0

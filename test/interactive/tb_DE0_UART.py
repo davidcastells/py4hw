@@ -11,6 +11,7 @@ import py4hw.external.platforms as plt
 import py4hw.logic.protocol.uart as UART
 import serial # If not there, install it with "pip install pyserial"
 import time
+import sys
 
 class MsgToHex(py4hw.Logic):
     def __init__(self, parent, name, ready, valid, v, hex):
@@ -157,7 +158,7 @@ class MsgToHex(py4hw.Logic):
 def uartSend(ser, m):
     for c in m:
         ser.write(c.encode())
-        time.sleep(0.01)
+        #time.sleep(0.01)
         
     
 banner_subset = '    '        
@@ -179,25 +180,25 @@ def addBannerChar(ser, c):
         
     uartSendChar(ser, '\n')
     
-sys = plt.DE0()
+hw = plt.DE0()
 
-print('DE0 clk driver', sys.clockDriver.name)
+print('DE0 clk driver', hw.clockDriver.name)
 
-inc = sys.wire('inc')
-reset = sys.wire('reset')
+inc = hw.wire('inc')
+reset = hw.wire('reset')
 
 N = 10000
 binary_digits = int(math.ceil(math.log2(N)))
 bcd_digits = int(math.ceil(math.log10(N)))
 
-count = sys.wire('count', binary_digits)
-count_bcd = sys.wire('count_bcd', 4*bcd_digits) # 2 digits are enough
-carryout = sys.wire('carryout')
+count = hw.wire('count', binary_digits)
+count_bcd = hw.wire('count_bcd', 4*bcd_digits) # 2 digits are enough
+carryout = hw.wire('carryout')
 
-key = sys.getInputKey()
+key = hw.getInputKey()
 
-py4hw.Bit(sys, 'reset', key, 0, reset)
-py4hw.Bit(sys, 'inc', key, 1, inc)
+py4hw.Bit(hw, 'reset', key, 0, reset)
+py4hw.Bit(hw, 'inc', key, 1, inc)
 
 # sys.addOut('count', count)
 
@@ -208,7 +209,7 @@ py4hw.Bit(sys, 'inc', key, 1, inc)
 
 numHexs = 4
 
-hexs = [sys.getOutputHex(i) for i in range(numHexs)]
+hexs = [hw.getOutputHex(i) for i in range(numHexs)]
 #bcds = [None] * bcd_digits
 
 #for i in range(bcd_digits):
@@ -234,69 +235,77 @@ hexs = [sys.getOutputHex(i) for i in range(numHexs)]
 #vga_pattern.clockDriver = py4hw.ClockDriver('clk25', 25E6, wire=vga_clk)
 
 #uart = sys.getUART()
-gpio_in, gpio_out, gpio_oe = sys.getGPIO(0)
+gpio_in, gpio_out, gpio_oe = hw.getGPIO(0)
 
 sysFreq = 50E6
 uartFreq = 115200
 
-py4hw.Constant(sys, 'tx_oe', 1, gpio_oe[0])
+py4hw.Constant(hw, 'tx_oe', 1, gpio_oe[0])
 
 
 # dut = UART.UARTMsgGenerator(sys, 'msg', gpio_out[0], sysFreq, uartFreq, 'Hello crazy World\r\n')
 
-msg_ready = sys.wire('msg_ready')
-msg_valid = sys.wire('msg_valid')
-ser_ready = sys.wire('ser_ready')
-ser_valid = sys.wire('ser_valid')
-des_ready = sys.wire('des_ready')
-des_valid = sys.wire('des_valid')
-msg_char = sys.wire('msg_char', 8)
+msg_ready = hw.wire('msg_ready')
+msg_valid = hw.wire('msg_valid')
+ser_ready = hw.wire('ser_ready')
+ser_valid = hw.wire('ser_valid')
+des_ready = hw.wire('des_ready')
+des_valid = hw.wire('des_valid')
+msg_char = hw.wire('msg_char', 8)
 
 
-UART.MsgSequencer(sys, 'msg_generator', msg_ready, msg_valid, msg_char,  'Hello crazy World\r\n')
+UART.MsgSequencer(hw, 'msg_generator', msg_ready, msg_valid, msg_char,  'Hello crazy World\r\n')
 
-uartClk = sys.wire('uart_clk')
-tx_clk_pulse = sys.wire('tx_clk_pulse')
+uartClk = hw.wire('uart_clk')
+tx_clk_pulse = hw.wire('tx_clk_pulse')
 
 tx = gpio_out[0]
 rx = gpio_in[1]
 
-desync = sys.wire('desync')
-rx_sample = sys.wire('rx_sample')
+desync = hw.wire('desync')
+rx_sample = hw.wire('rx_sample')
 
-UART.ClockGenerationAndRecovery(sys, 'uart_clock', rx, desync, tx_clk_pulse, rx_sample, sysFreq, uartFreq)
-
-
-UART.UARTSerializer(sys, 'ser', ser_ready, ser_valid, msg_char, tx_clk_pulse, tx)
-UART.ReadyFlowControl(sys, 'flowcontrol', msg_ready, msg_valid, tx_clk_pulse, ser_ready, ser_valid, 20)
+UART.ClockGenerationAndRecovery(hw, 'uart_clock', rx, desync, tx_clk_pulse, rx_sample, sysFreq, uartFreq)
 
 
-des_v = sys.wire('des_v', 8)
-
-UART.UARTDeserializer(sys, 'des', rx, rx_sample, des_ready, des_valid, des_v, desync)
-
-MsgToHex(sys, 'msg_to_hex', des_ready, des_valid, des_v, hexs)
-
-py4hw.gui.Workbench(sys)
+UART.UARTSerializer(hw, 'ser', ser_ready, ser_valid, msg_char, tx_clk_pulse, tx)
+UART.ReadyFlowControl(hw, 'flowcontrol', msg_ready, msg_valid, tx_clk_pulse, ser_ready, ser_valid, 20)
 
 
-if (True):
-    dir = '/tmp/testDE0'
-    sys.build(dir)
-    sys.download(dir)
+des_v = hw.wire('des_v', 8)
+
+UART.UARTDeserializer(hw, 'des', rx, rx_sample, des_ready, des_valid, des_v, desync)
+
+MsgToHex(hw, 'msg_to_hex', des_ready, des_valid, des_v, hexs)
 
 
-ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
-if not(ser.is_open):
-    raise Exception('port not open')
+if __name__ == "__main__":
+    program = True
     
-msg = ser.readline().decode('utf-8').strip()
-print('UART Rx=', msg)
+    if len(sys.argv) > 1:
+        if 'gui' in sys.argv[1:]:
+            py4hw.gui.Workbench(hw)
+            
+        if 'noprogram' in sys.argv[1:]:
+            program = False
 
-banner = 'HELLO FROM PYTHON '
-i = 0
+    if (program):
+        dir = '/tmp/testDE0'
+        hw.build(dir)
+        hw.download(dir)
 
-while True:
-    addBannerChar(ser, banner[i])    
-    i = (i +1 ) % len(banner)
-    time.sleep(1)
+
+    ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+    if not(ser.is_open):
+        raise Exception('port not open')
+        
+    msg = ser.readline().decode('utf-8').strip()
+    print('UART Rx=', msg)
+
+    banner = 'HELLO FROM PYTHON '
+    i = 0
+
+    while True:
+        addBannerChar(ser, banner[i])    
+        i = (i +1 ) % len(banner)
+        time.sleep(1)
