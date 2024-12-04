@@ -214,27 +214,39 @@ class HILPlatform:
 
 def getDUTValidIns(dut):
     # we only support a maximum of 32 bits per input by now
-    for i in len(dut.inPorts):
-        assert(dut.inPorts.getWidth() <= 32)
+    for i in range(len(dut.inPorts)):
+        assert(dut.inPorts[i].wire.getWidth() <= 32)
     return len(dut.inPorts)
 
 def getDUTValidOuts(dut):
     # we only support a maximum of 32 bits per input by now
-    for i in len(dut.outPorts):
-        assert(dut.outPorts.getWidth() <= 32)
+    for i in range(len(dut.outPorts)):
+        assert(dut.outPorts[i].wire.getWidth() <= 32)
     return len(dut.outPorts)
     
 def AbstractClassInit(self, parent:py4hw.Logic, name:str):
     super(self.__class__, self).__init__(parent, name)
+
+def AbstractClassStructureName(self):
+    return self.name
     
 def AbstractClass(class_name):
     return type(class_name, # class name
                 (py4hw.Logic,), # base classes
-                {'__init__': AbstractClassInit} # methods
+                {
+                    '__init__': AbstractClassInit,              # constructor
+                    'structureName': AbstractClassStructureName # structure name
+                }
                 )
 
 def createHILUART(platform, dut, projectDir):
-    hil_plt = HILPlatform(platform, projectDir, dut.name)
+    dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
+    dutStructureNameWithInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=False)
+    
+    # use instance number if necessary
+    dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
+
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName)
     
     if not(os.path.exists(projectDir)):
         print('Creating the directory', projectDir)
@@ -243,9 +255,12 @@ def createHILUART(platform, dut, projectDir):
     # First create verilog for the dut        
     rtl = py4hw.VerilogGenerator(dut)
     
-    rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=True)
-    verilog_file = os.path.join(projectDir, dut.name+'.v')
+    rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
+    verilog_file = os.path.join(projectDir, dutStructureName+'.v')
     
+    with open(verilog_file, 'w') as file:
+        file.write(rtl_code)
+            
     # Create the wrapping elements -----------------------------------------------------
     
     ready_req = platform.wire('ready_req')
@@ -288,9 +303,11 @@ def createHILUART(platform, dut, projectDir):
     fake_outs = []
     
     for i in range(num_ins):
-        iw = dut.inPorts[i].wire.getWidth()
+        ip = dut.inPorts[i]
+        in_name = ip.name
+        iw = ip.wire.getWidth()
         in_wire = platform.wire(f'in{i}')
-        fake_ins.append(in_wire)
+        fake_ins.append((in_name, in_wire))
         
         py4hw.Reg(platform, f'in{i}', d=v_in,  q=in_wire, enable=hlp.hw_and2(ena_in_list[i], set_v_in))
 
@@ -301,9 +318,11 @@ def createHILUART(platform, dut, projectDir):
 
     for i in range(num_outs_up):
         if (i < num_outs):
-            ow = dut.outPorts[i].wire.getWidth()
+            op = dut.outPorts[i]
+            out_name = op.name
+            ow = op.wire.getWidth()
             out_wire = platform.wire(f'out{i}')
-            fake_outs.append(out_wire)
+            fake_outs.append((out_name, out_wire))
             
             py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_ena_out))
             
@@ -331,14 +350,14 @@ def createHILUART(platform, dut, projectDir):
     des = UART.UARTDeserializer(platform, 'des', platform.rx, rx_sample, ready_req, valid_req, c_req, desync)
     ser = UART.UARTSerializer(platform, 'ser', ser_ready, ser_valid, ser_v, tx_clk_pulse, platform.tx)
 
-    abstract_class = AbstractClass(dut.name)
-    obj = abstract_class(platform, dut.name)
+    abstract_class = AbstractClass(dutStructureName)
+    obj = abstract_class(platform, dutStructureName)
     
     for i in range(len(fake_ins)):
-        obj.addIn(f'in{i}', fake_ins[i])
+        obj.addIn(fake_ins[i][0], fake_ins[i][1])
         
     for i in range(len(fake_outs)):
-        obj.addIn(f'out{i}', fake_outs[i])
+        obj.addIn(fake_outs[i][0], fake_outs[i][1])
     
     return hil_plt
     
