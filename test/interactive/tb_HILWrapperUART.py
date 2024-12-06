@@ -56,7 +56,12 @@ hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
 hil_plt.build()
 hil_plt.download()
 
-wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s])
+np = hw.wire('np', 32)
+ns = hw.wire('ns', 32)
+
+hil.createHILUARTProxy(dut, hw, 'dut_hw', a, b, np, ns)
+
+wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 
 hw.getSimulator().clk(20)
 
