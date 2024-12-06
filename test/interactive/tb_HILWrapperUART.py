@@ -59,7 +59,7 @@ hil_plt.download()
 np = hw.wire('np', 32)
 ns = hw.wire('ns', 32)
 
-hil.createHILUARTProxy(dut, hw, 'dut_hw', a, b, np, ns)
+hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 
