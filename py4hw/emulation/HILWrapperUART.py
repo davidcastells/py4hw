@@ -361,4 +361,50 @@ def createHILUART(platform, dut, projectDir):
     
     return hil_plt
     
+class DUTProxy(py4hw.Logic):
+    def __init__(self, parent, name, ins, outs):
+        super()__init__(parent, name)
+        
+        self.inw = ins
+        self.outw = outs
+        
+        for i, inw in enumerate(ins):
+            self.inw[i] = self.addIn(f'in{i}', inw)
+            
+        for i, outw in enumerate(outs):
+            self.outw[i] = self.addOut(f'out{i}', outw)
+            
+        self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+
+    def uartSend(m):
+        for c in m:
+            self.ser.write(c.encode())
+
+    def uartReceive():
+        msg = self.ser.readline().decode('utf-8').strip()
+        return msg
+    
+    def propagate(self):
+        import serial
+        
+        for i, inw in enumerate(self.inw):
+            v = inw.get()
+            self.uartSend(f'I{i:X}={v:X}!\n')
+
+        for i, outw in enumerate(self.outw):
+            self.uartSend(f'O{i:X}?\n')
+            sv = self.uartReceive()
+            print('received=', sv)
+            outw.put(int(sv, 16))
+            
+def createHILUARTProxy(dut, parent, name, ins, outs):
+    dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
+    dutStructureNameWithInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=False)
+    
+    # use instance number if necessary
+    dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
+
+    dutStructureName += '_proxy'
+    
+    return DUTProxy(parent, name, ins, outs)
     
