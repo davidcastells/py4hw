@@ -85,14 +85,14 @@ class DE0(py4hw.HWSystem):
     
     
     
-    def build(self,  projectDir):
+    def build(self,  projectDir, createdStructures=[]):
         if not(os.path.exists(projectDir)):
             print('Creating the directory', projectDir)
             os.makedirs(projectDir)
             
         rtl = py4hw.VerilogGenerator(self)
         
-        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=True)
+        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=True, createdStructures=createdStructures)
         qsf_code = self.getQsf()
         top_name = self.name
         

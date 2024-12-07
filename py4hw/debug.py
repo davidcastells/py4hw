@@ -86,13 +86,33 @@ def _printElementWithValues(obj:Logic, include, format):
             
         indent = oldindent
     
-def getPorts(obj:Logic):
+def getPorts(obj):
+    # For a logic block, it returns its ports 
+    # For an interface, it resturns the ports of its source 
     ret = []
-    for ip in obj.inPorts:
-        ret.append(ip)
+    if (isinstance(obj, Logic)):
+        for ip in obj.inPorts:
+            ret.append(ip)
+    
+        for ip in obj.outPorts:
+            ret.append(ip)
+    elif (isinstance(obj, Interface)):
 
-    for ip in obj.outPorts:
-        ret.append(ip)
+        for sourceInfo in obj.sourceToSink:
+            name = sourceInfo[0]
+            wire = sourceInfo[1]
+            sourcePort = wire.getSource()
+            
+            if not(sourcePort is None):
+                ret.append(sourcePort)
+            
+        for sinkInfo in obj.sinkToSource:
+            name = sinkInfo[0]
+            wire = sinkInfo[1]
+            
+            sourcePort = wire.getSource()
+            if not(sourcePort is None):
+                ret.append(sourcePort)
 
     return ret
 

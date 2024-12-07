@@ -27,6 +27,8 @@ class Logic:
     
         self.children = {}          # children are keyed by name
         self.clockDriver = None     # every circuit has a clock driver, if None it is inherited from parent
+                                    # the clock driver in place for an object can be obtained by the function
+                                    # getObjectClockDriver(obj)
         
         self._wires = {}        # dictionary of wires created by the object
         
@@ -63,6 +65,40 @@ class Logic:
         self.inOutPorts.append(port)
         return wire;
 
+    def addParameter(self, name, value):
+        if not(hasattr(self, 'parameters')):
+            self.parameters = {}
+            
+        self.parameters[name] = value
+        
+    def getParameterValue(self, name):
+        value = self.parameters[name]
+        
+        if (isinstance(value, Parameter)):
+            value = value.obj.parameters[value.name]
+        return value
+    
+    def getParameterInstantiationValue(self, name):
+        # returns the final name associated with this parameter, used in rtl
+        # generation.
+        # If the parent instantiates the parameter with a value, we return it
+        # If the parent instantiates the parameter with a parent parameter, we return it
+        value = self.parameters[name]
+
+        if (isinstance(value, Parameter)):
+            return value.name
+        else:
+            return value            
+    
+    def getParameter(self, name):
+        return Parameter(self, name)        
+    
+    def getParameterNames(self):
+        if not(hasattr(self, 'parameters')):
+            return None
+        
+        return self.parameters.keys()
+    
     def addInterfaceSource(self, name:str, interface):
         """
         Adds the source ports of the interface to the 
@@ -270,6 +306,11 @@ class Logic:
             return objFound.getFromFullPath( path[pos1:])
         else:
             return objFound;
+        
+class Parameter:
+    def __init__(self, obj, name):
+        self.obj = obj
+        self.name = name
         
 class Wire:
     """
@@ -766,6 +807,7 @@ class Interface:
         None.
 
         """
+        assert(isinstance(width, int))
         w = self.parent.wire(self.name + "_" + name, width)
         self.sourceToSink.append([name, w])
         return w;
@@ -781,6 +823,7 @@ class Interface:
         raise Exception('SourceToSink {} not found'.format(name))
     
     def getSinkToSource(self, name):
+        # returns a wire with that name
         if len(self.sinkToSource) == 0:
             raise Exception('No sink-to-source elements in this interface')
             
@@ -809,6 +852,18 @@ class Interface:
         w = self.parent.wire(self.name + "_" + name, width)
         self.sinkToSource.append([name, w])
         return w;
+    
+    def addSourceToSinkRef(self, ref, name:str):
+        # Adds a reference to another interface, this is used in subinterfaces
+        w = ref.getSourceToSink(name)
+        self.sourceToSink.append([name, w])
+        return w
+        
+    def addSinkToSourceRef(self, ref, name:str):
+        # Adds a reference to another interface, this is used in subinterfaces
+        w = ref.getSinkToSource(name)
+        self.sinkToSource.append([name, w])
+        return w
         
 
 def disconnectWireFromLogicObject(w:Wire, obj:Logic):

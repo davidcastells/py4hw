@@ -428,7 +428,7 @@ def BodyReg(obj:Logic):
     if not(obj.r is None):
         str += "if (r == 1)\n"
         str += "begin\n"
-        str += "   rq <= 0;\n"
+        str += "   rq <= {};\n".format(obj.reset_value)
         str += "end\n";
         str += "else\n";
         str += "begin\n";
@@ -501,7 +501,8 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
-    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
+    def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, 
+                               forceName=None, createdStructures=[]):
         """
         Generates Verilog for all entities of the object hierarchy
 
@@ -511,7 +512,7 @@ class VerilogGenerator:
 
         """
         
-        self.created_structures = []
+        self.created_structures = createdStructures
         return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity, forceName)
     
     def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
@@ -640,7 +641,24 @@ class VerilogGenerator:
         return False
         
     def createModuleHeader(self, obj:Logic, structureName):
-        str = "module " + structureName + " (\n\t"
+        # Created the Module Header containing inputs, ouputs and parameters
+        
+        str = "module " + structureName 
+        
+        # Add parameters
+        paramNames = obj.getParameterNames()
+        if not(paramNames is None):
+            str += " #( \n\t"
+            link = ""
+            
+            for paramName in paramNames:
+                str += link + 'parameter ' +  paramName
+                link = ',\n\t'
+                
+            str += ')\n'
+                
+            
+        str += " (\n\t"
 
         link = ""
         
@@ -745,7 +763,24 @@ class VerilogGenerator:
 
     def instantiateStructural(self, child:Logic):
         parent = child.parent
-        str = getVerilogModuleName(child) + " " +  getInstanceName(child)
+        str = getVerilogModuleName(child) + " " 
+        
+        paramNames = child.getParameterNames()
+        if not(paramNames is None):
+            str += '#('
+            link = ''
+            
+            for paramName in paramNames:
+                paramValue = child.getParameterInstantiationValue(paramName)
+                
+                if isinstance(paramValue, Parameter):
+                    paramValue = paramValue.name
+                    
+                str += link + f'.{paramName}({paramValue})'
+                link = ','
+            str += ') '
+            
+        str += getInstanceName(child)
         str += "("
         link = ""
         
@@ -860,6 +895,8 @@ def getAstName(obj):
         return obj.id
     elif (isinstance(obj, ast.Attribute)):
         return getAstName(obj.attr)
+    elif (isinstance(obj, ast.Constant)):
+        return obj.value
     elif (isinstance(obj, str)):
         return obj
     elif (isinstance(obj, list)):

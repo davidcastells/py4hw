@@ -45,6 +45,13 @@ class LogicHelper:
         self.parent = parent
         self.inum = 0   # instance number
         
+    def _getNewName(self)->str:
+        while (True):
+            name = 'i{}'.format(self.inum)
+            self.inum += 1
+            if not(name in self.parent.children.keys()):
+                return name
+        
     def hw_abs(self, a:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
@@ -56,25 +63,6 @@ class LogicHelper:
         wa = a.getWidth()
         wb = b.getWidth()
         wr = max(wa,wb)+1
-        name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        Add(self.parent, name, a, b, r)
-        return r
-    
-    def hw_delay(self, a:Wire, en:Wire, delay:int) -> Wire:
-        wa = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, wa)
-        if (en is None):
-            en = self.hw_constant(1,1)
-        DelayLine(self.parent, name, a, en=en, reset=None, r=r, delay=delay)
-        return r
-    
-
-    def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
-        wa = a.getWidth()
-        wb = b.getWidth()
-        wr = max(wa,wb)
         name = self._getNewName()
         r = self.parent.wire(name, wr)
         Add(self.parent, name, a, b, r)
@@ -107,7 +95,7 @@ class LogicHelper:
         r = self.parent.wire(name, w)
         And(self.parent, name, a, r)
         return r
-
+    
     def hw_bit(self, a:Wire, bit:int) -> Wire:
         name = self._getNewName()
         r = self.parent.wire(name)
@@ -127,21 +115,14 @@ class LogicHelper:
         r = self.parent.wires(name, w, 1)
         BitsLSBF(self.parent, name, a, r)
         return r
-
-    def hw_reg(self, a:Wire, enable=None, reset=None) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Reg(self.parent, name, d=a, q=r, enable=enable, reset=reset)
-        return r
-
+    
     def hw_buf(self, a:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
         r = self.parent.wire(name, w)
         Buf(self.parent, name, a, r)
         return r
-
+    
     def hw_concatenate_msbf(self, ins:list) -> Wire:
         name = self._getNewName()
         w = 0
@@ -167,16 +148,16 @@ class LogicHelper:
         r = self.parent.wire(name, width)
         Constant(self.parent, name, v, r)
         return r
-
-    def hw_mod(self, a:Wire, b:Wire) -> Wire:
+    
+    def hw_delay(self, a:Wire, en:Wire, delay:int) -> Wire:
         wa = a.getWidth()
-        wb = b.getWidth()
-        wr = max(wa,wb)
         name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        Mod(self.parent, name, a, b, r)
+        r = self.parent.wire(name, wa)
+        if (en is None):
+            en = self.hw_constant(1,1)
+        DelayLine(self.parent, name, a, en=en, reset=None, r=r, delay=delay)
         return r
-
+    
     def hw_div(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
         wb = b.getWidth()
@@ -184,15 +165,6 @@ class LogicHelper:
         name = self._getNewName()
         r = self.parent.wire(name, wr)
         Div(self.parent, name, a, b, r)
-        return r
-    
-    def hw_signed_div(self, a:Wire, b:Wire) -> Wire:
-        wa = a.getWidth()
-        wb = b.getWidth()
-        wr = max(wa,wb)
-        name = self._getNewName()
-        r = self.parent.wire(name, wr)
-        SignedDiv(self.parent, name, a, b, r)
         return r    
 
     def hw_equal(self, a:Wire, b:Wire) -> Wire:
@@ -207,6 +179,40 @@ class LogicHelper:
         name = self._getNewName()
         r = self.parent.wire(name)
         EqualConstant(self.parent, name, a, b, r)
+        return r
+
+
+
+    
+
+    
+
+    def hw_mod(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Mod(self.parent, name, a, b, r)
+        return r
+
+    
+    
+    def hw_signed_div(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        SignedDiv(self.parent, name, a, b, r)
+        return r    
+
+    
+    def hw_if(self, cond:Wire, true_option:Wire, false_option:Wire) -> Wire:
+        w = true_option.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Mux2(self.parent, name, cond, false_option, true_option, r)
         return r
             
     def hw_not_equal_constant(self, a:Wire, b:int) -> Wire:
@@ -248,56 +254,6 @@ class LogicHelper:
         Or2(self.parent, self._getNewName(), gt, eq, ge)
         return ge
     
-    def _getNewName(self)->str:
-        while (True):
-            name = 'i{}'.format(self.inum)
-            self.inum += 1
-            if not(name in self.parent.children.keys()):
-                return name
-    
-    
-    def hw_or2(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Or2(self.parent, name, a, b, r)
-        return r
-
-    def hw_or(self, a:list) -> Wire:
-        w = a[0].getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Or(self.parent, name, a, r)
-        return r
-
-    def hw_or_bits(self, a) -> Wire:
-        name = self._getNewName()
-        r = self.parent.wire(name)
-        OrBits(self.parent, name, a, r)
-        return r
-
-    def hw_range(self, a:Wire, up:int, down:int) -> Wire:
-        w = up - down + 1
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Range(self.parent, name, a, up, down, r)
-        return r
-        
-    def hw_shift_left_constant(self, a:Wire, n:int) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w+n)
-        ShiftLeftConstant(self.parent, name, a, n, r)
-        return r
-    
-    def hw_xor2(self, a:Wire, b:Wire) -> Wire:
-        w = a.getWidth()
-        name = self._getNewName()
-        r = self.parent.wire(name, w)
-        Xor2(self.parent, name, a, b, r)
-        return r
-
-    
     def hw_mul(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
         wb = b.getWidth()
@@ -335,18 +291,92 @@ class LogicHelper:
         Not(self.parent, name, a, r)
         return r
 
-    def hw_sub(self, a:Wire, b:Wire) -> Wire:
+    
+    def hw_or2(self, a:Wire, b:Wire) -> Wire:
         w = a.getWidth()
         name = self._getNewName()
         r = self.parent.wire(name, w)
-        Sub(self.parent, name, a, b, r)
+        Or2(self.parent, name, a, b, r)
         return r
+
+    def hw_or(self, a:list) -> Wire:
+        w = a[0].getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Or(self.parent, name, a, r)
+        return r
+
+    def hw_or_bits(self, a) -> Wire:
+        name = self._getNewName()
+        r = self.parent.wire(name)
+        OrBits(self.parent, name, a, r)
+        return r
+
+    def hw_range(self, a:Wire, up:int, down:int) -> Wire:
+        w = up - down + 1
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Range(self.parent, name, a, up, down, r)
+        return r
+    
+    def hw_repeat(self, a:Wire, n:int) -> Wire:
+        w = n * a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Repeat(self.parent, name, a, r)
+        return r
+
+    def hw_select_default(self, sels:list, ins:list, default:Wire) -> Wire:
+        name = self._getNewName()
+        w = max([obj.getWidth() for obj in ins])
+        r = self.parent.wire(name, w)        
+        SelectDefault(self.parent, name, sels, ins, default, r)
+        return r        
+        
+    def hw_signed_add(self, a:Wire, b:Wire) -> Wire:
+        wa = a.getWidth()
+        wb = b.getWidth()
+        wr = max(wa,wb)
+        name = self._getNewName()
+        r = self.parent.wire(name, wr)
+        Add(self.parent, name, a, b, r)
+        return r
+
+        
+    def hw_shift_left_constant(self, a:Wire, n:int) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w+n)
+        ShiftLeftConstant(self.parent, name, a, n, r)
+        return r
+
 
     def hw_sign(self, a:Wire) -> Wire:
         w = 1
         name = self._getNewName()
         r = self.parent.wire(name, w)
         Sign(self.parent, name, a, r)
+        return r
+
+    def hw_sub(self, a:Wire, b:Wire) -> Wire:
+        w = max(a.getWidth(), b.getWidth())
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Sub(self.parent, name, a, b, r)
+        return r
+
+    def hw_reg(self, a:Wire, enable=None, reset=None, reset_value=None) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Reg(self.parent, name, d=a, q=r, enable=enable, reset=reset, reset_value=reset_value)
+        return r
+
+    def hw_xor2(self, a:Wire, b:Wire) -> Wire:
+        w = a.getWidth()
+        name = self._getNewName()
+        r = self.parent.wire(name, w)
+        Xor2(self.parent, name, a, b, r)
         return r
     
     def sign_extend(self, a:Wire, w) -> Wire:
