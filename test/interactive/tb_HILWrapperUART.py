@@ -51,10 +51,13 @@ py4hw.Sequence(hw, 'b', [0x1A00,0x2B00,0x3C00], b)
 dut = DUT(hw, 'dut', a, b, p, s)
 
 import py4hw.emulation.HILWrapperUART as hil
-dir = '/tmp/testDE0'
-hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
-hil_plt.build()
-hil_plt.download()
+
+if (False):
+    dir = '/tmp/testDE0'
+    hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
+    py4hw.gui.Workbench(hil_plt.platform)
+    hil_plt.build()
+    hil_plt.download()
 
 np = hw.wire('np', 32)
 ns = hw.wire('ns', 32)
@@ -62,6 +65,9 @@ ns = hw.wire('ns', 32)
 hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
+
+a.put(0xF)
+b.put(0x5)
 
 hw.getSimulator().clk(20)
 
