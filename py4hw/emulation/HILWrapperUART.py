@@ -9,8 +9,34 @@ import os
 import math
 import py4hw.logic.protocol.uart as UART
 
+# @todo at some point we should check that there is support for serial
+# otherwise it should be installed with "pip install pyserial" 
+
 class CMDRequest(py4hw.Logic):
     def __init__(self, parent, name, ready, valid, c,  ena_in, v_in, ena_out, set_ena_in, set_v_in, set_ena_out, clk_pulse, start_resp):
+        '''
+        Creates a UART command requestor. This module respond to the commands coming from the UART.
+            I<n>=<v>! -> sets the v value to the n input
+            O<n>?     -> request the output n
+
+            We use cyr_type to identify the type of value we are processing.
+            For incoming hexadecimal number we accumulate them in the temp variable
+            
+        Args:
+            parent (Logic): The parent Logic object of this instance.
+            name (str): Instance name.
+            ready (Wire): input protocol.
+            valid (Wire): input protocol.
+            c (Wire):      the character that from the UART.
+            ena_in (Wire): Index of the input we are setting (n in I<n>=<v>!).
+            set_ena_in (Wire): Enable signal for the input selection register.
+            v_in (Wire):    Value to set to the input (v in I<n>=<v>!).
+            set_v_in (Wire): Enable signal to set the input value.
+            ena_out (Wire): Index of the output we are asking for (n in O<n>?)..
+            set_ena_out (Wire): Enable signal for the output selection register.
+            clk_pulse (Wire): Function to generate a clock pulse.
+            start_resp (Wire): Function to start the response process.
+        '''
         super().__init__(parent, name)
 
         self.ready = self.addOut('ready', ready)
@@ -280,12 +306,15 @@ def createHILUART(platform, dut, projectDir):
     ena_out_w = int(math.ceil(math.log2(num_outs)))
     num_outs_up = 1 << ena_out_w
 
-    ena_in_list = platform.wires('ena_in', num_ins_up, 1) # create extra ins because the decoder has to be a power of 2
+    ena_in_list = platform.wires('ena_in', num_ins_up, 1)    # create extra ins because the decoder has to be a power of 2
     ena_out_list = platform.wires('ena_out', num_outs_up, 1) # create extra outs because the decoder has to be a power of 2
 
-    ena_in = platform.wire('ena_in', 1)
+    ena_in = platform.wire('ena_in', ena_in_w)
+    ena_in_r = platform.wire('ena_in_r', ena_in_w)
     v_in = platform.wire('v_in', 32)
-    ena_out = platform.wire('ena_out', 1)
+    #v_in_r = platform.wire('v_in_r', 32)
+    ena_out = platform.wire('ena_out', ena_out_w)
+    ena_out_r = platform.wire('ena_out_r', ena_out_w)
     
     set_ena_in = platform.wire('set_ena_in')
     set_v_in = platform.wire('set_v_in')
@@ -293,20 +322,29 @@ def createHILUART(platform, dut, projectDir):
     clk_pulse = platform.wire('clk_pulse')
     start_resp = platform.wire('start_resp')
 
+
     hlp = py4hw.LogicHelper(platform)
     
-    # input registers
-    py4hw.Decoder(platform, 'decode_ena_in', ena_in, ena_in_list)
-    py4hw.Decoder(platform, 'decode_ena_out', ena_out, ena_out_list)
+    # input/output selection 
+    py4hw.Reg(platform, 'ena_in_r', d=ena_in, enable=set_ena_in, q=ena_in_r)
+    #py4hw.Reg(platform, 'v_in_r', d=v_in, enable=set_v_in, q=v_in_r)
+    py4hw.Reg(platform, 'ena_out_r', d=ena_out, enable=set_ena_out, q=ena_out_r)
+    
+    py4hw.Decoder(platform, 'decode_ena_in', ena_in_r, ena_in_list)
+    py4hw.Decoder(platform, 'decode_ena_out', ena_out_r, ena_out_list)
 
+
+       
     fake_ins = []
     fake_outs = []
     
+
+        
     for i in range(num_ins):
         ip = dut.inPorts[i]
         in_name = ip.name
         iw = ip.wire.getWidth()
-        in_wire = platform.wire(f'in{i}')
+        in_wire = platform.wire(f'in{i}', iw)
         fake_ins.append((in_name, in_wire))
         
         py4hw.Reg(platform, f'in{i}', d=v_in,  q=in_wire, enable=hlp.hw_and2(ena_in_list[i], set_v_in))
@@ -321,18 +359,22 @@ def createHILUART(platform, dut, projectDir):
             op = dut.outPorts[i]
             out_name = op.name
             ow = op.wire.getWidth()
-            out_wire = platform.wire(f'out{i}')
+            out_wire = platform.wire(f'out{i}', ow)
             fake_outs.append((out_name, out_wire))
             
             py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_ena_out))
             
-            py4hw.Constant(platform, f'out_size{i}', 8, size_out[i])
+            py4hw.Constant(platform, f'out_size{i}', ow, size_out[i])
+            
+            print(f'HIL output {i} size:',  ow) 
         else:
             py4hw.Constant(platform, f'out_{i}', 0, reg_out[i])
             py4hw.Constant(platform, f'out_size{i}', 0, size_out[i])
 
-    py4hw.Mux(platform, 'resp_v', ena_out, reg_out, resp_v)
-    py4hw.Mux(platform, 'resp_size', ena_out, size_out, resp_size)
+
+    
+    py4hw.Mux(platform, 'resp_v', ena_out_r, reg_out, resp_v)
+    py4hw.Mux(platform, 'resp_size', ena_out_r, size_out, resp_size)
 
     desync = platform.wire('desync')
     tx_clk_pulse = platform.wire('tx_clk_pulse')
@@ -352,18 +394,19 @@ def createHILUART(platform, dut, projectDir):
 
     abstract_class = AbstractClass(dutStructureName)
     obj = abstract_class(platform, dutStructureName)
+
     
     for i in range(len(fake_ins)):
         obj.addIn(fake_ins[i][0], fake_ins[i][1])
-        
+
     for i in range(len(fake_outs)):
-        obj.addIn(fake_outs[i][0], fake_outs[i][1])
+        obj.addOut(fake_outs[i][0], fake_outs[i][1])
     
     return hil_plt
     
 class DUTProxy(py4hw.Logic):
     def __init__(self, parent, name, ins, outs):
-        super()__init__(parent, name)
+        super().__init__(parent, name)
         
         self.inw = ins
         self.outw = outs
@@ -374,28 +417,44 @@ class DUTProxy(py4hw.Logic):
         for i, outw in enumerate(outs):
             self.outw[i] = self.addOut(f'out{i}', outw)
             
-        self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+        import serial
+        #self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+        self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=0.5, rtscts=False, dsrdtr=False)
+        print('HIL msg:', self.uartReceive())
 
-    def uartSend(m):
+    def uartSend(self, m):
         for c in m:
             self.ser.write(c.encode())
 
-    def uartReceive():
-        msg = self.ser.readline().decode('utf-8').strip()
+    def uartReceive(self):
+        try:
+            msg = self.ser.readline().decode('utf-8').strip()
+        except:
+            msg = ''
+            
         return msg
     
     def propagate(self):
-        import serial
-        
+            
         for i, inw in enumerate(self.inw):
             v = inw.get()
-            self.uartSend(f'I{i:X}={v:X}!\n')
+            sv = f'I{i:X}={v:X}!\n'
+            self.uartSend(sv)
+            print('send=', sv)
+
 
         for i, outw in enumerate(self.outw):
             self.uartSend(f'O{i:X}?\n')
             sv = self.uartReceive()
             print('received=', sv)
-            outw.put(int(sv, 16))
+
+            try:            
+                start_index = sv.index('=') + 1
+                end_index = sv.index('!')
+                
+                outw.put(int(sv[start_index:end_index], 16))
+            except:
+                print('exception')
             
 def createHILUARTProxy(dut, parent, name, ins, outs):
     dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
