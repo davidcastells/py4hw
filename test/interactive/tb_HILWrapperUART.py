@@ -33,6 +33,12 @@ def createHILPlatform():
     
     de0.tx = gpio_out[0]
     de0.rx = gpio_in[1]
+    
+    for i in range(32):
+        if (i in [0, 1]):
+            continue
+            
+        de0.children.pop(f'GPIO0_D_{i}')
 
     return de0
     
@@ -53,10 +59,11 @@ py4hw.Sequence(hw, 'b', [0x1A00,0x2B00,0x3C00], b)
 dut = DUT(hw, 'dut', a, b, p, s)
 
 import py4hw.emulation.HILWrapperUART as hil
-dir = '/tmp/testDE0'
-hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
 
-if(False):
+if (True):
+    dir = '/tmp/testDE0'
+    hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
+    py4hw.gui.Workbench(hil_plt.platform)
     hil_plt.build()
     hil_plt.download()
 
@@ -68,32 +75,9 @@ hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 
-hw.getSimulator().clk(8)
+a.put(0xF)
+b.put(0x5)
 
-wvf.gui(shortNames=True)
-
-'''ser = serial.Serial(port = 'COM3', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
-if not(ser.is_open):
-    raise Exception('port not open')
-
-def readLine(ser):
-    msg = ser.readline().decode('utf-8').strip()
-    print(msg)
-
-def uartSend(ser, m):
-    for c in m:
-        ser.write(c.encode())
-
-for i in range(8):
-    print('Test', i)
-    uartSend(ser, 'I0=1!\n')
-    time.sleep(0.01) 
-    uartSend(ser, 'I1=0x1A00!\n')
-    uartSend(ser, 'O0?\n')
-    readLine(ser)
-    uartSend(ser, 'O1?\n')
-    readLine(ser)
-    #if i == 7:
-     #   wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
-      #  hw.getSimulator().clk(8)
-       # wvf.gui(shortNames=True)'''
+#hw.getSimulator().clk(1)
+#wvf.gui(shortNames=True)
+py4hw.gui.Workbench(hw)
