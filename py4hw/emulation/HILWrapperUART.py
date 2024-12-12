@@ -13,7 +13,7 @@ import py4hw.logic.protocol.uart as UART
 # otherwise it should be installed with "pip install pyserial" 
 
 class CMDRequest(py4hw.Logic):
-    def __init__(self, parent, name, ready, valid, c,  ena_in, v_in, ena_out, set_ena_in, set_v_in, set_ena_out, clk_pulse, start_resp):
+    def __init__(self, parent, name, ready, valid, c,  index_in, v_in, index_out, set_index_in, set_v_in, set_index_out, clk_pulse, start_resp):
         '''
         Creates a UART command requestor. This module respond to the commands coming from the UART.
             I<n>=<v>! -> sets the v value to the n input
@@ -28,12 +28,12 @@ class CMDRequest(py4hw.Logic):
             ready (Wire): input protocol.
             valid (Wire): input protocol.
             c (Wire):      the character that from the UART.
-            ena_in (Wire): Index of the input we are setting (n in I<n>=<v>!).
-            set_ena_in (Wire): Enable signal for the input selection register.
+            index_in (Wire): Index of the input we are setting (n in I<n>=<v>!).
+            set_index_in (Wire): Enable signal for the input selection register.
             v_in (Wire):    Value to set to the input (v in I<n>=<v>!).
             set_v_in (Wire): Enable signal to set the input value.
-            ena_out (Wire): Index of the output we are asking for (n in O<n>?)..
-            set_ena_out (Wire): Enable signal for the output selection register.
+            index_out (Wire): Index of the output we are asking for (n in O<n>?)..
+            set_index_out (Wire): Enable signal for the output selection register.
             clk_pulse (Wire): Function to generate a clock pulse.
             start_resp (Wire): Function to start the response process.
         '''
@@ -43,13 +43,13 @@ class CMDRequest(py4hw.Logic):
         self.valid = self.addIn('valid', valid)
         self.c = self.addIn('c', c)
 
-        self.ena_in = self.addOut('ena_in', ena_in)
+        self.index_in = self.addOut('index_in', index_in)
         self.v_in = self.addOut('v_in', v_in)
-        self.ena_out = self.addOut('ena_out', ena_out)
+        self.index_out = self.addOut('index_out', index_out)
 
-        self.set_ena_in = self.addOut('set_ena_in', set_ena_in)
+        self.set_index_in = self.addOut('set_index_in', set_index_in)
         self.set_v_in = self.addOut('set_v_in', set_v_in)
-        self.set_ena_out = self.addOut('set_ena_out', set_ena_out)
+        self.set_index_out = self.addOut('set_index_out', set_index_out)
 
         self.clk_pulse = self.addOut('clk_pulse', clk_pulse)
         self.start_resp = self.addOut('start_resp', start_resp)
@@ -62,9 +62,9 @@ class CMDRequest(py4hw.Logic):
     def clock(self):
         if (self.state == 0): # UNKNOWN
             self.ready.prepare(1)
-            self.set_ena_in.prepare(0)
+            self.set_index_in.prepare(0)
             self.set_v_in.prepare(0)
-            self.set_ena_out.prepare(0)
+            self.set_index_out.prepare(0)
             self.state = 1
         elif (self.state == 1): #READY
             if (self.valid.get()):
@@ -109,16 +109,16 @@ class CMDRequest(py4hw.Logic):
                 self.state = 4 # reset temp if unknown char is received
 
         elif (self.state == 3): # CONSOLIDATE ENA IN
-            self.ena_in.prepare(self.temp)
-            self.set_ena_in.prepare(1)
+            self.index_in.prepare(self.temp)
+            self.set_index_in.prepare(1)
             self.state = 4 # -> reset temp
 
         elif (self.state == 4): # RESET TEMP
             self.temp = 0
             self.start_resp.prepare(0)
-            self.set_ena_in.prepare(0)
+            self.set_index_in.prepare(0)
             self.set_v_in.prepare(0)
-            self.set_ena_out.prepare(0)
+            self.set_index_out.prepare(0)
             self.state = 0
 
         elif (self.state == 5): # CONSOLIDATE V_IN
@@ -126,13 +126,16 @@ class CMDRequest(py4hw.Logic):
             self.set_v_in.prepare(1)
             self.state = 4 # -> reset temp
 
-        elif (self.state == 6): # CONSOLIDATE ENA_OUT
-            self.ena_out.prepare(self.temp)
-            self.set_ena_out.prepare(1)
-            self.state = 7 # -> start resp
+        elif (self.state == 6): # CONSOLIDATE INDEX_OUT
+            self.index_out.prepare(self.temp)
+            self.set_index_out.prepare(1)
+            self.state = 10 # -> wait, then start resp
+
+        elif (self.state == 10): # wait cycle
+            self.set_index_out.prepare(0)
+            self.state = 7
 
         elif (self.state == 7): # START RESP
-            self.set_ena_out.prepare(0)
             self.start_resp.prepare(1)
             self.state = 4
 
@@ -155,6 +158,23 @@ class CMDResponse(py4hw.Logic):
     # equivalent <n> hex digits for its hexadecimal representation
 
     def __init__(self, parent, name, vin, size, start_resp, ready, valid, v):
+        '''
+        Creates a UART command reponse. This module responds to the commands coming from the UART.
+            I<n>=<v>! -> sets the v value to the n input
+            O<n>?     -> request the output n
+
+            
+        Args:
+            parent (Logic): The parent Logic object of this instance.
+            name (str): Instance name.
+            vin (Wire): input value to send.
+            size (Wire): size of the input (in bits).
+            start_resp (Wire):  start the response process.
+            ready (Wire): handshaking signal.
+            valid (Wire): Enable signal for the input selection register.
+            v (Wire):    Value to set to the input (v in I<n>=<v>!).
+
+        '''
         super().__init__(parent, name)
 
         self.vin = self.addIn('vin', vin)
@@ -174,8 +194,8 @@ class CMDResponse(py4hw.Logic):
         if (self.state == 0): #IDLE
             if (self.start_resp.get()):
                 self.state = 1
-                self.temp = self.vin.get()         # sample value
-                self.temp_size = self.size.get() - 1  # sample size (in nibbles)
+                self.temp = self.vin.get()              # sample value
+                self.temp_size = self.size.get() - 1    # sample size (in nibbles)
 
         elif (self.state == 1): # START RESPONSE
             if (self.ready.get()):
@@ -300,25 +320,26 @@ def createHILUART(platform, dut, projectDir):
     num_ins = getDUTValidIns(dut)
     num_outs = getDUTValidOuts(dut)
     
-    ena_in_w = int(math.ceil(math.log2(num_ins)))
-    num_ins_up = 1 << ena_in_w
+    index_in_w = int(math.ceil(math.log2(num_ins)))
+    num_ins_up = 1 << index_in_w
     
-    ena_out_w = int(math.ceil(math.log2(num_outs)))
-    num_outs_up = 1 << ena_out_w
+    index_out_w = int(math.ceil(math.log2(num_outs)))
+    num_outs_up = 1 << index_out_w
 
     ena_in_list = platform.wires('ena_in', num_ins_up, 1)    # create extra ins because the decoder has to be a power of 2
     ena_out_list = platform.wires('ena_out', num_outs_up, 1) # create extra outs because the decoder has to be a power of 2
 
-    ena_in = platform.wire('ena_in', ena_in_w)
-    ena_in_r = platform.wire('ena_in_r', ena_in_w)
+    index_in = platform.wire('index_in', index_in_w)
+    index_in_r = platform.wire('index_in_r', index_in_w)
     v_in = platform.wire('v_in', 32)
     #v_in_r = platform.wire('v_in_r', 32)
-    ena_out = platform.wire('ena_out', ena_out_w)
-    ena_out_r = platform.wire('ena_out_r', ena_out_w)
+    index_out = platform.wire('index_out', index_out_w)
+    index_out_r = platform.wire('index_out_r', index_out_w)
     
-    set_ena_in = platform.wire('set_ena_in')
+    set_index_in = platform.wire('set_index_in')
     set_v_in = platform.wire('set_v_in')
-    set_ena_out = platform.wire('set_ena_out')
+    set_index_out = platform.wire('set_index_out')
+    set_index_out_r = platform.wire('set_index_out_r')
     clk_pulse = platform.wire('clk_pulse')
     start_resp = platform.wire('start_resp')
 
@@ -326,19 +347,16 @@ def createHILUART(platform, dut, projectDir):
     hlp = py4hw.LogicHelper(platform)
     
     # input/output selection 
-    py4hw.Reg(platform, 'ena_in_r', d=ena_in, enable=set_ena_in, q=ena_in_r)
+    py4hw.Reg(platform, 'index_in_r', d=index_in, enable=set_index_in, q=index_in_r)
     #py4hw.Reg(platform, 'v_in_r', d=v_in, enable=set_v_in, q=v_in_r)
-    py4hw.Reg(platform, 'ena_out_r', d=ena_out, enable=set_ena_out, q=ena_out_r)
+    py4hw.Reg(platform, 'index_out_r', d=index_out, enable=set_index_out, q=index_out_r)
+    py4hw.Reg(platform, 'set_index_out_r', d=set_index_out, q=set_index_out_r)
     
-    py4hw.Decoder(platform, 'decode_ena_in', ena_in_r, ena_in_list)
-    py4hw.Decoder(platform, 'decode_ena_out', ena_out_r, ena_out_list)
+    py4hw.Decoder(platform, 'decode_ena_in', index_in_r, ena_in_list)
+    py4hw.Decoder(platform, 'decode_ena_out', index_out_r, ena_out_list)
 
-
-       
     fake_ins = []
     fake_outs = []
-    
-
         
     for i in range(num_ins):
         ip = dut.inPorts[i]
@@ -362,7 +380,7 @@ def createHILUART(platform, dut, projectDir):
             out_wire = platform.wire(f'out{i}', ow)
             fake_outs.append((out_name, out_wire))
             
-            py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_ena_out))
+            py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_index_out_r))
             
             py4hw.Constant(platform, f'out_size{i}', ow, size_out[i])
             
@@ -372,15 +390,14 @@ def createHILUART(platform, dut, projectDir):
             py4hw.Constant(platform, f'out_size{i}', 0, size_out[i])
 
 
-    
-    py4hw.Mux(platform, 'resp_v', ena_out_r, reg_out, resp_v)
-    py4hw.Mux(platform, 'resp_size', ena_out_r, size_out, resp_size)
+    py4hw.Mux(platform, 'resp_v', index_out_r, reg_out, resp_v)
+    py4hw.Mux(platform, 'resp_size', index_out_r, size_out, resp_size)
 
     desync = platform.wire('desync')
     tx_clk_pulse = platform.wire('tx_clk_pulse')
     rx_sample = platform.wire('rx_sample')
     
-    CMDRequest(platform, 'cmd_req', ready_req, valid_req, c_req,  ena_in, v_in, ena_out, set_ena_in, set_v_in, set_ena_out, clk_pulse, start_resp)
+    CMDRequest(platform, 'cmd_req', ready_req, valid_req, c_req, index_in, v_in, index_out, set_index_in, set_v_in, set_index_out, clk_pulse, start_resp)
 
     CMDResponse(platform, 'cmd_resp', resp_v, resp_size, start_resp, ser_ready, ser_valid, ser_v)
 
