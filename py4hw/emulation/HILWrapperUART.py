@@ -8,7 +8,8 @@ import py4hw
 import os
 import math
 import py4hw.logic.protocol.uart as UART
-
+import serial
+import time
 class CMDRequest(py4hw.Logic):
     def __init__(self, parent, name, ready, valid, c,  ena_in, v_in, ena_out, set_ena_in, set_v_in, set_ena_out, clk_pulse, start_resp):
         super().__init__(parent, name)
@@ -363,7 +364,7 @@ def createHILUART(platform, dut, projectDir):
     
 class DUTProxy(py4hw.Logic):
     def __init__(self, parent, name, ins, outs):
-        super()__init__(parent, name)
+        super().__init__(parent, name)
         
         self.inw = ins
         self.outw = outs
@@ -374,13 +375,15 @@ class DUTProxy(py4hw.Logic):
         for i, outw in enumerate(outs):
             self.outw[i] = self.addOut(f'out{i}', outw)
             
-        self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+        self.ser = serial.Serial(port = 'COM3', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
 
-    def uartSend(m):
+    def uartSend(self,m):
+
         for c in m:
             self.ser.write(c.encode())
-
-    def uartReceive():
+        print("Enviat:", m)
+        
+    def uartReceive(self):
         msg = self.ser.readline().decode('utf-8').strip()
         return msg
     
@@ -394,8 +397,14 @@ class DUTProxy(py4hw.Logic):
         for i, outw in enumerate(self.outw):
             self.uartSend(f'O{i:X}?\n')
             sv = self.uartReceive()
-            print('received=', sv)
-            outw.put(int(sv, 16))
+            print('rebut:', sv)
+            #outw.put(int(sv, 16))
+            hex_value = sv.strip('=!')
+        try:
+            outw.put(int(hex_value, 16))
+        except ValueError:
+            print(f"Error: '{sv}' format no hexadecimal")
+       
             
 def createHILUARTProxy(dut, parent, name, ins, outs):
     dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
