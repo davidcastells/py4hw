@@ -32,6 +32,12 @@ def createHILPlatform():
     
     de0.tx = gpio_out[0]
     de0.rx = gpio_in[1]
+    
+    for i in range(32):
+        if (i in [0, 1]):
+            continue
+            
+        de0.children.pop(f'GPIO0_D_{i}')
 
     return de0
     
@@ -52,7 +58,7 @@ dut = DUT(hw, 'dut', a, b, p, s)
 
 import py4hw.emulation.HILWrapperUART as hil
 
-if (False):
+if (True):
     dir = '/tmp/testDE0'
     hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
     py4hw.gui.Workbench(hil_plt.platform)
@@ -69,6 +75,6 @@ wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 a.put(0xF)
 b.put(0x5)
 
-hw.getSimulator().clk(20)
-
-wvf.gui(shortNames=True)
+#hw.getSimulator().clk(1)
+#wvf.gui(shortNames=True)
+py4hw.gui.Workbench(hw)
