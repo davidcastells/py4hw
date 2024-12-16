@@ -444,12 +444,7 @@ class DUTProxy(py4hw.Logic):
             self.ser.write(c.encode())
 
     def uartReceive(self):
-        try:
-            msg = self.ser.readline().decode('utf-8').strip()
-        except:
-            msg = ''
-            
-        return msg
+        return self.ser.read_until('!'.encode()).decode('utf-8').strip()
     
     def propagate(self):
             
@@ -461,11 +456,11 @@ class DUTProxy(py4hw.Logic):
 
 
         for i, outw in enumerate(self.outw):
-            self.uartSend(f'O{i:X}?\n')
-            sv = self.uartReceive()
-            print('received=', sv)
-
             try:            
+                self.uartSend(f'O{i:X}?\n')
+                sv = self.uartReceive()
+                print('received=', sv)
+
                 start_index = sv.index('=') + 1
                 end_index = sv.index('!')
                 
