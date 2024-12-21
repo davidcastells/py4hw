@@ -467,7 +467,7 @@ class DUTProxy(py4hw.Logic):
                     end_index = sv.index('!')
                     
                     outw.put(int(sv[start_index:end_index], 16))
-                    success = True 
+                    success = True
                 except Exception as e:
                     print(f'Exception occurred: {e}')
                     print('Retrying...')
