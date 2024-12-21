@@ -456,8 +456,8 @@ class DUTProxy(py4hw.Logic):
 
 
         for i, outw in enumerate(self.outw):
-            success = False
-            while not success:
+            enviament_correcte = False
+            while not enviament_correcte:
                 try:
                     self.uartSend(f'O{i:X}?\n')
                     sv = self.uartReceive()
@@ -467,7 +467,7 @@ class DUTProxy(py4hw.Logic):
                     end_index = sv.index('!')
                     
                     outw.put(int(sv[start_index:end_index], 16))
-                    success = True
+                    enviament_correcte = True
                 except Exception as e:
                     print(f'Exception occurred: {e}')
                     print('Retrying...')
