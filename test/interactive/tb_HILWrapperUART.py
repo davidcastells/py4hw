@@ -60,7 +60,7 @@ dut = DUT(hw, 'dut', a, b, p, s)
 
 import py4hw.emulation.HILWrapperUART as hil
 
-if (True):
+if (False):
     dir = '/tmp/testDE0'
     hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
     py4hw.gui.Workbench(hil_plt.platform)
@@ -75,9 +75,9 @@ hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 
-a.put(0xF)
-b.put(0x5)
+a.put(0x03)
+b.put(0x01)
 
-#hw.getSimulator().clk(1)
-#wvf.gui(shortNames=True)
+hw.getSimulator().clk(8)
+wvf.gui(shortNames=True)
 py4hw.gui.Workbench(hw)

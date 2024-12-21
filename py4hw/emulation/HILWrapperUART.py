@@ -436,7 +436,7 @@ class DUTProxy(py4hw.Logic):
             
         import serial
         #self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
-        self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=0.5, rtscts=False, dsrdtr=False)
+        self.ser = serial.Serial(port = 'COM3', baudrate=115200, timeout=0.5, rtscts=False, dsrdtr=False)
         print('HIL msg:', self.uartReceive())
 
     def uartSend(self, m):
@@ -445,7 +445,8 @@ class DUTProxy(py4hw.Logic):
 
     def uartReceive(self):
         try:
-            msg = self.ser.readline().decode('utf-8').strip()
+           #msg = self.ser.readline().decode('utf-8').strip()
+           msg = self.ser.read_until(b'\n').decode('utf-8').strip()
         except:
             msg = ''
             
@@ -457,13 +458,14 @@ class DUTProxy(py4hw.Logic):
             v = inw.get()
             sv = f'I{i:X}={v:X}!\n'
             self.uartSend(sv)
-            print('send=', sv)
+            print('send: ', sv)
 
 
-        for i, outw in enumerate(self.outw):
+        for i, outw in enumerate(self.outw): #fer sync d'aixo i mirar d'arreglar el expection
+            #(si salta l'exepcio ha de tornar a enviar la comanda anterior)
             self.uartSend(f'O{i:X}?\n')
             sv = self.uartReceive()
-            print('received=', sv)
+            print('received:', sv)
 
             try:            
                 start_index = sv.index('=') + 1

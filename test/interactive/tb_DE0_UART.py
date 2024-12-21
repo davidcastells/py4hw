@@ -164,12 +164,13 @@ if not(ser.is_open):
 
 
 def readLine(ser):
-    msg = ser.readline().decode('utf-8').strip()
-    print(msg)
+    msg = ser.read_until('!'.encode()).decode('utf-8').strip()
+    print("recived:", msg)
 
 
 
 def uartSend(ser, m):
+    print("send:",m)
     for c in m:
         ser.write(c.encode())
         #time.sleep(0.01)
@@ -178,9 +179,9 @@ def uartSend(ser, m):
 
        
 readLine(ser)
-for i in range(100):
+for i in range(8):
     print('Testing', i)
-    uartSend(ser, 'I0=12345!\n')
+    uartSend(ser, 'I0=1!\n')
     #time.sleep(0.01) # amb un time. sleep aqui entre pasar els 2 valors de les variables sembla que funciona correctament
     uartSend(ser, 'I1={:X}!\n'.format(i))
     uartSend(ser, 'O0?\n')
