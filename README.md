@@ -31,7 +31,7 @@ In fact, you can generate Verilog code at a very fine-grain.
 - Pypi based distribution
 - Jupyter Notebook integration
 - Integration with edalize
-- Support for existing Hardware platforms (Terasic DE1SoC so far)
+- Support for existing Hardware platforms (Terasic DE0, and DE1SoC so far)
 
 
 [Follow the jump start tutorial !](tutorial/README.md)
