@@ -75,8 +75,8 @@ hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 
-a.put(0x03)
-b.put(0x01)
+a.put(0xF)
+b.put(0x5)
 
 hw.getSimulator().clk(8)
 wvf.gui(shortNames=True)

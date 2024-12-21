@@ -456,17 +456,21 @@ class DUTProxy(py4hw.Logic):
 
 
         for i, outw in enumerate(self.outw):
-            try:            
-                self.uartSend(f'O{i:X}?\n')
-                sv = self.uartReceive()
-                print('received=', sv)
+            success = False
+            while not success:
+                try:
+                    self.uartSend(f'O{i:X}?\n')
+                    sv = self.uartReceive()
+                    print('received=', sv)
 
-                start_index = sv.index('=') + 1
-                end_index = sv.index('!')
-                
-                outw.put(int(sv[start_index:end_index], 16))
-            except:
-                print('exception')
+                    start_index = sv.index('=') + 1
+                    end_index = sv.index('!')
+                    
+                    outw.put(int(sv[start_index:end_index], 16))
+                    success = True 
+                except Exception as e:
+                    print(f'Exception occurred: {e}')
+                    print('Retrying...')
             
 def createHILUARTProxy(dut, parent, name, ins, outs):
     dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
