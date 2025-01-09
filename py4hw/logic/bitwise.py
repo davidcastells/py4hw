@@ -370,10 +370,10 @@ class ShiftLeftConstant(Logic):
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
-        self.n = n
+        self.addParameter('n', n)
 
     def propagate(self):
-        self.r.put(self.a.get() << self.n)
+        self.r.put(self.a.get() << self.getParameterValue('n'))
 
 
 class ShiftRightConstant(Logic):
@@ -381,10 +381,10 @@ class ShiftRightConstant(Logic):
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
-        self.n = n
+        self.addParameter('n', n)
 
     def propagate(self):
-        self.r.put(self.a.get() >> self.n)
+        self.r.put(self.a.get() >>  self.getParameterValue('n'))
 
 class RotateLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
