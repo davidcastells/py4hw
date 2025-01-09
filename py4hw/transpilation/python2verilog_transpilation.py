@@ -72,6 +72,7 @@ class Python2VerilogTranspiler:
         node = RemoveAssert().visit(node)
         
         node = ReplaceIf().visit(node)
+        node = ReplaceParameterCalls().visit(node)
         node = ReplaceWireCalls().visit(node)
         node = ReplaceExpr().visit(node)
         node = ReplaceOperators().visit(node)
