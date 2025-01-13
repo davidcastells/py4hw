@@ -435,8 +435,10 @@ class DUTProxy(py4hw.Logic):
             self.outw[i] = self.addOut(f'out{i}', outw)
             
         import serial
-        #self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
-        self.ser = serial.Serial(port = 'COM3', baudrate=115200, timeout=0.5, rtscts=False, dsrdtr=False)
+        if ('Linux' in os.uname()):
+           self.ser = serial.Serial(port = '/dev/ttyUSB0', baudrate=115200, timeout=1, rtscts=False, dsrdtr=False)
+        else:
+            self.ser = serial.Serial(port = 'COM3', baudrate=115200, timeout=0.5, rtscts=False, dsrdtr=False)
         print('HIL msg:', self.uartReceive())
 
     def uartSend(self, m):
@@ -456,8 +458,8 @@ class DUTProxy(py4hw.Logic):
 
 
         for i, outw in enumerate(self.outw):
-            enviament_correcte = False
-            while not enviament_correcte:
+            send_ok = False
+            while not send_ok:
                 try:
                     self.uartSend(f'O{i:X}?\n')
                     sv = self.uartReceive()
@@ -467,7 +469,7 @@ class DUTProxy(py4hw.Logic):
                     end_index = sv.index('!')
                     
                     outw.put(int(sv[start_index:end_index], 16))
-                    enviament_correcte = True
+                    send_ok = True
                 except Exception as e:
                     print(f'Exception occurred: {e}')
                     print('Retrying...')
