@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec  3 16:36:06 2024
@@ -6,8 +7,7 @@ Created on Tue Dec  3 16:36:06 2024
 """
 
 import py4hw
-import serial
-import time
+
 
 class DUT(py4hw.Logic):
 
@@ -55,12 +55,11 @@ s = hw.wire('s', 32)
 py4hw.Sequence(hw, 'a', [1,2,3,4,5,6,7], a)
 py4hw.Sequence(hw, 'b', [0x1A00,0x2B00,0x3C00], b)
 
-
 dut = DUT(hw, 'dut', a, b, p, s)
 
 import py4hw.emulation.HILWrapperUART as hil
 
-if (False):
+if (True):
     dir = '/tmp/testDE0'
     hil_plt = hil.createHILUART(createHILPlatform(), dut, dir)
     py4hw.gui.Workbench(hil_plt.platform)
@@ -70,7 +69,6 @@ if (False):
 np = hw.wire('np', 32)
 ns = hw.wire('ns', 32)
 
-
 hil.createHILUARTProxy(dut, hw, 'dut_hw', [a, b], [np, ns])
 
 wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
@@ -78,6 +76,6 @@ wvf = py4hw.Waveform(hw, 'wvf', [a,b,p,s, np, ns])
 a.put(0xF)
 b.put(0x5)
 
-hw.getSimulator().clk(8)
-wvf.gui(shortNames=True)
+#hw.getSimulator().clk(1)
+#wvf.gui(shortNames=True)
 py4hw.gui.Workbench(hw)
