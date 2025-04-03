@@ -12,4 +12,5 @@ from .arithmetic_fxp import *
 from .relational import *
 from .simulation import *
 from .clock import *
+from .storage import *
 from .. import *
