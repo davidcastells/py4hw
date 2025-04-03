@@ -868,7 +868,7 @@ class Interface:
         self.sinkToSource.append([name, w])
         return w;
     
-    def removeSourceToSink(self, name:str):
+    def removeSinkToSource(self, name:str):
         if len(self.sinkToSource) == 0:
             raise Exception('No sink-to-source elements in this interface')
             
