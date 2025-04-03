@@ -812,6 +812,18 @@ class Interface:
         self.sourceToSink.append([name, w])
         return w;
     
+    def removeSourceToSink(self, name:str):
+        if len(self.sourceToSink) == 0:
+            raise Exception('No source-to-sink elements in this interface')
+            
+        for i in range(len(self.sourceToSink)):
+            p = self.sourceToSink[i]
+            if (p[0] == name):
+                self.sourceToSink.pop(i)
+                return
+            
+        raise Exception('SourceToSink {} not found'.format(name))
+        
     def getSourceToSink(self, name):
         if len(self.sourceToSink) == 0:
             raise Exception('No source-to-sink elements in this interface')
@@ -853,6 +865,18 @@ class Interface:
         self.sinkToSource.append([name, w])
         return w;
     
+    def removeSourceToSink(self, name:str):
+        if len(self.sinkToSource) == 0:
+            raise Exception('No sink-to-source elements in this interface')
+            
+        for i in range(len(self.sinkToSource)):
+            p = self.sinkToSource[i]
+            if (p[0] == name):
+                self.sinkToSource.pop(i)
+                return
+            
+        raise Exception('SinkToSource {} not found'.format(name))
+        
     def addSourceToSinkRef(self, ref, name:str):
         # Adds a reference to another interface, this is used in subinterfaces
         w = ref.getSourceToSink(name)
