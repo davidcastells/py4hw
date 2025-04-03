@@ -820,6 +820,9 @@ class Interface:
             p = self.sourceToSink[i]
             if (p[0] == name):
                 self.sourceToSink.pop(i)
+                
+                if (hasattr(self, name)):
+                    delattr(self, name)
                 return
             
         raise Exception('SourceToSink {} not found'.format(name))
@@ -873,6 +876,10 @@ class Interface:
             p = self.sinkToSource[i]
             if (p[0] == name):
                 self.sinkToSource.pop(i)
+                
+                if (hasattr(self, name)):
+                    delattr(self, name)
+                    
                 return
             
         raise Exception('SinkToSource {} not found'.format(name))
