@@ -186,3 +186,179 @@ class PipelinePhase(Logic):
             self.addOut('out{}'.format(i), outs[i])
             
             Reg(self, 'r{}'.format(i), ins[i], outs[i], reset=reset)
+            
+            
+class AsynchronousMemory(Logic):
+    def __init__(self, parent, name, read_address, write_address, write, readdata, writedata):
+        super().__init__(parent, name)
+        
+        self.read_address = self.addIn('read_address', read_address)
+        self.write_address = self.addIn('write_address', write_address)
+        self.write = self.addIn('write', write)
+        self.readdata = self.addOut('readdata', readdata)
+        self.writedata = self.addIn('writedata', writedata)
+        
+        if (read_address.getWidth() != write_address.getWidth()):
+            raise Exception(f'read and write address must have the same width')
+            
+        if (read_address.getWidth() > 10):
+            raise Exception(f'Memory too big! address width = {address.getWidth()}')
+            
+        numcells = 1 << read_address.getWidth()
+        
+        
+        self.data = [0] * numcells
+        
+    def propagate(self):
+        radd = self.read_address.get()
+        wadd = self.write_address.get()
+        
+        # always reading
+        #print(f'reading address {add} = {self.data[add]}')
+        self.readdata.put(self.data[radd])
+        
+        if (self.write.get()):
+            self.data[wadd] = self.writedata.get()
+            
+        
+    def verilogBody(self):
+        
+        numcells = 1 << self.read_address.getWidth()
+        w = self.readdata.getWidth()
+        
+        s = f'reg [{w-1}:0] mem [{numcells-1}:0];\n'
+        s += "assign readdata =  mem[read_address];\n"
+
+        s += 'always @(*) begin\n'
+        s += 'if (write) \n'
+        s += ' mem[write_address] = writedata;\n'
+        s += 'end\n'
+    
+        return s
+        
+    
+    
+
+
+class SynchronousMemory(Logic):
+    def __init__(self, parent, name, read_address, write_address, write, readdata, writedata):
+        super().__init__(parent, name)
+        
+        self.read_address = self.addIn('read_address', read_address)
+        self.write_address = self.addIn('write_address', write_address)
+        self.write = self.addIn('write', write)
+        self.readdata = self.addOut('readdata', readdata)
+        self.writedata = self.addIn('writedata', writedata)
+        
+        if (read_address.getWidth() != write_address.getWidth()):
+            raise Exception(f'read and write address must have the same width')
+            
+        if (read_address.getWidth() > 10):
+            raise Exception(f'Memory too big! address width = {address.getWidth()}')
+            
+        numcells = 1 << read_address.getWidth()
+        
+        
+        self.data = [0] * numcells
+        
+    def clock(self):
+        radd = self.read_address.get()
+        wadd = self.write_address.get()
+        
+        # always reading
+        #print(f'reading address {add} = {self.data[add]}')
+        self.readdata.prepare(self.data[radd])
+        
+        if (self.write.get()):
+            self.data[wadd] = self.writedata.get()
+            
+
+
+    def verilogBody(self):
+        numcells = 1 << self.read_address.getWidth()
+        w = self.readdata.getWidth()
+        
+        s = f'(* ramstyle = "no_rw_check" *) reg [{w-1}:0] mem [0:{numcells-1}];\n'
+
+        s += f'reg [{w-1}:0] rreaddata;\n'
+        s += 'always @(posedge clk) begin\n'
+        s += 'if (write) \n'
+        s += ' mem[write_address] <= writedata;\n'
+        s += ' rreaddata <= mem[read_address];\n'
+        s += 'end\n'
+    
+        s += 'assign readdata = rreaddata;\n'
+
+        return s
+        
+        
+class DualPortSynchronousMemory(Logic):
+    def __init__(self, parent, name, read_address_a, write_address_a, write_a, readdata_a, writedata_a,
+                 read_address_b, write_address_b, write_b, readdata_b, writedata_b):
+        super().__init__(parent, name)
+        
+        self.read_address_a = self.addIn('read_address_a', read_address_a)
+        self.write_address_a = self.addIn('write_address_a', write_address_a)
+        self.write_a = self.addIn('write_a', write_a)
+        self.readdata_a = self.addOut('readdata_a', readdata_a)
+        self.writedata_a = self.addIn('writedata_a', writedata_a)
+
+        self.read_address_b = self.addIn('read_address_b', read_address_b)
+        self.write_address_b = self.addIn('write_address_b', write_address_b)
+        self.write_b = self.addIn('write_b', write_b)
+        self.readdata_b = self.addOut('readdata_b', readdata_b)
+        self.writedata_b = self.addIn('writedata_b', writedata_b)
+        
+        if ((read_address_a.getWidth() != write_address_a.getWidth()) or
+            (read_address_b.getWidth() != write_address_b.getWidth()) or
+            (read_address_a.getWidth() != read_address_b.getWidth())):
+            raise Exception(f'read and write address must have the same width')
+            
+        if (read_address_a.getWidth() > 10):
+            raise Exception(f'Memory too big! address width = {address.getWidth()}')
+            
+        numcells = 1 << read_address_a.getWidth()
+               
+        self.data = [0] * numcells
+        
+    def clock(self):
+        radda = self.read_address_a.get()
+        wadda = self.write_address_a.get()
+
+        raddb = self.read_address_b.get()
+        waddb = self.write_address_b.get()
+        
+        # always reading
+        #print(f'reading address {add} = {self.data[add]}')
+        self.readdata_a.prepare(self.data[radda])
+        
+        if (self.writea.get()):
+            self.data[wadd] = self.writedataa.get()
+            
+        self.readdata_b.prepare(self.data[raddb])
+        
+        if (self.writeb.get()):
+            self.data[wadd] = self.writedatab.get()
+
+
+    def verilogBody(self):
+        numcells = 1 << self.read_address_a.getWidth()
+        w = self.readdata_a.getWidth()
+        
+        s = f'reg [{w-1}:0] mem [{numcells-1}:0];\n'
+
+        s += 'always @(posedge clk) begin\n'
+        s += 'if (write_a) \n'
+        s += ' mem[write_address_a] <= writedata_a;\n'
+        s += 'end\n'
+
+        s += 'always @(posedge clk) begin\n'
+        s += 'if (write_b) \n'
+        s += ' mem[write_address_b] <= writedata_b;\n'
+        s += 'end\n'
+
+    
+        s += 'assign readdata_a = mem[read_address_a];\n'
+        s += 'assign readdata_b = mem[read_address_b];\n'
+        return s
+        
