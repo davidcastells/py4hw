@@ -120,6 +120,7 @@ class AXI4LiteInterface(Interface):
         self.awvalid = self.addSourceToSink('awvalid', 1)
         self.awready = self.addSinkToSource('awready', 1)
         self.awaddr = self.addSourceToSink('awaddr', aw)
+        self.awprot = self.addSourceToSink('awprot', 3)
         
         self.wvalid = self.addSourceToSink('wvalid', 1)
         self.wready = self.addSinkToSource('wready', 1)
@@ -129,6 +130,7 @@ class AXI4LiteInterface(Interface):
         self.arvalid = self.addSourceToSink('arvalid', 1)
         self.arready = self.addSinkToSource('arready', 1)
         self.araddr = self.addSourceToSink('araddr', aw)
+        self.arprot = self.addSourceToSink('arprot', 3)
         
         self.rvalid = self.addSinkToSource('rvalid', 1)
         self.rready = self.addSourceToSink('rready', 1)
