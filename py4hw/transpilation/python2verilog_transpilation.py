@@ -58,12 +58,18 @@ class Python2VerilogTranspiler:
             the equivalent RTL
 
         '''
+        
+        module = getMethod(self.obj, '__init__')
+        node = getBody(module)
+        
+        initExtracter = ExtractInitializers(self.obj)
+        init = initExtracter.visit(node)
+        
         module = getMethod(self.obj, 'propagate')
-    
         node = getBody(module, '*')
         
-        initExtracter = ExtractInitializers()
-        init = initExtracter.visit(node)
+        #initExtracter = ExtractInitializers(self.obj)
+        #init = initExtracter.visit(node)
 
     
         assert(isinstance(node, ast.AST))
@@ -79,7 +85,7 @@ class Python2VerilogTranspiler:
         node = ReplaceOperators().visit(node) # repeat to handle Compare
 
         #node = ReplaceAttribute().visit(node)
-        wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables)
+        wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables, initExtracter.arguments)
         node = wiresAndVars.visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
@@ -470,29 +476,40 @@ class ReplaceIfExp(ast.NodeTransformer):
         
 
 class ReplaceWiresAndVariables(ast.NodeTransformer):
-    def __init__(self, ports, variables):
+    # We replace names by verilog wires or variables that were identified in the constructor
+    
+    def __init__(self, ports, variables, arguments):
         self.ports = ports
         self.variables = variables
+        self.arguments = arguments
         
     def visit_Name(self, node):
+        
         name = node.id
         if (name in self.ports.keys()):
             return VerilogWire(name)
 
         if (name in self.variables.keys()):
             return VerilogVariable(name, self.variables[name].type)
+        
+        if (name in self.arguments.keys()):
+            return self.arguments[name]
 
         # create new variable
         self.variables[name] = VerilogVariableDeclaration(name, 'integer')
         return VerilogVariable(name, 'integer')
 
     def visit_Attribute(self, node):
+        
         name = node.attr
         if (name in self.ports.keys()):
             return VerilogWire(name)
 
         if (name in self.variables.keys()):
             return VerilogVariable(name, self.variables[name].type)
+        
+        if (name in self.arguments.keys()):
+            return self.arguments[name]
 
         # create new variable
         self.variables[name] = VerilogVariableDeclaration(name, 'integer')
@@ -501,7 +518,6 @@ class ReplaceWiresAndVariables(ast.NodeTransformer):
 class ReplaceConstant(ast.NodeTransformer):
     # Replace Python Constant by a Verilog Constant
     def visit_Constant(self, node):
-        
         return VerilogConstant(node.value)
     
     def visit_Num(self, node):
@@ -537,9 +553,21 @@ class ReplaceAssign(ast.NodeTransformer):
         return node
 
 class ExtractInitializers(ast.NodeTransformer):
+    # We get port descriptions from addIn, addOut calls
+    # @todo handle interface functions
+    # we save ports as a dictionary with associated with a VerilogWire object
+    
+    # we get variables from  simple assignments like self.state = 0 in the constructor
+    
+    # we get arguments from simple assignments like self.n = n
+    
     ports = {}
     variables = {}
+    arguments = {}
     
+    def __init__(self, obj):
+        self.obj = obj
+        
     # Extracts initializers from class constructor
     def visit_Constant(self, node):
         return VerilogConstant(node.value)
@@ -587,8 +615,13 @@ class ExtractInitializers(ast.NodeTransformer):
             self.variables[vname] = VerilogVariableDeclaration(vname, 'integer')
             return None
         
+        elif (isinstance(node.value, ast.Name)):
+            #return VerilogConstant(getattr(self.obj, node.value.id))
+            vname = node.targets[0].attr
+            self.arguments[vname] = VerilogConstant(getattr(self.obj, node.value.id))
+            return None
         else:
-            raise Exception('not handled')
+            raise Exception(f'Assign not handled: {ast.unparse(node)} type:', type(node.value) )
         
         return node
                 
