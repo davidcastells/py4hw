@@ -17,11 +17,11 @@ import webbrowser
 import os
 
 def getTempDir():
-    if ('Linux' in os.uname()):
-        return '/tmp/'
-    else:
-        return 'c:\\Temp\\'
-    
+    import tempfile
+    return tempfile.gettempdir()
+
+
+# Simple Circuit
 class FullAdder(py4hw.Logic):
     
     def __init__(self, parent, name, x, y, ci, s, co):
@@ -36,6 +36,19 @@ class FullAdder(py4hw.Logic):
     def propagate(self):
         self.s.put((self.x.get() ^ self.y.get()) ^ self.ci.get())
         self.co.put((self.x.get() & self.y.get()) | ( (self.x.get() ^ self.y.get())  & self.ci.get()))
+
+
+# This more complex, the transpiler has to identify that n is not a wire
+# and must be substituted by the runtime value of the variable
+class ShiftLeftConstant(py4hw.Logic):
+    def __init__(self, parent, name: str, a: py4hw.Wire, n: int, r: py4hw.Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        self.n = n
+        
+    def propagate(self):
+        self.r.put(self.a.get() << self.n)
         
 class TestCircuit(py4hw.Logic):
     def __init__(self, parent, name, a, r):
@@ -114,7 +127,7 @@ class VGATestPattern(py4hw.Logic):
             if (self.y >= 520):
                 self.y = 0
 
-if (True):
+if (False):
     # Test circuit
     hw = py4hw.HWSystem()
     a = hw.wire('a', 8)
@@ -123,6 +136,16 @@ if (True):
     py4hw.Sequence(hw, 'seq', [1,2,3], a)
     dut = TestCircuit(hw, 'test', a, r)
     #dut = FSM(hw, 'test', a, r)
+
+if (True):
+    # Test circuit
+    hw = py4hw.HWSystem()
+    a = hw.wire('a', 8)
+    r = hw.wire('r', 8)
+    
+    py4hw.Sequence(hw, 'seq', [1,2,3], a)
+    dut = ShiftLeftConstant(hw, 'test', a, 7, r)
+
 
 if (False):
     # Test circuit
@@ -152,7 +175,7 @@ if (False):
     py4hw.Sequence(hw, 'ci', [0,0,0,0,1,1,1,1], ci)
     dut = FullAdder(hw, 'test', x, y, ci, s, co)
     
-if (True):
+if (False):
     module = py2v.getMethod(dut, '__init__')
     node = py2v.getBody(module, '*')
     
@@ -163,7 +186,7 @@ if (True):
     with open(getTempDir()+'init.xml', 'wb') as f:
         f.write(ast2xml.renderXml(xml))
 
-if (True):
+if (False):
     # Low level tests
     module = py2v.getMethod(dut, 'clock')
     node = py2v.getBody(module, '*')
