@@ -117,6 +117,14 @@ def isReservedVerilogKeyword(str):
 wire_names_cache_obj = None
 wire_names_cache = None
 
+def clearWireNamesCache():
+    global wire_names_cache_obj
+    global wire_names_cache
+    wire_names_cache_obj = None
+    wire_names_cache = None
+
+
+    
 def getWireNames(obj:Logic):
     """
     Collects the wires of the obj and their names in 
@@ -501,8 +509,10 @@ class VerilogGenerator:
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
         
+        self.created_structures = []
+        
     def getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, 
-                               forceName=None, createdStructures=[]):
+                               forceName=None, createdStructures=None):
         """
         Generates Verilog for all entities of the object hierarchy
 
@@ -512,7 +522,13 @@ class VerilogGenerator:
 
         """
         
-        self.created_structures = createdStructures
+        clearWireNamesCache()
+        
+        if (createdStructures is None):
+            self.created_structures = []
+        else:    
+            self.created_structures = createdStructures
+        
         return self._getVerilogForHierarchy(obj, noInstanceNumberInTopEntity, forceName)
     
     def _getVerilogForHierarchy(self, obj=None, noInstanceNumberInTopEntity=True, forceName=None):
@@ -521,8 +537,6 @@ class VerilogGenerator:
         if (obj is None):
             obj = self.obj
         
-        #print('generating {}'.format(obj.getFullPath()))
-            
         str = self._getVerilog(obj, noInstanceNumber = noInstanceNumberInTopEntity, forceName=forceName)
         
         for child in obj.children.values():
@@ -556,6 +570,7 @@ class VerilogGenerator:
             DESCRIPTION.
 
         '''
+        clearWireNamesCache()
         self.created_structures = []
         return self._getVerilog(obj, noInstanceNumber, forceName)
     
@@ -573,9 +588,11 @@ class VerilogGenerator:
         else:
             structure_name = getVerilogModuleName(obj, noInstanceNumber=noInstanceNumber)
         
+        
         if (structure_name in self.created_structures):
+            print(f'structure {structure_name} already created in {self.created_structures}')
             return ''
-            
+        
         str += self.createModuleHeader(obj, structure_name)
         
         localWires = collectLocalWires(obj)
@@ -872,6 +889,7 @@ class VerilogGenerator:
         str = tr.format(str)
         
         return str
+
 import inspect
 import ast
 import textwrap
