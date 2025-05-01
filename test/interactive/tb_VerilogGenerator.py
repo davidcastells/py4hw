@@ -48,7 +48,18 @@ AndWrapper(sys, 'and3', c, d, r3)
 #py4hw.gui.Workbench(sys)
 
 rtlgen = py4hw.VerilogGenerator(sys)
+print('First time', id(rtlgen))
 
 rtl = rtlgen.getVerilogForHierarchy()
 
 print(rtl)
+
+
+
+rtlgen = py4hw.VerilogGenerator(sys)
+print('Second time', id(rtlgen))
+
+rtl = rtlgen.getVerilogForHierarchy()
+
+print(rtl)
+
