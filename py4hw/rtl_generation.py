@@ -590,7 +590,7 @@ class VerilogGenerator:
         
         
         if (structure_name in self.created_structures):
-            print(f'structure {structure_name} already created in {self.created_structures}')
+            # print(f'structure {structure_name} already created in {self.created_structures}')
             return ''
         
         str += self.createModuleHeader(obj, structure_name)
