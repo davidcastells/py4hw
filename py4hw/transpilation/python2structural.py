@@ -9,7 +9,28 @@ import py4hw
 from py4hw.base import *
 from .astutils import * 
 
-class Python2Structural:
+class Python2StructuralCode:
+    
+    def __init__(self, clazz:Logic):
+        self.clazz = clazz
+
+    def getCode(self):
+        ret =  '# This file was automatically created by Python2StructuralCode\n'
+        
+        class_ast = get_class_ast(self.clazz)
+
+        renamer = ClassRenamer(self.clazz.__name__, self.clazz.__name__ + 'Structural')
+        class_ast = renamer.visit(class_ast)
+
+        renamer = MethodRenamer('propagate', 'build')
+        class_ast = renamer.visit(class_ast)
+        injector = AppendCallInConstructor('build')
+        class_ast = injector.visit(class_ast)
+        ret += ast.unparse(class_ast)
+        
+        return ret
+    
+class Python2StructuralObject:
 
     def __init__(self, obj:Logic, methodName:str):
         self.obj = obj
