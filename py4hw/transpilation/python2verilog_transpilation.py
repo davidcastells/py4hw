@@ -110,7 +110,7 @@ class Python2VerilogTranspiler:
         module = getMethod(self.obj, '__init__')
         node = getBody(module)
         
-        initExtracter = ExtractInitializers()
+        initExtracter = ExtractInitializers(self.obj)
         init = initExtracter.visit(node)
         
         if hasattr(self.obj, 'initial'):
@@ -150,7 +150,7 @@ class Python2VerilogTranspiler:
         node = ReplaceOperators().visit(node) # repeat to handle Compare
         node = ReplaceOperators().visit(node) # repeat to handle Compare
         
-        wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables)
+        wiresAndVars = ReplaceWiresAndVariables(initExtracter.ports, initExtracter.variables, initExtracter.arguments)
         node = wiresAndVars.visit(node)
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
@@ -304,17 +304,22 @@ class PropagateConstants(ast.NodeTransformer):
 class ReplaceIf(ast.NodeTransformer):
     # Transforms Python If into Verilog If
     def visit_If(self, node):
-        #print('transpiling if')
-        condition = node.test
+        condition = self.visit(node.test)
         
-        positive = node.body
-        negative = node.orelse
+        positive = [self.visit(stmt) for stmt in node.body]
+        negative = [self.visit(stmt) for stmt in node.orelse]
         
         node2 = VerilogIf(condition, positive, negative)
 
-        node2 = ast.NodeTransformer.generic_visit(self, node2)
+        #node2 = ast.NodeTransformer.generic_visit(self, node2)
         return node2
         
+    def visit_IfExp(self, node):
+        """Transforms Python ternary if-expressions into VerilogIf"""
+        condition = self.visit(node.test)
+        positive = [self.visit(node.body)]  # Wrap in list to match VerilogIf structure
+        negative = [self.visit(node.orelse)]
+        return VerilogIf(condition, positive, negative)
 
 class RemovePrints(ast.NodeTransformer):
         
@@ -788,6 +793,8 @@ class VerilogOperator(ast.AST):
             return '||'
         elif (isinstance(operator, ast.Eq)):
             return '=='
+        elif (isinstance(operator, ast.NotEq)):
+            return '!='
         elif (isinstance(operator, ast.Lt)):
             return '<'        
         elif (isinstance(operator, ast.LtE)):
