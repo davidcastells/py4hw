@@ -22,27 +22,50 @@ class Add(Logic):
         self.r = self.addOut("r", r)
         
         if (ci is None):
-            self.ci = None
+            ci = self.wire('ci')
+            Constant(self, 'ci', 0, ci)
+            
         else:
             self.ci = self.addIn('ci', ci)
             
+        aw = a.getWidth()
+        bw = b.getWidth()
+        rw = r.getWidth()
+        
         if (co is None):
-            self.co = None
+            assert((rw  - max(aw,bw)) in [0,1])
+            AddCarryIn(self, "add", a, b, r, ci)
+            
         else:
+            assert(rw  == max(aw,bw) )
             self.co = self.addOut('co', co)
+            pre_r = self.wire('pre_r', rw + 1)
+            AddCarryIn(self, "add", a, b, pre_r, ci)
+            Range(self, 'r', pre_r, rw-1, 0, r)
+            Bit(self, 'co', pre_r, rw, co)
+            
+        
+
+        
+        
+class AddCarryIn(Logic):
+    """
+    Combinational Arithmetic Add
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci:Wire):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+        assert(r.getWidth() >= a.getWidth() )
+        self.ci = self.addIn('ci', ci)
+        
 
     def propagate(self):
-        if (not(self.ci is None)):
-            vci = self.ci.get()
-        else:
-            vci = 0
+        self.r.put(self.a.get() + self.b.get() + self.ci.get())        
 
-        vr = self.a.get() + self.b.get() + vci
-        
-        if (not(self.co is None)):
-            self.co.put(vr >> self.r.getWidth())
-            
-        self.r.put(vr)
 
 class Abs(Logic):
     """
