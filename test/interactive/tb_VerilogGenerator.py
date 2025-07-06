@@ -25,7 +25,20 @@ class AndWrapper(Logic):
         else:
             return 'AndWrapper_{}_{}_{}'.format(a.getWidth(), b.getWidth(), r.getWidth())
               
+class Test(Logic):
+    def __init__(self, parent, name, a, b, r):
+        super().__init__(parent, name)
+
+        self.addIn('a', a)
+        self.addIn('b', b)
+        self.addOut('r', r)
         
+        d = self.wire('d', a.getWidth())
+        
+        py4hw.Reg(self, 'd', d=a, q=d)
+        py4hw.Reg(self, 'r', d=d, q=r, enable=b)
+
+                
 sys = HWSystem()
 
 a = Wire(sys, "a", 4)
@@ -54,7 +67,13 @@ rtl = rtlgen.getVerilogForHierarchy()
 
 print(rtl)
 
+sys = HWSystem()
 
+a = sys.wire( "a")
+b = sys.wire("b")
+c = sys.wire( "c")
+
+Test(sys, 'test', a, b, c)
 
 rtlgen = py4hw.VerilogGenerator(sys)
 print('Second time', id(rtlgen))
