@@ -126,6 +126,17 @@ def getPortWires(obj:Logic):
 
     return ret
 
+def getInterfaceWires(obj:Interface):
+    ret = []
+    for name, w in obj.sourceToSink:
+        ret.append(w)
+
+    for name, w in obj.sinkToSource:
+        ret.append(w)
+
+    return ret
+
+
 def _getPortValues(obj:Logic, sfmt:str):
     ret = '('
     link = ''
