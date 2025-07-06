@@ -67,8 +67,8 @@ a = hw.wire('a', 8)
 r = hw.wire('r', 8)
 
 py4hw.Sequence(hw, 'seq', [1,2,3], a)
-dut = TestCircuit(hw, 'test', a, r)
-#dut = FSM(hw, 'test', a, r)
+#dut = TestCircuit(hw, 'test', a, r)
+dut = FSM(hw, 'test', a, r)
 
 if (True):
     # Low level tests
@@ -86,7 +86,7 @@ if (True):
     
 
 if (True):    
-    hls = py2s.Python2Structural(dut, 'clock')
+    hls = py2s.Python2StructuralObject(dut, 'clock')
     dut2 = hls.generateStructural('dut2')
 
     sch = py4hw.Schematic(dut2)
@@ -104,8 +104,18 @@ if (True):
     
     wvf.draw()
 
-if (False):
+if (True):
     rtl = py4hw.rtl_generation.VerilogGenerator(dut)
     str = rtl.getVerilog()
     
+    print('Behavioural RTL')
     print(str)
+    print('')
+
+if (True):
+    rtl = py4hw.rtl_generation.VerilogGenerator(dut2)
+    str = rtl.getVerilog()
+    
+    print('HLS RTL')
+    print(str)
+    print('')
