@@ -54,7 +54,11 @@ class Waveform(Logic):
         # wires contain all the elements of the input list, there might be repeatitions
         self.wires = wires if isinstance(wires, list) else [wires]
         self.format = []
-        self.data = {}  # this is a dictionary of obj (wire or port) -> data, list of wire values 
+        
+        
+        self.data = {}  
+        # this is a dictionary of obj (wire or port) -> data, list of wire values 
+        # so, repetitions in wires will be discarded
 
         self.uniqueWires = []
         
@@ -78,7 +82,7 @@ class Waveform(Logic):
                 w = None
                 if not(x in self.uniqueWires):
                     self.uniqueWires.append(x)
-                    self.data[x] = []                                                
+                    self.data[x] = []
             else:
                 raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
@@ -268,7 +272,7 @@ class WaveformWindow:
         
         style = ttk.Style()
         style.configure("Treeview", fg="light yellow")
-        style.configure("Treeview", rowheight=23) 
+        style.configure("Treeview", rowheight=21) 
         style.configure("Prolepsis.Treeview", font=font)
         
         self.topPane = PanedWindow(self.root, orient=VERTICAL)
@@ -278,6 +282,7 @@ class WaveformWindow:
         icon_zo = getResourceIcon('zoomout24.png')
         icon_zi = getResourceIcon('zoomin24.png')
         
+
         zoomInButton = ttk.Button(self.toolbar,  image=icon_zi, text="Zoom in", command=self.zoomIn)
         zoomOutButton = ttk.Button(self.toolbar, image=icon_zo, text="Zoom out", command=self.zoomOut)
 
@@ -369,9 +374,10 @@ class WaveformWindow:
         #self.hierarchyPane.pack(fill=BOTH, expand=YES)
         tv.pack(side=LEFT, fill=BOTH, expand=YES)
         
-        wd = self.waveform.getDict()
+        #wd = self.waveform.getDict()
+        wires = self.waveform.wires
         
-        for wav in wd.keys():
+        for wav in wires:
             if (self.shortNames):
                 name = wav.name
             else:
@@ -420,7 +426,6 @@ class WaveformWindow:
         htrans = 3
         
         for idx, obj in enumerate(self.waveform.wires):
-            
             if (isinstance(obj, FieldInspector)):
                 w = obj
                 ww = -1
@@ -430,7 +435,8 @@ class WaveformWindow:
                 
             data = wd[w]
             fmt = self.waveform.format[idx]
-            
+
+            print('drawing wire', idx, w.getFullPath())            
             if (ww == 1):
                 lastval = None
             else:
