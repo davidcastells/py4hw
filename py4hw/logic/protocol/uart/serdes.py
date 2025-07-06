@@ -102,7 +102,7 @@ class UARTDeserializer(Logic):
                     self.clock_desync.prepare(1)
 
                 else:
-                    self.temp = ((self.temp >> 1) | (self.rx.get() << 7) )
+                    self.temp = self.temp  | (self.rx.get() << self.count) 
                     #print('incorporating', self.rx.get(), 'to V ', self.temp)
                     self.count += 1
                     
