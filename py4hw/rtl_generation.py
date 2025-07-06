@@ -301,8 +301,8 @@ def InlineXor2(obj:Logic):
 def InlineMux2(obj:Logic):
     return "assign {} = ({})? {} : {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.sel), getParentWireName(obj, obj.sel1) , getParentWireName(obj, obj.sel0))
 
-def InlineAdd(obj:Logic):
-    return "assign {} = {} + {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+def InlineAddCarryIn(obj:Logic):
+    return "assign {} = {} + {} + {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b) , getParentWireName(obj, obj.ci) )
 
 def InlineMul(obj:Logic):
     return "assign {} = {} * {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
@@ -472,7 +472,7 @@ class VerilogGenerator:
         
         self.inlinablePrimitives = {}
         
-        self.inlinablePrimitives[Add] = InlineAdd
+        self.inlinablePrimitives[AddCarryIn] = InlineAddCarryIn
         
         self.inlinablePrimitives[And2] = InlineAnd2
         self.inlinablePrimitives[And] = InlineAnd
