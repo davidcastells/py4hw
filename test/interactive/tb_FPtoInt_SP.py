@@ -20,7 +20,7 @@ p_lost = sys.wire('p_lost')
 denorm = sys.wire('denorm')
 invalid = sys.wire('invalid')
 
-av = 0.4413984417915344
+av = -10814756864.0
 
 a = g.hw_constant(32, fp.sp_to_ieee754(av))
 
