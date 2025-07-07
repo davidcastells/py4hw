@@ -44,7 +44,18 @@ def getResourceIcon(name):
 
 
 class Workbench():
+    '''
+    This builds an interactive simulation GUI
     
+    +----------------------+----------------------------+
+    | Circuit Hierarchy    | Selected Circuit Interface |
+    | self.hierarchyTree   | self.interfacePane         |
+    |                      +----------------------------+
+    |                      | Selected Circuit Schematic |
+    |                      | self.schematicAreaPane     |
+    +----------------------+----------------------------+
+    
+    '''
     
         
     def __init__(self, sys:Logic):
@@ -167,6 +178,7 @@ class Workbench():
         
         detail_tv.config(columns=[ 'direction', 'width', 'value'])
         detail_tv.config(displaycolumns=[ 0, 1,2])
+        
 
         detail_tv.heading('#0', text='Name')
         detail_tv.heading('direction', text='Direction')
@@ -179,12 +191,14 @@ class Workbench():
         detail_tv.column('width', minwidth=0,width=100)
         detail_tv.column("value", minwidth=0,width=100)
         
-        detail_tv.config(selectmode=tkinter.NONE)
+        detail_tv.config(selectmode=tkinter.BROWSE)
         detail_tv.tag_configure("ally", background="green")
         #detail_tv.tag_bind("char", "<Double-Button-1>", event)
         #tv.config(style="Prolepsis.Treeview")
         detail_tv["style"] = "Prolepsis.Treeview"
 
+        detail_tv.bind("<Control-c>", self.copy_selected_text)
+        
         #self.debugTkinterHierarchy(self.root, 0)
         
         if (obj == None):
@@ -192,7 +206,44 @@ class Workbench():
         
         self.setCircuitDetail(obj)
         
+    def copy_selected_text(self, event=None):
+        selected_items = self.detail_tv.selection() # Get IDs of all selected items
+
+        if not selected_items:
+            print("No row selected to copy.")
+            return
+
+        text_to_copy = []
+        for item_id in selected_items:
+            # Get the values for the current item (row)
+            # item_id is the internal identifier for the row
+            # 'values' returns a tuple of the data in each column for that row
+            row_values = self.detail_tv.item(item_id, 'values')
+
+            if row_values:
+                # Join the column values with a tab character.
+                # This is useful for pasting into spreadsheet applications.
+                text_to_copy.append("\t".join(map(str, row_values)))
+            else:
+                print(f"Warning: Selected item {item_id} has no values.")
+
+        if not text_to_copy:
+            print("No content found in selected rows to copy.")
+            return
+
+        # Clear the system clipboard
+        self.detail_tv.clipboard_clear()
+        # Append the combined text (rows separated by newlines) to the clipboard
+        self.detail_tv.clipboard_append("\n".join(text_to_copy))
+        # Force Tkinter to update the clipboard immediately
+        self.detail_tv.update()
+
+        print(f"Copied {len(selected_items)} row(s) to clipboard.")
+        # Optional: For debugging, you can print what's on the clipboard
+        # print(f"Clipboard content:\n{self.clipboard_get()}")
         
+
+         
     def debugTkinterHierarchy(self, obj, ii):
         indent = '|' * ii + '+'
         print('[INFO] {} tkinter obj {} {}'.format(indent, type(obj), obj._name if (hasattr(obj, '_name')) else ''));
