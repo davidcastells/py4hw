@@ -460,20 +460,23 @@ class ShiftLeft(Logic):
         b = self.addIn('b', b)
         r = self.addOut('r', r)
             
-        w = a.getWidth()
+        wa = a.getWidth()
         wb = b.getWidth()
+        wr = r.getWidth()
+        
+        w = max(wa, wr)
         
         if (wb > 6):
             print('WARNING shift registers with shifting value width > 5 are not common')
             
         last = a
         for i in range(wb):
-            shifted = self.wire('shifted{}'.format(i), r.getWidth())
+            shifted = self.wire('shifted{}'.format(i), w)
             ShiftLeftConstant(self, 'shifted{}'.format(i), last, 1<<i, shifted)
             
             doShift = self.wire(f'doShift{i}')
             Bit(self, f'doShift{i}', b, i, doShift)
-            prer = self.wire(f'shift_{i}', a.getWidth())
+            prer = self.wire(f'shift_{i}', w)
             Mux2(self, f'shift_{i}', doShift, last, shifted, prer)
             last = prer
             
