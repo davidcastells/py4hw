@@ -113,9 +113,6 @@ class Test_FPtoInt_SP:
                 else:
                     bits = math.ceil(math.log2(int(abs(av))))
 
-                if (av < 0):
-                    bits += 1
-                    
                 
                 exp_invalid = int(bits > 31)
                 sys.getSimulator().clk(1)
