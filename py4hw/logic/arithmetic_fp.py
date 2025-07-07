@@ -12,8 +12,30 @@ from .arithmetic import *
 from deprecated import deprecated
 
 
+class _FP_parts_raw(Logic):
+    def __init__(self, parent:Logic, name:str, a:Wire, s:Wire, e:Wire, m:Wire):
+        super().__init__(parent, name)
+
+        from ..helper import LogicHelper
+    
+        assert(s.getWidth() == 1)
+        assert(e.getWidth() == 8)
+        assert(m.getWidth() == 23)
+        
+        self.addIn('a', a)
+        self.addOut('s', s)
+        self.addOut('e', e)
+        self.addOut('m', m)
+
+        
+        Bit(self, 's',a, 31, s)
+        Range(self, 'e', a, 30, 23, e)
+        Range(self, 'm', a, 22, 0, m)
+        
+
+
 class _FP_parts(Logic):
-    def __init__(self, parent:Logic, name:str, a:Wire, s:Wire, e:Wire, m:Wire, isZero:Wire, fixExponent=True):
+    def __init__(self, parent:Logic, name:str, a:Wire, s:Wire, e:Wire, m:Wire, isDenorm:Wire, isZero:Wire):
         super().__init__(parent, name)
 
         from ..helper import LogicHelper
@@ -26,30 +48,31 @@ class _FP_parts(Logic):
         self.addOut('s', s)
         self.addOut('e', e)
         self.addOut('m', m)
+        self.addOut('isDenorm', isDenorm)
         self.addOut('isZero', isZero)
+        
+        g = LogicHelper(self)
+
 
         pre_e = self.wire('pre_e', 8)
         pre_m = self.wire('pre_m', 23)
         
         Bit(self, 's',a, 31, s)
         Range(self, 'pre_e', a, 30, 23, pre_e)
-        Range(self, 'm', a, 22, 0, pre_m)
+        Range(self, 'pre_m', a, 22, 0, pre_m)
         
-        one = self.wire('one', 1)
-        Constant(self, 'one', 1, one)
+        hidden_bit = g.hw_not_equal_constant(pre_e, 0)        
+        frac_is_not_0 = g.hw_not_equal_constant(pre_m, 0)
 
-        ConcatenateMSBF(self, 'ma', [one, pre_m], m)
-
-        g = LogicHelper(self)
-
-        if (fixExponent):
-            Sub(self, 'e', pre_e , g.hw_constant(8, 127), e)
-        else:
-            Buf(self, 'e', pre_e, e)
-
-        Buf(self, 'isZero', g.hw_or2(g.hw_equal_constant(pre_e, 0),
-                                     g.hw_equal_constant(pre_m, 0)), isZero)        
+        And2(self, 'isDenorm', g.hw_not(hidden_bit), frac_is_not_0, isDenorm)
+        And2(self, 'isZero', g.hw_not(hidden_bit), g.hw_not(frac_is_not_0), isZero)
         
+        ConcatenateMSBF(self, 'm', [hidden_bit, pre_m], m) 
+        
+        # e2 = 32 + (e - 127)
+        Sub(self, 'e', pre_e, g.hw_constant(8, 127), e)
+        
+                
 class FPAdder_SP(Logic):
     # This design is a very basic one, inspired in algorithm described in 
     # the 2.1 section of the paper 
@@ -196,53 +219,50 @@ class FPtoInt_SP(Logic):
 
         self.addIn('a', a)
         self.addOut('r', r)
-        self.addOut('p_lost', r)
+        self.addOut('p_lost', p_lost)
         self.addOut('denorm', denorm)
         self.addOut('invalid', invalid)
 
-        g = LogicHelper(self)
-        e = g.hw_range(a, 30, 23)
-        m = g.hw_range(a,22,0)
-        hidden_bit = g.hw_not_equal_constant(e, 0)        
-        frac_is_not_0 = g.hw_not_equal_constant(m, 0)
+        sign = self.wire('sign')
+        real_e = self.wire('e', 8)
+        real_m = self.wire('m', 24)
+        is_denorm = self.wire('is_denorm')
+        is_zero = self.wire('is_zero')
+        
+        _FP_parts(self, 'parts', a, sign, real_e, real_m, is_denorm, is_zero)
 
-        is_denorm = g.hw_and2(g.hw_not(hidden_bit), frac_is_not_0)
-        is_zero = g.hw_and2(g.hw_not(hidden_bit), g.hw_not(frac_is_not_0))
-        sign = g.hw_bit(a,31)
+        g = LogicHelper(self)
         
-        zero_tail = g.hw_constant(23, 0)
-        real_m = g.hw_concatenate_msbf([hidden_bit, m]) 
-        #frac0 = g.hw_concatenate_msbf([hidden_bit, m, zero_tail]) # 56 bits
-        
-        # e2 = 32 + (e - 127)
-        real_e = g.hw_sub(e, g.hw_constant(8, 127))
+        zero_tail = g.hw_constant(32, 0)
+
+        frac0 = g.hw_concatenate_msbf([real_m, zero_tail]) # 56 bits
         
         sign_real_e = g.hw_sign(real_e)
-        
-        k31 = g.hw_constant(real_e.getWidth(), 30)
-        #too_big = self.wire('too_big')
-        e_gt_31 = self.wire('e_gt_31')
-        e_eq_31 = self.wire('e_eq_31')
-        e_lt_31 = self.wire('e_lt_31')
-        Comparator(self, 'too_big', real_e, k31, e_gt_31, e_eq_31, e_lt_31)
-        too_big = g.hw_or2(g.hw_and2(e_gt_31, g.hw_not(sign_real_e)),
-                           g.hw_and2(sign, e_eq_31))
-        
-        # if sign is 1, this means that the number is < 0
-        
-        # 32 is the range of integers, 23 the range of the fractional part of m        
-        expanded_m = self.wire('expanded_m', 32+24) 
-        ShiftLeft(self, 'expanded_m', real_m, real_e, expanded_m)
 
-        integer_m = g.hw_range(expanded_m, 32+23-1, 23)
-        fractional_m = g.hw_range(expanded_m, 22, 0)
-        franctional_m_not_zero = g.hw_not_equal_constant(fractional_m, 0)
+        # if exponent is positive we have to shift left first by e
+        # then shift right 23 bits. So the shift right will be 23-real_e
+        # if the value is greater than 23 we will get a negative value
+        shift_amount_right = g.hw_sub(g.hw_constant(8, 23), real_e)
+        shift_amount_left = g.hw_sub(real_e, g.hw_constant(8, 23))
+        shift_sign = g.hw_sign(shift_amount_right)
+
+        shifted = self.wire('shifted', 64)
+        shifted_right = self.wire('shifted_right', 64)
+        shifted_left = self.wire('shifted_left', 64)
+        ShiftRight(self, 'shifted_right', frac0, shift_amount_right, shifted_right)
+        ShiftLeft(self, 'shifted_left', frac0, shift_amount_left, shifted_left)
+        Mux2(self, 'shifted', shift_sign, shifted_right, shifted_left, shifted)
+        too_big = g.hw_gt_constant(real_e, 31)
         
-        positive_m = integer_m
-        negative_m = g.hw_neg(integer_m)
+        final_m_pos = g.hw_range(shifted, 32+32, 32)
+        final_m_neg = g.hw_neg(final_m_pos)
         
-        final_m = g.hw_mux2(sign, positive_m, negative_m)
-        #wire [8:0] shift_right_bits = 9’d158 - {1’b0,a[30:23]}; // 127 + 31
+        final_m = g.hw_if(sign, final_m_neg, final_m_pos)
+        pos_ext_p_lost = g.hw_not_equal_constant(g.hw_range(shifted, 32, 0), 0)
+
+        # if exponent is negative we have to shift right first by e 
+        # then shift right 24 bits. But this will surelly be less than 1
+        
         
         # for denorm values
         select_denorm = is_denorm
@@ -250,15 +270,15 @@ class FPtoInt_SP(Logic):
         invalid_denorm = g.hw_constant(1,0)
         d_denorm = g.hw_constant(32, 0)
         
-        # small values
+        # negative exponent
         select_small = sign_real_e
-        p_lost_small = frac_is_not_0 
+        p_lost_small = g.hw_not(is_zero) 
         invalid_small = g.hw_constant(1,0)
         d_small = g.hw_constant(32, 0)
         
-        # default
-        select_default = g.hw_or2(g.hw_not(is_denorm), g.hw_not(select_small))
-        p_lost_default = franctional_m_not_zero
+        # positive exponent
+        select_default = g.hw_or2(g.hw_not(select_denorm), g.hw_not(select_small))
+        p_lost_default = pos_ext_p_lost
         invalid_default = too_big
         d_default = final_m
 
