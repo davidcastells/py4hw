@@ -30,6 +30,30 @@ class Test_Shift:
         
         py4hw.debug.checkIntegrity(sys)
 
+    def test_shiftr_1(self):
+        sys = py4hw.HWSystem()
+        
+        reset = sys.wire('reset')
+        a = sys.wire('a', 56)
+        b = sys.wire('b', 8)
+        r = sys.wire('r', 64)
+        
+        av = 0x9020f800000000
+        bv = 0x5
+        py4hw.Constant(sys, 'a', av, a)
+        py4hw.Constant(sys, 'b', bv, b)
+
+        
+        exp_r = (av >> bv) & ((1<<64)-1)
+
+        print('Sifting {:08X} by {:3d}  right: {:08X}'.format(av, bv,  exp_r) )
+        
+        py4hw.ShiftRight(sys, 'right', a, b, r )   
+        
+        sys.getSimulator().clk(1)
+        
+        assert(r.get() == exp_r)
+        
     def test_random(self):
         sys = py4hw.HWSystem()
         
