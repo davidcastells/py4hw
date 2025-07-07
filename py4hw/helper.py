@@ -233,6 +233,18 @@ class LogicHelper:
         Comparator(self.parent, self._getNewName(), a, k, gt, eq, lt)
         return gt
     
+    def hw_signed_gt_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        gt = self.parent.wire(self._getNewName())
+        gtu = self.parent.wire(self._getNewName())
+        eq = self.parent.wire(self._getNewName())
+        lt = self.parent.wire(self._getNewName())
+        ltu = self.parent.wire(self._getNewName())
+        k = self.parent.wire(self._getNewName(), w)
+        Constant(self.parent, self._getNewName(), b, k)
+        ComparatorSignedUnsigned(self.parent, self._getNewName(), a, k, gtu, eq, ltu, gt, lt)
+        return gt
+    
     def hw_lt_constant(self, a:Wire, b:int) -> Wire:
         w = a.getWidth()
         gt = self.parent.wire(self._getNewName())
@@ -254,6 +266,21 @@ class LogicHelper:
         Comparator(self.parent, self._getNewName(), a, k, gt, eq, lt)
         Or2(self.parent, self._getNewName(), gt, eq, ge)
         return ge
+    
+    def hw_signed_ge_constant(self, a:Wire, b:int) -> Wire:
+        w = a.getWidth()
+        gt = self.parent.wire(self._getNewName())
+        gtu = self.parent.wire(self._getNewName())
+        eq = self.parent.wire(self._getNewName())
+        lt = self.parent.wire(self._getNewName())
+        ltu = self.parent.wire(self._getNewName())
+        ge = self.parent.wire(self._getNewName())
+        k = self.parent.wire(self._getNewName(), w)
+        Constant(self.parent, self._getNewName(), b, k)
+        ComparatorSignedUnsigned(self.parent, self._getNewName(), a, k, gtu, eq, ltu, gt, lt)
+        Or2(self.parent, self._getNewName(), gt, eq, ge)
+        return ge
+
     
     def hw_mul(self, a:Wire, b:Wire) -> Wire:
         wa = a.getWidth()
