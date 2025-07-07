@@ -252,7 +252,7 @@ class FPtoInt_SP(Logic):
         ShiftRight(self, 'shifted_right', frac0, shift_amount_right, shifted_right)
         ShiftLeft(self, 'shifted_left', frac0, shift_amount_left, shifted_left)
         Mux2(self, 'shifted', shift_sign, shifted_right, shifted_left, shifted)
-        too_big = g.hw_gt_constant(real_e, 31)
+        too_big = g.hw_signed_gt_constant(real_e, 30)
         
         final_m_pos = g.hw_range(shifted, 32+32, 32)
         final_m_neg = g.hw_neg(final_m_pos)
