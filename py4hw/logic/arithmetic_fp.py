@@ -18,21 +18,23 @@ class _FP_parts_raw(Logic):
 
         from ..helper import LogicHelper
     
-        assert(s.getWidth() == 1)
-        assert(e.getWidth() == 8)
-        assert(m.getWidth() == 23)
-        
         self.addIn('a', a)
-        self.addOut('s', s)
-        self.addOut('e', e)
-        self.addOut('m', m)
 
-        
-        Bit(self, 's',a, 31, s)
-        Range(self, 'e', a, 30, 23, e)
-        Range(self, 'm', a, 22, 0, m)
-        
+        if not(s is None):
+            assert(s.getWidth() == 1)
+            self.addOut('s', s)
+            Bit(self, 's',a, 31, s)
 
+        if not(e is None):
+            assert(e.getWidth() == 8)
+            self.addOut('e', e)
+            Range(self, 'e', a, 30, 23, e)
+
+        if not(m is None):
+            assert(m.getWidth() == 23)        
+            self.addOut('m', m)        
+            Range(self, 'm', a, 22, 0, m)
+        
 
 class _FP_parts(Logic):
     def __init__(self, parent:Logic, name:str, a:Wire, s:Wire, e:Wire, m:Wire, isDenorm:Wire, isZero:Wire):
@@ -40,24 +42,34 @@ class _FP_parts(Logic):
 
         from ..helper import LogicHelper
     
-        assert(s.getWidth() == 1)
-        assert(e.getWidth() == 8)
-        assert(m.getWidth() == 24)
+        g = LogicHelper(self)
         
         self.addIn('a', a)
-        self.addOut('s', s)
-        self.addOut('e', e)
-        self.addOut('m', m)
-        self.addOut('isDenorm', isDenorm)
-        self.addOut('isZero', isZero)
-        
-        g = LogicHelper(self)
 
-
-        pre_e = self.wire('pre_e', 8)
         pre_m = self.wire('pre_m', 23)
+        pre_e = self.wire('pre_e', 8)
         
-        Bit(self, 's',a, 31, s)
+        if not(s is None):
+            assert(s.getWidth() == 1)
+            self.addOut('s', s)
+            Bit(self, 's',a, 31, s)
+
+        if not(e is None):
+            assert(e.getWidth() == 8)
+            self.addOut('e', e)
+            # e2 = 32 + (e - 127)
+            Sub(self, 'e', pre_e, g.hw_constant(8, 127), e)
+
+        if not(m is None):
+            assert(m.getWidth() == 24)
+            self.addOut('m', m)
+
+        if not(isDenorm is None):
+            self.addOut('isDenorm', isDenorm)
+
+        if not(isZero is None):
+            self.addOut('isZero', isZero)
+        
         Range(self, 'pre_e', a, 30, 23, pre_e)
         Range(self, 'pre_m', a, 22, 0, pre_m)
         
@@ -67,10 +79,9 @@ class _FP_parts(Logic):
         And2(self, 'isDenorm', g.hw_not(hidden_bit), frac_is_not_0, isDenorm)
         And2(self, 'isZero', g.hw_not(hidden_bit), g.hw_not(frac_is_not_0), isZero)
         
-        ConcatenateMSBF(self, 'm', [hidden_bit, pre_m], m) 
+        if not(m is None):
+            ConcatenateMSBF(self, 'm', [hidden_bit, pre_m], m) 
         
-        # e2 = 32 + (e - 127)
-        Sub(self, 'e', pre_e, g.hw_constant(8, 127), e)
         
                 
 class FPAdder_SP(Logic):
@@ -80,6 +91,7 @@ class FPAdder_SP(Logic):
     # floating-point adder." In European Conference on Parallel Processing, 
     # pp. 183-192. Springer, Berlin, Heidelberg, 1996.
     # https://link.springer.com/content/pdf/10.1007/bfb0024701.pdf
+    #
     def __init__(self, parent:Logic, name:str, a:Wire, b:Wire, r:Wire):
         super().__init__(parent, name)
         
@@ -113,9 +125,14 @@ class FPAdder_SP(Logic):
         mb = self.wire('mb', 24)
         isZeroa = self.wire('isZeroa')
         isZerob = self.wire('isZerob')
+        isDenorma = self.wire('isDenorma')
+        isDenormb = self.wire('isDenormb')
         
-        _FP_parts(self, 'parts_a', a, sa, ea, ma, isZeroa, fixExponent=False)
-        _FP_parts(self, 'parts_b', b, sb, eb, mb, isZerob, fixExponent=False)
+        _FP_parts(self, 'parts_a', a, sa, None, ma, isDenorma, isZeroa)
+        _FP_parts(self, 'parts_b', b, sb, None, mb, isDenormb, isZerob)
+        
+        _FP_parts_raw(self, 'parts_a_raw', a, None, ea, None)
+        _FP_parts_raw(self, 'parts_b_raw', b, None, eb, None)
         
         # Maximum possible shifting is 23 bits (of the mantisa), so
         # it is enough with 5 bits for ediff
@@ -133,23 +150,16 @@ class FPAdder_SP(Logic):
         s_eq = self.wire('s_eq')
         Equal(self, 's_eq', sa, sb, s_eq)
         
-        m_a_plus_b = self.wire('m_a_plus_b', ma.getWidth()+1)
-        m_a_minus_b = self.wire('m_a_minus_b', ma.getWidth()+1)
+        m_a_plus_b = self.wire('m_a_plus_b', 25)
+        m_a_minus_b = self.wire('m_a_minus_b', 25)
         #m_b_minus_a = self.wire('m_b_minus_a', ma.getWidth()+1)
         
         Add(self, 'm_a_plus_b', ma, mb, m_a_plus_b)
         Sub(self, 'm_a_minus_b', ma, mb, m_a_minus_b)
-        #Sub(self, 'm_b_minus_a', mb, ma, m_b_minus_a)
-        
-        # this is unnecessary since a > b
-        #samb = self.wire('samb')
-        #sbma = self.wire('sbma')
-        
-        #Sign(self, 'samb', m_a_minus_b, samb)
-        #Sign(self, 'sbma', m_b_minus_a, sbma)
         
         
-        mr = self.wire('mr', m_a_plus_b.getWidth())
+        # Result is composed by sr, er, mr
+        mr = self.wire('mr', 25)
         sr = self.wire('sr')
         
         g = LogicHelper(self)
@@ -158,12 +168,14 @@ class FPAdder_SP(Logic):
         #sel_bma = g.hw_and2(g.hw_not(sa), sb)
         
         Mux2(self, 'select_mr', sel_amb, m_a_plus_b, m_a_minus_b, mr)
+        
+        # The bigger sign dominates the sign of the result
         Buf(self, 'sr', sa, sr)
-        
-        
+                
         clz = self.wire('clz', 5)
         clzz = self.wire('clzz')
         
+        # Normalize, so that MSB is always 1
         CountLeadingZeros(self, 'clz', mr, clz, clzz)
         
         mr2 = self.wire('mr2', mr.getWidth())
@@ -412,9 +424,14 @@ class FPMult_SP(Logic):
         mb = self.wire('mb', 24)
         isZeroa = self.wire('isZeroa')
         isZerob = self.wire('isZerob')
+        isDenorma = self.wire('isDenorma')
+        isDenormb = self.wire('isDenormb')
         
-        _FP_parts(self, 'pa', a, sa, ea, ma, isZeroa, fixExponent=False)
-        _FP_parts(self, 'pb', b, sb, eb, mb, isZerob, fixExponent=False)
+        _FP_parts(self, 'pa', a, sa, None, ma, isDenorma, isZeroa)
+        _FP_parts(self, 'pb', b, sb, None, mb, isDenormb, isZerob)
+
+        _FP_parts_raw(self, 'pa_raw', a, None, ea, None )
+        _FP_parts_raw(self, 'pb_raw', b, None, eb, None )
 
         from ..helper import LogicHelper        
         g = LogicHelper(self)
