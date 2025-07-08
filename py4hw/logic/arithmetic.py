@@ -639,7 +639,33 @@ class CountLeadingZeros(Logic):
     https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4539802    
     DOI: 10.1109/TVLSI.2008.2000458
     """
-    def __init__(self, parent, name : str, a: Wire, r:Wire, z:Wire):
+    def __init__(self, parent:Logic, name : str, a: Wire, r:Wire, z:Wire):
+        '''
+        
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Instance name.
+        a : Wire
+            Input wire with the .
+        r : Wire
+            Number of leading zeros in the input wire.
+        z : Wire
+            1 if input was zero.
+
+        Raises
+        ------
+        Exception
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        '''
         super().__init__(parent, name)
         
         a = self.addIn('a', a)
