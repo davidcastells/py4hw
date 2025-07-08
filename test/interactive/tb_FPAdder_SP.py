@@ -20,6 +20,7 @@ r = sys.wire('r', 32)
 av = 1.2
 bv = 0.0000002
 
+
 a = g.hw_constant(32, fp.sp_to_ieee754(av))
 b = g.hw_constant(32, fp.sp_to_ieee754(bv))
 
