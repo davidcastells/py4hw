@@ -57,10 +57,10 @@ class Test_FPMult_SP:
         sb, eb, mb = fp.sp_to_fixed_point_parts(bv)
         
         assert(fpm.children['pa'].getOutPortByName('s').wire.get() == sa)
-        assert(fpm.children['pa'].getOutPortByName('e').wire.get() == (ea + 127) ) # because we do not fix exponent
+        assert(fpm.children['pa_raw'].getOutPortByName('e').wire.get() == (ea + 127) ) # because we do not fix exponent
         assert(fpm.children['pa'].getOutPortByName('m').wire.get() == ma)
         assert(fpm.children['pb'].getOutPortByName('s').wire.get() == sb)
-        assert(fpm.children['pb'].getOutPortByName('e').wire.get() == (eb + 127) ) # because we do not fix exponent
+        assert(fpm.children['pb_raw'].getOutPortByName('e').wire.get() == (eb + 127) ) # because we do not fix exponent
         assert(fpm.children['pb'].getOutPortByName('m').wire.get() == mb)
         
         assert(fpm.children['pre_er2'].getOutPortByName('r').wire.get() == (ea + eb) + 128 )
