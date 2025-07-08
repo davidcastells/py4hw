@@ -135,8 +135,8 @@ class Test_FPAdder_SP:
         sys.getSimulator().clk(1)
         
         # 
-        assert(fpa.children['parts_a'].getOutPortByName('e').wire.get() == ea + 127)
-        assert(fpa.children['parts_b'].getOutPortByName('e').wire.get() == eb + 127)
+        assert(fpa.children['parts_a_raw'].getOutPortByName('e').wire.get() == ea + 127)
+        assert(fpa.children['parts_b_raw'].getOutPortByName('e').wire.get() == eb + 127)
         assert(fpa.children['parts_a'].getOutPortByName('m').wire.get() == ma)
         assert(fpa.children['parts_b'].getOutPortByName('m').wire.get() == mb)
 
