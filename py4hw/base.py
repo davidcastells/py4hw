@@ -223,6 +223,8 @@ class Logic:
     def isClockable(self):
         return has_method(self, "clock")
     
+    def isRunnable(self):
+        return has_method(self, "run")
     
     # def getHierarchy(self):
     #     str = ''
