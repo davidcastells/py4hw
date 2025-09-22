@@ -362,3 +362,87 @@ class DualPortSynchronousMemory(Logic):
         s += 'assign readdata_b = mem[read_address_b];\n'
         return s
         
+
+class ShiftRegisterBidirectional(Logic):
+    def __init__(self, parent, name, 
+                 left_in:Wire, right_in:Wire, 
+                 left_out:Wire, right_out:Wire, 
+                 shift_left:Wire, shift_right:Wire, depth:int):
+        
+        from .bitwise import Or2
+        from .bitwise import Mux2
+        
+        super().__init__(parent, name)
+        
+        w = left_in.getWidth()
+        assert(w == left_out.getWidth())
+        assert(w == right_in.getWidth())
+        assert(w == right_out.getWidth())
+                
+        self.addIn('left_in', left_in)
+        self.addIn('right_in', right_in)
+        self.addOut('left_out', left_out)
+        self.addOut('right_out', right_out)
+        
+        self.addIn('shift_left', shift_left)
+        self.addIn('shift_right', shift_right)
+        
+        q = self.wires('q', depth, w)
+        
+        # dir_r wires: left_in -> [0] -> [1] -> [2] -> right_out 
+        # dir_l wires: left_out <- [0] <- [1] <- [2] <- right_in
+        shift = self.wire('shift')
+        Or2(self, 'shift', shift_left, shift_right, shift)
+        
+        for i in range(depth):
+            if (i == 0):
+                vl = left_in
+            else:
+                vl = q[i-1]
+                
+            if (i == depth-1):
+                vr = right_in
+            else:
+                vr = q[i+1]
+            
+            rd = self.wire(f'rd{i}', w)
+            # if we are shifting left, the value to input in the register 
+            # should be the right one
+            Mux2(self, f'rd{i}', shift_left, vl, vr, rd )
+            Reg(self, f'r{i}', d=rd, q=q[i], enable=shift)
+        
+        Buf(self, 'left_out', q[0], left_out)
+        Buf(self, 'right_out', q[depth-1], right_out)
+        
+class Stack_ShiftRegister(Logic):
+    def __init__(self, parent, name, din, dout, push, pop, empty, full, depth):
+        
+        from .bitwise import Constant
+        
+        super().__init__(parent, name)
+
+
+        # IO
+        self.addIn("din", din)
+        self.addIn("push", push)
+        self.addIn("pop", pop)
+        self.addOut("dout", dout)
+        
+        if not(empty is None):
+            self.addOut("empty", empty)
+            
+        if not(full is None):
+            self.addOut("full", full)
+
+        zerow = self.wire('zerow', din.getWidth())
+        pre_dout = self.wire('pre_dout', dout.getWidth())
+        rout = self.wire('rout', dout.getWidth())
+        
+        Constant(self, 'zerow', 0 , zerow)
+        ShiftRegisterBidirectional(self, 'shift', din, zerow, pre_dout, rout, pop, push, depth)
+        
+        # poped value is always present at the left side of the shift register, just load it 
+        # into the register when poping
+        Reg(self, 'dout', pre_dout, dout, enable=pop)
+        
+        
