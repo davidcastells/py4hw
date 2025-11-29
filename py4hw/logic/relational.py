@@ -319,7 +319,98 @@ class Max2(Logic):
         Comparator(self, 'comp', a, b, gt, eq, lt)
         
         Mux2(self, 'mux', lt, a, b, r)
+
+class SignedMax2(Logic):
+    """
+    A circuit that computes the maximum from two signed inputs
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Implements the function r = max(a,b)
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        a : Wire
+            DESCRIPTION.
+        b : Wire
+            DESCRIPTION.
+        r : Wire
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        from .bitwise import Mux2
         
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+        
+        gtu = self.wire('gtu')
+        ltu = self.wire('ltu')
+        
+        gt = self.wire('gt')
+        eq = self.wire('eq')
+        lt = self.wire('lt')
+        
+        ComparatorSignedUnsigned(self, 'comp', a, b, gtu, eq, ltu, gt, lt):
+              
+        
+        Mux2(self, 'mux', lt, a, b, r)
+
+
+class Min2(Logic):
+    """
+    A circuit that computes the minimum from two inputs
+    """
+
+    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Implements the function r = max(a,b)
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        a : Wire
+            DESCRIPTION.
+        b : Wire
+            DESCRIPTION.
+        r : Wire
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+        from .bitwise import Mux2
+        
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        b = self.addIn('b', b)
+        r = self.addOut('r', r)
+        
+        gt = self.wire('gt')
+        eq = self.wire('eq')
+        lt = self.wire('lt')
+        
+        Comparator(self, 'comp', a, b, gt, eq, lt)
+        
+        Mux2(self, 'mux', gt, a, b, r)
+                
         
 class FPComparator_SP(Logic):
     
