@@ -15,7 +15,7 @@ class Add(Logic):
     Combinational Arithmetic Add
     """
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None):
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -33,11 +33,11 @@ class Add(Logic):
         rw = r.getWidth()
         
         if (co is None):
-            assert((rw  - max(aw,bw)) in [0,1])
+            if (width_check): assert((rw  - max(aw,bw)) in [0,1])
             AddCarryIn(self, "add", a, b, r, ci)
             
         else:
-            assert(rw  == max(aw,bw) )
+            if (width_check): assert(rw  == max(aw,bw) )
             self.co = self.addOut('co', co)
             pre_r = self.wire('pre_r', rw + 1)
             AddCarryIn(self, "add", a, b, pre_r, ci)
@@ -45,8 +45,46 @@ class Add(Logic):
             Bit(self, 'co', pre_r, rw, co)
             
         
+class SignedAdd(Logic):
+    """
+    Combinational Arithmetic Add
+    """
 
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
         
+        # aw = a.getWidth()
+        # bw = b.getWidth()
+        # rw = r.getWidth()
+        
+        # assert(rw >= aw)
+        # assert(rw >= bw)
+        
+        # if (rw > aw): 
+        #     sa = self.wire('sa', rw)
+        #     SignExtend(self, 'sa', a, sa)
+        # else:
+        #     sa = a
+            
+        # if (rw > bw):
+        #     sb = self.wire('sb', rw)
+        #     SignExtend(self, 'sb', b, sb)
+        # else:
+        #     sb = b
+            
+        # Add(self, 'add', sa, sb, r, ci, co, width_check=False)
+        
+    def propagate(self):
+        from ..helper import IntegerHelper    
+        
+        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
+        mask = (1 << self.r.getWidth()) - 1
+        newValue = (sa + sb) & mask
+        self.r.put(newValue)
         
 class AddCarryIn(Logic):
     """
