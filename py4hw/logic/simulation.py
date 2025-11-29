@@ -28,6 +28,10 @@ class FieldInspector:
     
     def getFullPath(self):
         return self.obj.getFullPath() + '/' + self.name
+    
+# This is a class to provide custom visualization of values
+class ValueFormatter:
+    pass
         
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
@@ -63,7 +67,7 @@ class Waveform(Logic):
         self.uniqueWires = []
         
         for x in self.wires:
-            
+
             if isinstance(x, Wire):
                 w = x
                 if not(x in self.uniqueWires):
@@ -83,12 +87,19 @@ class Waveform(Logic):
                 if not(x in self.uniqueWires):
                     self.uniqueWires.append(x)
                     self.data[x] = []
+            elif isinstance(x, ValueFormatter):
+                w = None
+                if not(x in self.uniqueWires):
+                    self.uniqueWires.append(x)
+                    self.data[x] = []
             else:
                 raise Exception('Unsupported object class to watch: {}'.format(type(x)))
                 
 
             if isinstance(x, FieldInspector):
-               self.format.append(x.getFormat()) 
+                self.format.append(x.getFormat()) 
+            elif isinstance(x, ValueFormatter):
+                self.format.append('{}')
             elif (w.getWidth() == 1):
                 self.format.append('')
             else:
@@ -115,6 +126,8 @@ class Waveform(Logic):
         # For ports, the value used for x will be its wire
         for x in self.uniqueWires:
             if isinstance(x, FieldInspector):
+                self.data[x].append(x.get())
+            elif isinstance(x, ValueFormatter):
                 self.data[x].append(x.get())
             else:
                 w = Waveform.getwire(x)
@@ -199,6 +212,9 @@ class Waveform(Logic):
         
         for idx, obj in enumerate(self.wires):
             if (isinstance(obj, FieldInspector)):
+                w = obj
+                ww = -1
+            if (isinstance(obj, ValueFormatter)):
                 w = obj
                 ww = -1
             else:
