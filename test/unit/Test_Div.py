@@ -84,4 +84,4 @@ class Test_Div:
 
 
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Div.py'])
+    pytest.main(args=['-s', 'Test_Div.py'])

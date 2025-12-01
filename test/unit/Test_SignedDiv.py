@@ -113,5 +113,17 @@ class Test_SignedDiv:
             if not(IntegerHelper.c2_to_signed(r.get(), 32) == vq):
                 raise Exception('va: {} / vb: {} = '.format(va, vb))
 
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.SignedDiv(sys, "signed_div", a, b, r)
+    
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
+        
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_SignedDiv.py'])
+    pytest.main(args=['-s', 'Test_SignedDiv.py'])

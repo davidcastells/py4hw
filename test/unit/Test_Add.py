@@ -44,6 +44,17 @@ class Test_Add:
         # print('CLK')
         # sim.clk(1)
 
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.Add(sys, "abs", a, b, r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
 
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Add.py'])
+    pytest.main(args=['-s', 'Test_Add.py'])

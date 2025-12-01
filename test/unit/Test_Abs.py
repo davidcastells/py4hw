@@ -49,6 +49,18 @@ class Test_Abs:
         
             assert(r.get() == abs(v))
             assert(bool(n.get()) == (v<0))
+            
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.Abs(sys, "abs", a, r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
+
 
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Abs.py'])
+    pytest.main(args=['-s', 'Test_Abs.py'])

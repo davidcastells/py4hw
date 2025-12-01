@@ -43,5 +43,18 @@ class TestAnyEqual:
         sys.getSimulator().clk(1)
         assert (r.get() == 0)
         
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        r = sys.wire("r")
+        
+        dut = py4hw.AnyEqual(sys, 'any', [a, b], r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
+        
+        
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_AnyEqual.py'])
+    pytest.main(args=['-s', 'Test_AnyEqual.py'])

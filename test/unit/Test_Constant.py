@@ -41,6 +41,15 @@ class Test_Abs:
         
         assert(r.get() == v & ((1<<w)-1))
 
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.Constant(sys, "k", 0x25, r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print('RTL:', rtl.getVerilogForHierarchy(dut))
             
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Constant.py'])
+    pytest.main(args=['-s', 'Test_Constant.py'])

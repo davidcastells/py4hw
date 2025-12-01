@@ -28,6 +28,17 @@ class Test_Sign:
             sys.getSimulator().clk(1)
         
             assert(bool(r.get()) == (v<0))
+            
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        r = sys.wire("r")
+        
+        dut = py4hw.Sign(sys, "sign", a, r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
 
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Sign.py'])
+    pytest.main(args=['-s', 'Test_Sign.py'])

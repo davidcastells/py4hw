@@ -65,6 +65,18 @@ class Test_Sub:
             vr = t[3] & ((1<<w)-1)
         
             assert(self.get_result_signed(w, va, vb) == vr)
+            
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.Sub(sys, "sub", a, b, r)
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
         
 if __name__ == '__main__':
-    pytest.main(args=['-q', 'Test_Sub.py'])
+    pytest.main(args=['-s', 'Test_Sub.py'])

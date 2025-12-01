@@ -81,7 +81,19 @@ class Test_Comparator:
         
         py4hw.debug.checkIntegrity(sys)
 
+    def test_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        b = sys.wire("b", 32)
+        gt = sys.wire("gt")
+        eq = sys.wire("eq")
+        lt = sys.wire("lt")
+        
+        dut = py4hw.Comparator(sys, "cmp", a, b, gt, eq, lt)
 
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
 
 if __name__ == '__main__':
     pytest.main(args=['-s', 'Test_Comparator.py'])

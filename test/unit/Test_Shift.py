@@ -89,5 +89,72 @@ class Test_Shift:
             assert(r.get() == exp_r)
             
         
+    def test_shiftrk_1(self):
+        sys = py4hw.HWSystem()
+        
+        reset = sys.wire('reset')
+        a = sys.wire('a', 56)
+        r = sys.wire('r', 64)
+        
+        av = 0x9020f800000000
+        bv = 0x5
+        py4hw.Constant(sys, 'a', av, a)
+        
+        exp_r = (av >> bv) & ((1<<64)-1)
+
+        print('Sifting {:08X} by {:3d}  right: {:08X}'.format(av, bv,  exp_r) )
+        
+        py4hw.ShiftRightConstant(sys, 'right', a, bv, r )   
+        
+        sys.getSimulator().clk(1)
+        
+        assert(r.get() == exp_r)
+        
+        
+    def test_shiftlk_1(self):
+        sys = py4hw.HWSystem()
+        
+        reset = sys.wire('reset')
+        a = sys.wire('a', 56)
+        r = sys.wire('r', 64)
+        
+        av = 0x9020f8
+        bv = 0x5
+        py4hw.Constant(sys, 'a', av, a)
+        
+        exp_r = (av << bv) & ((1<<64)-1)
+
+        print('Sifting {:08X} by {:3d}  right: {:08X}'.format(av, bv,  exp_r) )
+        
+        py4hw.ShiftLeftConstant(sys, 'right', a, bv, r )   
+        
+        sys.getSimulator().clk(1)
+        
+        assert(r.get() == exp_r), f'{r.get():X} != {exp_r:X}'
+        
+    def test_shift_right_k_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        bv = 5
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.ShiftRightConstant(sys, 'right', a, bv, r )   
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
+        
+    def test_shift_left_k_verilog_gen(self):
+        sys = py4hw.HWSystem()
+        
+        a = sys.wire("a", 32)
+        bv = 5
+        r = sys.wire("r", 32)
+        
+        dut = py4hw.ShiftLeftConstant(sys, 'left', a, bv, r )   
+
+        rtl = py4hw.VerilogGenerator(dut)
+        print(rtl.getVerilogForHierarchy(dut))
+        
 if __name__ == '__main__':
     pytest.main(args=['-s', 'Test_Shift.py'])
