@@ -266,6 +266,12 @@ def getParentWireName(child:Logic, w:Wire):
 def InlineConstant(obj:Logic):
     return "assign {} = {};\n".format(getParentWireName(obj, obj.r) + getWidthInfo(obj.r), obj.value)
 
+def InlineShiftLeftConstant(obj:Logic):
+    return "assign {} = {} << {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.getParameterValue('n'))
+
+def InlineShiftRightConstant(obj:Logic):
+    return "assign {} = {} << {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.getParameterValue('n'))
+
 def InlineNot(obj:Logic):
     return "assign {} = ~{};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
 
@@ -466,9 +472,10 @@ def BodyGatedClock(obj:Logic):
 class VerilogGenerator:
     
     
-    def __init__(self, obj:Logic):
+    def __init__(self, obj:Logic, ast_tree=None):
         #print('Testing Verilog Generation')
         self.obj = obj
+        self.ast_tree = ast_tree
         
         self.inlinablePrimitives = {}
         
@@ -483,7 +490,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[Buf] = InlineBuf
         self.inlinablePrimitives[ConcatenateMSBF] = InlineConcatenateMSBF
         self.inlinablePrimitives[ConcatenateLSBF] = InlineConcatenateLSBF
-        self.inlinablePrimitives[Constant] = InlineConstant
+        self.inlinablePrimitives[Constant] = InlineConstant        
         self.inlinablePrimitives[Div] = InlineDiv
         self.inlinablePrimitives[Equal] = InlineEqual
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
@@ -496,6 +503,8 @@ class VerilogGenerator:
         self.inlinablePrimitives[Nor2] = InlineNor2
         self.inlinablePrimitives[Or] = InlineOr
         self.inlinablePrimitives[Or2] = InlineOr2
+        self.inlinablePrimitives[ShiftLeftConstant] = InlineShiftLeftConstant
+        self.inlinablePrimitives[ShiftRightConstant] = InlineShiftRightConstant
         self.inlinablePrimitives[Sub] = InlineSub
         self.inlinablePrimitives[Range] = InlineRange
         self.inlinablePrimitives[Repeat] = InlineRepeat
@@ -508,6 +517,8 @@ class VerilogGenerator:
         
         self.providingBody[Reg] = BodyReg 
         self.providingBody[GatedClock] = BodyGatedClock
+        
+        
         
         self.created_structures = []
         
@@ -613,15 +624,22 @@ class VerilogGenerator:
             # generate code from propagate function
             if (self.isProvidingBody(obj)):
                 str += self.provideBody(obj);
+            elif (self.isInlinable(obj)):
+                return '// WARNING: inlined out of scope\n' + self.inlinePrimitive(obj)
             else:
-                print('transpiling', obj.getFullPath())
+                print('transpiling combinational', obj.getFullPath())
                 str += self.generateCodeFromPropagate(obj)
+
+        elif (obj.isRunnable()):
+            print('transpiling algorithmic', obj.getFullPath())
+            str += self.generateCodeFromRun(obj)
 
         elif (obj.isClockable()):
             #generate code from clock function
             if (self.isProvidingBody(obj)):
                 str += self.provideBody(obj);
             else:
+                print('transpiling sequential', obj.getFullPath())
                 str += self.generateCodeFromClock(obj)
 
         else:
@@ -869,7 +887,8 @@ class VerilogGenerator:
     def generateCodeFromClock(self, obj:Logic):
         str = "// Code generated from clock method\n"
         
-        tr = Python2VerilogTranspiler(obj)
+        tr = Python2VerilogTranspiler(obj, self.ast_tree)
+        
         
         node = tr.transpileSequential()
         str += tr.toVerilog(node)
@@ -893,7 +912,7 @@ class VerilogGenerator:
 import inspect
 import ast
 import textwrap
-    
+import astunparse    
 
 def getAstValue(obj):
     if (isinstance(obj, ast.Constant)):
@@ -923,7 +942,7 @@ def getAstName(obj):
         
         return getAstName(obj[0])
     else:
-        raise Exception('unknown type {}'.format(type(obj)))
+        raise Exception('unknown type {} in {}'.format(type(obj), astunparse.unparse(obj)))
 
 class VerilogComment(Logic):
     def __init__(self, parent, name: str, comment:str):
