@@ -56,35 +56,35 @@ class SignedAdd(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
         
-        # aw = a.getWidth()
-        # bw = b.getWidth()
-        # rw = r.getWidth()
+        aw = a.getWidth()
+        bw = b.getWidth()
+        rw = r.getWidth()
         
-        # assert(rw >= aw)
-        # assert(rw >= bw)
+        assert(rw >= aw)
+        assert(rw >= bw)
         
-        # if (rw > aw): 
-        #     sa = self.wire('sa', rw)
-        #     SignExtend(self, 'sa', a, sa)
-        # else:
-        #     sa = a
+        if (rw > aw): 
+            sa = self.wire('sa', rw)
+            SignExtend(self, 'sa', a, sa)
+        else:
+            sa = a
             
-        # if (rw > bw):
-        #     sb = self.wire('sb', rw)
-        #     SignExtend(self, 'sb', b, sb)
-        # else:
-        #     sb = b
+        if (rw > bw):
+            sb = self.wire('sb', rw)
+            SignExtend(self, 'sb', b, sb)
+        else:
+            sb = b
             
-        # Add(self, 'add', sa, sb, r, ci, co, width_check=False)
+        Add(self, 'add', sa, sb, r, ci, co, width_check=False)
         
-    def propagate(self):
-        from ..helper import IntegerHelper    
+    # def propagate(self):
+    #     from ..helper import IntegerHelper    
         
-        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
-        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
-        mask = (1 << self.r.getWidth()) - 1
-        newValue = (sa + sb) & mask
-        self.r.put(newValue)
+    #     sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+    #     sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
+    #     mask = (1 << self.r.getWidth()) - 1
+    #     newValue = (sa + sb) & mask
+    #     self.r.put(newValue)
         
 class AddCarryIn(Logic):
     """
@@ -132,32 +132,43 @@ class Abs(Logic):
 
         """
         super().__init__(parent, name)
-        a = self.addIn("a", a)
-        r = self.addOut("r", r)
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
 
         if not(inverted is None):
             s = self.addOut('inverted', inverted)
         else:
             s = self.wire('sign')
 
-        zero = self.wire('zero', r.getWidth())
         neg = self.wire('neg', a.getWidth())
-        Constant(self, 'zero', 0, zero)
         Sign(self, 'sign', a, s)
-        Sub(self, 'sub', zero, a, neg)
+        Neg(self, 'neg', a, neg)
         Mux2(self, 'mux', s, a, neg, r)
+        
+    def structureName(self):
+        if (self.a.getWidth() == self.r.getWidth()):
+            return f'Abs{self.a.getWidth()}'
+        else:
+            return f'Abs{self.a.getWidth()}_{self.r.getWidth()}'
 
 
 class Neg(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
         super().__init__(parent, name)
 
-        self.addIn("a", a)
-        self.addOut("r", r)
+        self.a = self.addIn("a", a)
+        self.r = self.addOut("r", r)
 
         zero = self.wire('zero', r.getWidth())
         Constant(self, 'zero', 0, zero)    
         Sub(self, 'sub', zero, a, r)
+
+    def structureName(self):
+        if (self.a.getWidth() == self.r.getWidth()):
+            return f'Neg{self.a.getWidth()}'
+        else:
+            return f'Neg{self.a.getWidth()}_{self.r.getWidth()}'
+
 
 class Sign(Logic):
     """
@@ -171,8 +182,11 @@ class Sign(Logic):
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
 
+        assert(r.getWidth() == 1)
         Bit(self, "signBit", a, a.getWidth() - 1, r)
         
+    def structureName(self):
+        return f'Sign{self.a.getWidth()}'
 
 class SignExtend(Logic):
     """
@@ -342,15 +356,53 @@ class SignedSub(Logic):
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
-
-    def propagate(self):
-        from ..helper import IntegerHelper    
         
-        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
-        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
-        mask = (1 << self.r.getWidth()) - 1
-        newValue = (sa - sb) & mask
-        self.r.put(newValue)
+        aw = a.getWidth()
+        bw = b.getWidth()
+        rw = r.getWidth()
+        
+        # Ensure the result wire is wide enough for the inputs
+        assert(rw >= aw)
+        assert(rw >= bw)
+
+        # --- 1. Sign Extend A ---
+        if (rw > aw): 
+            sa = self.wire('sa', rw)
+            SignExtend(self, 'sa', a, sa)
+        else:
+            sa = a
+            
+        # --- 2. Sign Extend B ---
+        if (rw > bw):
+            sb = self.wire('sb', rw)
+            SignExtend(self, 'sb', b, sb)
+        else:
+            sb = b
+            
+        # --- 3. Invert Sign Extended B (One's Complement) ---
+        # We need the inverted B for A + (~B) + 1
+        not_sb = self.wire('not_sb', rw)
+        Not(self, 'not_sb', sb, not_sb)
+        
+        add_ci = self.wire('ci_one', 1)
+        Constant(self, 'const_one', 1, add_ci)
+            
+        # --- 4. Perform Addition (A + (~B) + 1) ---
+        # A - B = A + (~B) + 1
+        # Add 'sa' (A) and 'inverted_sb' (~B).
+        # The '1' is accounted for by setting the carry-in (ci) to 1.
+        
+        # Perform the final addition: sa + inverted_sb + ci (which is 1 for non-chained subtraction)
+        Add(self, 'sub_add', sa, not_sb, r, add_ci, co=None, width_check=False)
+        
+    # def propagate(self):
+    #     from ..helper import IntegerHelper    
+        
+    #     sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+    #     sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
+    #     mask = (1 << self.r.getWidth()) - 1
+    #     newValue = (sa - sb) & mask
+    #     self.r.put(newValue)
         
 class Counter(Logic):
     """
