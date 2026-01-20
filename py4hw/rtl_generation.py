@@ -270,7 +270,7 @@ def InlineShiftLeftConstant(obj:Logic):
     return "assign {} = {} << {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.getParameterValue('n'))
 
 def InlineShiftRightConstant(obj:Logic):
-    return "assign {} = {} << {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.getParameterValue('n'))
+    return "assign {} = {} >> {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , obj.getParameterValue('n'))
 
 def InlineNot(obj:Logic):
     return "assign {} = ~{};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a))
@@ -587,7 +587,7 @@ class VerilogGenerator:
     
     def _getVerilog(self, obj=None, noInstanceNumber=False, forceName=None):
         
-        str = "// This file was automatically created by py4hw RTL generator\n"
+        str = "// This file was automatically created by py4hw Verilog generator\n"
         
         if (obj is None):
             obj = self.obj
