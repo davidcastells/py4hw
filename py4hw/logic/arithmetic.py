@@ -24,6 +24,7 @@ class Add(Logic):
         if (ci is None):
             ci = self.wire('ci')
             Constant(self, 'ci', 0, ci)
+            self.ci = None
             
         else:
             self.ci = self.addIn('ci', ci)
@@ -35,7 +36,7 @@ class Add(Logic):
         if (co is None):
             if (width_check): assert((rw  - max(aw,bw)) in [0,1])
             AddCarryIn(self, "add", a, b, r, ci)
-            
+            self.co = None
         else:
             if (width_check): assert(rw  == max(aw,bw) )
             self.co = self.addOut('co', co)
@@ -44,6 +45,17 @@ class Add(Logic):
             Range(self, 'r', pre_r, rw-1, 0, r)
             Bit(self, 'co', pre_r, rw, co)
             
+    def structureName(self):
+        if (self.a.getWidth() == self.r.getWidth()) and (self.a.getWidth() == self.b.getWidth()):
+            s =  f'Add{self.a.getWidth()}'
+        else:
+            s = f'Add{self.a.getWidth()}_{self.b.getWidth()}_{self.r.getWidth()}'
+            
+        if not(self.ci is None):
+            s += '_ci'
+        if not(self.co is None):
+            s += '_co'
+        return s
         
 class SignedAdd(Logic):
     """
