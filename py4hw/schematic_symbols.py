@@ -132,6 +132,9 @@ class LogicSymbol:
     def getOccupancy(self):
         return {'x':self.x, 'y':self.y, 'w':self.getWidth(), 'h':self.getHeight()}
 
+class VirtualSymbol(LogicSymbol):
+    pass
+
 class BinaryOperatorSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
@@ -498,6 +501,7 @@ class XorSymbol(LogicSymbol):
 class InPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
+        self.name = obj.name
         
     def draw(self, canvas, debug=False):
         x = self.x 
@@ -519,6 +523,7 @@ class InPortSymbol(LogicSymbol):
 class OutPortSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
+        self.name = obj.name
         
     def draw(self, canvas, debug=False):
         x = self.x 
@@ -565,6 +570,7 @@ class InOutPortSymbol(LogicSymbol):
 class InstanceSymbol(LogicSymbol):
     def __init__(self, obj:Logic, x:int, y:int):
         super().__init__(obj, x, y)
+        self.name = obj.name
     
     def draw(self, canvas, debug=False):
         x = self.x 
@@ -714,55 +720,57 @@ class Mux2Symbol(LogicSymbol):
 
         return (0, LogicSymbol.namemargin + y)
 
-class PassthroughSymbol(LogicSymbol):
+class PassthroughSymbol(VirtualSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
+        self.w , self.h = 20, 20
         
     def getHeight(self):
-        return 30
+        return self.h
     
     def getWidth(self):
-        return 30
+        return self.w
     
     def draw(self, canvas, debug=False):
-        x = self.x
-        y = self.y
+        x, y = self.x, self.y
+        w, h = self.w, self.h
 
         if (debug):       
             canvas.setFillcolor('yellow')  
-            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+            canvas.drawRectangle(x, y, x+w, y+h, fill=True)
         else:
             canvas.setForecolor('blueviolet')  
             canvas.setLineWidth(1)
             
-            canvas.drawLine(x, y+15, x+30, y+15)
+            canvas.drawLine(x, y+h//2, x+w, y+h//2)
     
             canvas.setForecolor('k')  
             canvas.setLineWidth(2)
         
     def getPortSinkPos(self, port):
-        return (0, 15);
+        return (0, self.h//2);
     
     def getPortSourcePos(self, port):
-        return (30, 15);
+        return (self.w, self.h//2);
     
-class FeedbackStartSymbol(LogicSymbol):
+class FeedbackStartSymbol(VirtualSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
+        self.w , self.h = 20, 20
         
     def getHeight(self):
-        return 30
+        return self.h
     
     def getWidth(self):
-        return 30
+        return self.w
     
     def draw(self, canvas, debug=False):
-        x = self.x
-        y = self.y
+        x, y = self.x, self.y
+        w, h = self.w, self.h
 
         if (debug):       
             canvas.setFillcolor('lightgreen')  
-            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+            canvas.drawRectangle(x, y, x+w, y+h, fill=True)
         else:            
             # canvas.setForecolor('red')  
             # canvas.setLineWidth(1)
@@ -774,29 +782,29 @@ class FeedbackStartSymbol(LogicSymbol):
             pass
         
     def getPortSinkPos(self, port):
-        return (0, 15);
+        return (0, self.h//2);
     
     def getPortSourcePos(self, port):
-        return (30, 15);
+        return (self.w, self.h//2);
     
-class FeedbackStopSymbol(LogicSymbol):
+class FeedbackStopSymbol(VirtualSymbol):
     def __init__(self):
         super().__init__(None, 0, 0)
-        self.debug = False
+        self.w , self.h = 20, 20
         
     def getHeight(self):
-        return 30
+        return self.h
     
     def getWidth(self):
-        return 30
+        return self.w
     
     def draw(self, canvas, debug=False):
-        x = self.x
-        y = self.y
+        x, y = self.x, self.y
+        w, h = self.w, self.h
 
         if (debug):       
             canvas.setFillcolor('red')  
-            canvas.drawRectangle(x, y, x+30, y+30, fill=True)
+            canvas.drawRectangle(x, y, x+w, y+h, fill=True)
         else:
             # canvas.setForecolor('red')  
             # canvas.setLineWidth(1)
@@ -809,10 +817,10 @@ class FeedbackStopSymbol(LogicSymbol):
             pass
         
     def getPortSinkPos(self, port):
-        return (0, 15);
+        return (0, self.h//2);
     
     def getPortSourcePos(self, port):
-        return (30, 15);
+        return (self.w, self.h//2);
     
     
 class NetSymbol:
@@ -846,6 +854,11 @@ class NetSymbol:
         self.color = 'blueviolet'
         self.sourcecol = -1
         # self.sinkcol will be assigned later
+        
+        # Check nothing fails during construction
+        self.getStartPoint()
+        self.getEndPoint()
+        
         
     def getStartPoint(self):
         objsource = self.source
