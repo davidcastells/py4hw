@@ -214,7 +214,7 @@ class Waveform(Logic):
             if (isinstance(obj, FieldInspector)):
                 w = obj
                 ww = -1
-            if (isinstance(obj, ValueFormatter)):
+            elif (isinstance(obj, ValueFormatter)):
                 w = obj
                 ww = -1
             else:
