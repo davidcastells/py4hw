@@ -3055,7 +3055,7 @@ class Schematic:
             raise Exception('Unsupported render {}'.format(render))
 
     def drawValues(self, symbol):
-        raise Exception('non used')
+        
         if (symbol.obj is None):
             #print('WARNING: no symbol for object', type(symbol))
             return
