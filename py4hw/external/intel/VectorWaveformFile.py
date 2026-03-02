@@ -64,8 +64,28 @@ def listify_tokens(inlist, pos=0, level=0):
 def startsWith(line, st):
     return (line[0:len(st)] == st)
 
+def dump(obj, indent=0):
+    si = ' ' * indent
+    
+    if isinstance(obj, VWFObj):
+        print(si, obj.__class__.__name__)
+        
+        if (hasattr(obj, 'value')):
+            dump(obj.value, indent+1)
+        
+        for child in obj.child:
+            dump(child, indent+1)
+    elif isinstance(obj, list):        
+        for item in obj:
+            dump(item, indent)
+    elif isinstance(obj, str):        
+        print(si, obj)
+    else:
+        print(si, obj.__class__)
+        
 def convertTransitionsToValues(lines, period):
     ret = []
+    repeat = 1
     
     for line in lines:
         if (isinstance(line, VWFNode)):
@@ -74,7 +94,8 @@ def convertTransitionsToValues(lines, period):
             
         elif (startsWith(line, 'REPEAT')):
             part = line.split('=')
-            repeat = part[1].strip()
+            repeat = int(part[1].strip())
+            
         elif (startsWith(line, 'LEVEL')):
             part = line.split()
             level = part[1]
@@ -83,8 +104,14 @@ def convertTransitionsToValues(lines, period):
             
             for i in range(dur):
                 ret.append(level)
+
+    # we assume that repeat is in the start and repeats what we have included so far
+    ret2 = []
+    
+    for i in range(repeat):
+        ret2.extend(ret)
                 
-    return ret;
+    return ret2;
 
 class VWFObj():
     def __init__(self):
@@ -258,6 +285,19 @@ class ConvertVWF():
         assert(False)
     
     def parseObjects(self, obj):
+        '''
+        This is the main entry point for parsing the lines (in self.lines)
+
+        Parameters
+        ----------
+        obj : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        '''
         if (self.verbose):
             print('parse', type(obj))
 
@@ -355,3 +395,19 @@ class ConvertVWF():
         }
         
         return ret
+    
+    
+    def getSignals(self):
+        # returns a directory with signals and data
+        header = self.top.find(VWFHeader)
+        period = float(header.value['GRID_PERIOD'])
+    
+        ret = {}
+        trans = self.top.findAll(VWFTransitionList)
+        
+        for tran in trans:
+            node = tran.find(VWFNode)
+            data = convertTransitionsToValues(node.value, period)
+            ret[tran.name] = data
+    
+        return ret    
