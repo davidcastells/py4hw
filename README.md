@@ -34,7 +34,7 @@ In fact, you can generate Verilog code at a very fine-grain.
 - Support for existing Hardware platforms (Terasic DE0, and DE1SoC so far)
 
 
-[Follow the jump start tutorial !](tutorial/README.md)
+[Follow the jump start tutorial in a jypyter notebook!](tutorial/README.md) or access the static html version [here](https://davidcastells.github.io/py4hw/)
 
 
 ## Contributing ##
