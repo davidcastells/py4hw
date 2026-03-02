@@ -91,3 +91,24 @@ class EdgeDetector(Logic):
             Xor2(self, 'r', a, z1, r)
         else:
             raise Exception(f'direction {direction} not supported' )
+
+
+
+class AutoReset(py4hw.Logic):
+    def __init__(self, parent, name, reset):
+        super().__init__(parent, name)
+
+        self.reset = self.addOut('reset', reset)
+        
+        self.state = 0
+        
+    def clock(self):
+        if (self.state == 0):
+            self.reset.prepare(1)
+            self.state = 1
+        elif (self.state == 1):
+            self.state = 2
+        elif (self.state == 2):
+            self.reset.prepare(0)
+        else:
+            self.state = 0
