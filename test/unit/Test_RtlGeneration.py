@@ -9,10 +9,21 @@ import py4hw
 import py4hw.debug
 import pytest
 
-
+class CounterBehavioural(py4hw.Logic):
+    def __init__(self, parent, name, inc, q):
+        super().__init__(parent, name)
+    
+        self.inc = self.addIn('inc', inc)
+        self.q = self.addOut('q', q)
+        
+        
+    def clock(self):
+        if (self.inc.get() == 1):
+            self.q.prepare(self.q.get()+1)
+            
 class Test_RtlGeneration:
     
-    def test_1(self):
+    def test_structural_verilog_1(self):
         sys = py4hw.HWSystem()
         
         reset = sys.wire('reset',1)
@@ -28,7 +39,7 @@ class Test_RtlGeneration:
         rtlgen = py4hw.VerilogGenerator(counter)
         print(rtlgen.getVerilog())
         
-    def test_2(self):
+    def test_structural_verilog_2(self):
         sys = py4hw.HWSystem()
         
         reset = sys.wire('reset',1)
@@ -51,7 +62,7 @@ class Test_RtlGeneration:
         
         print(rtlgen.getVerilogForHierarchy())
         
-    def test_3(self):
+    def test_structural_verilog_3(self):
         sys = py4hw.HWSystem()
         
         reset = sys.wire('reset',1)
@@ -79,7 +90,7 @@ class Test_RtlGeneration:
         pytest.fail('Exception not thrown')
         
         
-    def test_4(self):
+    def test_structural_verilog_4(self):
         sys = py4hw.HWSystem()
         
         reset = sys.wire('reset',1)
@@ -113,6 +124,17 @@ class Test_RtlGeneration:
         sa = sys.wire('sa', 16)
         py4hw.Constant(sys, 'a', 0xFF, a)
         block = py4hw.SignExtend(sys, 'sa', a, sa)
+        
+        rtlgen = py4hw.VerilogGenerator(sys)
+        print(rtlgen.getVerilogForHierarchy())
+
+    def test_behavioural_Counter(self):
+        sys = py4hw.HWSystem()
+        
+        q = sys.wire('q', 32)
+        inc = sys.wire('inc')
+        py4hw.Constant(sys, 'inc', 1, inc)
+        block = CounterBehavioural(sys, 'counter', inc, q)
         
         rtlgen = py4hw.VerilogGenerator(sys)
         print(rtlgen.getVerilogForHierarchy())
