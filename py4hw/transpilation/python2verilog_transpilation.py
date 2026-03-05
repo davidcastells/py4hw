@@ -26,21 +26,23 @@ def strip(line):
 
     return line
 
-def getBody(node, slist=''):
+def createVerilogBody(node, slist=''):
     # the Module node contains a body, that contains a list, containting
     # a function definition with a body
+    assert(isinstance(node, list))
     
     # AST visitors can not deal directly with list, we wrap them in 
     # a dummy verilog body object
     var = VerilogDeclarations()
     init = VerilogInitial()
-    process = VerilogProcess(node.body[0].body, slist)
+    process = VerilogProcess(node, slist)
     return VerilogBody(var, init, process)
     
 class Python2VerilogTranspiler:
 
-    def __init__(self, obj:Logic):
+    def __init__(self, obj:Logic, ast_tree:ast.AST):
         self.obj = obj
+        self.ast_tree = ast_tree
         self.signals = {}
         self.indent = 0
 
@@ -58,7 +60,7 @@ class Python2VerilogTranspiler:
             the equivalent RTL
 
         '''
-        
+        assert(self.ast_tree is None)
         module = getMethod(self.obj, '__init__')
         node = getBody(module)
         
@@ -96,6 +98,15 @@ class Python2VerilogTranspiler:
         #return Python2VerilogTranspiler.toVerilog(node)
         #return self.transpileUnknown(node)
 
+    def getMethodAST(self, method_name):
+        if (self.ast_tree is None):
+            tree = getMethodASTInspectingLiveObject(self.obj, method_name)
+        else:
+            tree= next(node for node in self.ast_tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == method_name)
+            tree = tree.body
+        
+        return tree
+        
     def transpileSequential(self):
         '''
         Transpile RTL style behavioural descriptions
@@ -107,15 +118,17 @@ class Python2VerilogTranspiler:
 
         '''
         # start analyzing the constructor to get wires and variables
-        module = getMethod(self.obj, '__init__')
-        node = getBody(module)
+        
+        module = self.getMethodAST('__init__')
+        assert(isinstance(module, ast.FunctionDef))
+        node = createVerilogBody(module.body)
         
         initExtracter = ExtractInitializers(self.obj)
         init = initExtracter.visit(node)
         
         if hasattr(self.obj, 'initial'):
-            # Add the initizlization done at the initial method
-            module = getMethod(self.obj, 'initial')
+            # Add the initialization done at the initial method
+            module = self.getMethodAST('initial')
             node = getBody(module)
         
             node = ReplaceParameterCalls().visit(node)
@@ -128,17 +141,23 @@ class Python2VerilogTranspiler:
             #print('initial method=', node.process.body)
             init.init.body.extend(node.process.body)
         
-        module = getMethod(self.obj, 'clock')
+        module = self.getMethodAST('clock')
+        
         clkname = getObjectClockDriver(self.obj).name
 
-        node = getBody(module, 'posedge {}'.format(clkname))
+        node = createVerilogBody(module.body, 'posedge {}'.format(clkname))
         node.init.body = init.init.body
     
         assert(isinstance(node, ast.AST))
         
+        
+        
         node = RemovePrints().visit(node)
         node = RemoveAssert().visit(node)
         
+        # node = IfTreeToCaseTransformer().visit(node)
+        
+        node = ReplaceMatch().visit(node)
         node = ReplaceIf().visit(node)
         node = ReplaceParameterCalls().visit(node)
         node = ReplaceWireCalls().visit(node)
@@ -156,6 +175,8 @@ class Python2VerilogTranspiler:
         node = ReplaceAssign().visit(node)
         node = ReplaceIfExp().visit(node)
         node = ReplaceDocStrings().visit(node)
+        
+        
         
         node.wires.variables = wiresAndVars.variables.values();
         #node = FlattenOperators().visit(node)
@@ -320,6 +341,41 @@ class ReplaceIf(ast.NodeTransformer):
         positive = [self.visit(node.body)]  # Wrap in list to match VerilogIf structure
         negative = [self.visit(node.orelse)]
         return VerilogIf(condition, positive, negative)
+
+class ReplaceMatch(ast.NodeTransformer):
+    """Transforms Python match/case into VerilogCase."""
+
+    def visit_Match(self, node):
+        # Visit the subject expression
+        subject = self.visit(node.subject)
+
+        cases = []
+        default_body = None
+
+        for c in node.cases:
+            # Visit the body first
+            body = [self.visit(stmt) for stmt in c.body]
+
+            # Handle default: match _
+            if isinstance(c.pattern, ast.MatchAs) and c.pattern.name is None:
+                default_body = body
+                continue
+
+            # Handle constant value matches
+            if isinstance(c.pattern, ast.MatchValue):
+                value = self.visit(c.pattern.value)
+                # Optional guard
+                if c.guard:
+                    # In Verilog, this could be an 'if' inside the case body or ignored
+                    # depending on your semantics
+                    guard_expr = self.visit(c.guard)
+                    body = [VerilogIf(guard_expr, body, [])]
+                cases.append(VerilogCaseItem(value, body))
+            else:
+                # Unsupported pattern type — could raise or skip
+                raise NotImplementedError(f"Unsupported match pattern: {ast.dump(c.pattern)}")
+
+        return VerilogCase(subject, cases, default_body)
 
 class RemovePrints(ast.NodeTransformer):
         
@@ -559,6 +615,8 @@ class ReplaceAssign(ast.NodeTransformer):
 
 class ExtractInitializers(ast.NodeTransformer):
     # We get port descriptions from addIn, addOut calls
+    # @todo Why do we do it like this instead of analyzing the port information of the object ??
+    
     # @todo handle interface functions
     # we save ports as a dictionary with associated with a VerilogWire object
     
@@ -595,7 +653,7 @@ class ExtractInitializers(ast.NodeTransformer):
                 pname = node.targets[0].attr
                 # print('in port', pname)
             elif (fname == 'addOut'):
-                node.targets[0].attr
+                pname = node.targets[0].attr
                 # print('out port', node.targets[0].attr)
             elif (fname == 'addInterfaceSink'):
                 # @todo review what to do here
@@ -923,6 +981,7 @@ class VerilogInitial(ast.AST):
 
 class VerilogProcess(ast.AST):
     def __init__(self, body, sensitivity):
+        assert(isinstance(body, list))
         self.body = body
         self.sensitivity_list = sensitivity
         self._fields = tuple(['body', 'sensitivity_list'])
@@ -1008,3 +1067,115 @@ class VerilogTernaryConditionalOperator(ast.AST):
         return '({}) ? {} : {}'.format(Python2VerilogTranspiler.toVerilog(self.condition),
             Python2VerilogTranspiler.toVerilog(self.positive),
             Python2VerilogTranspiler.toVerilog(self.negative))
+
+class VerilogCaseItem(ast.AST):
+    
+
+    def __init__(self, value, body):
+        self.value = value          # AST node
+        self.body = body or []  
+        self._fields = ("value", "body")
+        
+class VerilogCase(ast.AST):
+    
+    def __init__(self, var, cases, default):
+        self.var = var
+        self.cases = cases # list of VerilogCaseItems
+        self.default = default or []
+        self._fields = tuple(['var', 'cases', 'default'])
+        
+    def toVerilog(self):
+        str = 'case ({})\n'.format(Python2VerilogTranspiler.toVerilog(self.var))
+        for item in self.cases:
+            case = Python2VerilogTranspiler.toVerilog(item.value)
+            sts = item.body
+            
+            str += f'{case}: '
+            
+            if len(sts) > 1:
+                str += 'begin\n'
+
+            for st in sts:
+                str += '{}\n'.format(Python2VerilogTranspiler.toVerilog(st))
+
+            if len(sts) > 1:
+                str += 'end\n'
+                
+        str += 'default:'
+        sts = self.default
+        if len(sts) > 1:
+            str += 'begin\n'
+
+        for st in sts:
+            str += '{}\n'.format(Python2VerilogTranspiler.toVerilog(st))
+
+        if len(sts) > 1:
+            str += 'end\n'
+
+        str += 'endcase\n'            
+        
+        return str
+    
+class IfTreeToCaseTransformer(ast.NodeTransformer):
+
+    def visit_If(self, node):
+        match = self.try_match_if_chain(node)
+        if match:
+            return match
+        else:
+            # No match, visit children normally
+            return self.generic_visit(node)
+
+    def try_match_if_chain(self, node):
+        """Check if an If/elif/else chain is all 'var == value' tests on the same var."""
+        var_expr = None
+        cases = [] # it must be a list
+        default_body = None
+
+        cur = node
+        while True:
+            if not isinstance(cur.test, ast.Compare):
+                return None
+            cmp = cur.test
+
+            # Must be: single op ==, one comparator
+            if len(cmp.ops) != 1 or not isinstance(cmp.ops[0], ast.Eq):
+                return None
+            if len(cmp.comparators) != 1:
+                return None
+
+            lhs = cmp.left
+            rhs = cmp.comparators[0]
+
+            # Allow Name or Attribute for the var
+            if not isinstance(lhs, (ast.Name, ast.Attribute)):
+                return None
+
+            if var_expr is None:
+                var_expr = lhs
+            elif not self.same_var(var_expr, lhs):
+                return None
+
+            cases.append(VerilogCaseItem(rhs, cur.body))
+
+            # Follow to elif
+            if len(cur.orelse) == 1 and isinstance(cur.orelse[0], ast.If):
+                cur = cur.orelse[0]
+            else:
+                if cur.orelse:
+                    default_body = cur.orelse
+                break
+
+        # Only convert if we have at least 2 cases
+        if len(cases) >= 2:
+            return VerilogCase(
+                var=var_expr,
+                cases=cases,
+                default=default_body
+            )
+
+        return None
+
+    def same_var(self, a, b):
+        """Check if two Name/Attribute ASTs refer to the same variable textually."""
+        return ast.dump(a) == ast.dump(b)
