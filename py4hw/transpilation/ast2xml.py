@@ -66,7 +66,8 @@ def visit_node(ast_node, parent_xml_node=None, ast_name=None):
             raise Exception('no pure AST list')
         return xml_node
             
-    for key, value in ast_node.__dict__.items():
+    #for key, value in ast_node.__dict__.items():
+    for key, value in ast.iter_fields(ast_node):
         if key.startswith("_") or key in ATTRS:
             continue
         if isinstance(value, ast.AST):
