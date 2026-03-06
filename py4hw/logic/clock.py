@@ -94,7 +94,7 @@ class EdgeDetector(Logic):
 
 
 
-class AutoReset(py4hw.Logic):
+class AutoReset(Logic):
     def __init__(self, parent, name, reset):
         super().__init__(parent, name)
 
