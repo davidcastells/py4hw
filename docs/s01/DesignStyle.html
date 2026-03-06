@@ -14770,6 +14770,8 @@ g
 <pre>HWSystem
  Constant
  Add
+  Constant
+  AddCarryIn
  Reg
 </pre>
 </div>
@@ -14800,7 +14802,7 @@ In <strong>py4hw</strong> this is done in the constructor of the class that impl
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">Counter</span><span class="p">(</span><span class="n">py4hw</span><span class="o">.</span><span class="n">Logic</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">CounterStructural</span><span class="p">(</span><span class="n">py4hw</span><span class="o">.</span><span class="n">Logic</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
     
@@ -14833,7 +14835,7 @@ In <strong>py4hw</strong> this is done in the constructor of the class that impl
 
 <span class="n">py4hw</span><span class="o">.</span><span class="n">Constant</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'inc'</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">inc</span><span class="p">)</span>
 
-<span class="n">Counter</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+<span class="n">CounterStructural</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s1">'circuit created'</span><span class="p">)</span>
 
@@ -14874,7 +14876,7 @@ In <strong>py4hw</strong> this is done in the constructor of the class that impl
 
 
 <div class="jp-RenderedImage jp-OutputArea-output ">
-<img src="data:image/png;base64,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"
+<img src="data:image/png;base64,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"
 class="
 "
 >
@@ -14960,7 +14962,7 @@ self.&ltport name&gt = self.addIn('&ltport name&gt', &ltport name&gt)
 
 <span class="n">py4hw</span><span class="o">.</span><span class="n">Sequence</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'inc'</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">inc</span><span class="p">)</span>
 
-<span class="n">count0</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_structural'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q0</span><span class="p">)</span>
+<span class="n">count0</span> <span class="o">=</span> <span class="n">CounterStructural</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_structural'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q0</span><span class="p">)</span>
 <span class="n">count1</span> <span class="o">=</span> <span class="n">CounterRTL</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_rtl'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q1</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s1">'circuit created'</span><span class="p">)</span>
@@ -15058,25 +15060,36 @@ self.&ltport name&gt = self.addIn('&ltport name&gt', &ltport name&gt)
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>// This file was automatically created by py4hw RTL generator
-module Counter (
-	input clk50,
+<pre>// This file was automatically created by py4hw Verilog generator
+module CounterStructural (
+	input clk,
 	input  inc,
 	output [7:0] q);
 wire [7:0] w_count;
 
-assign w_count = q + inc;
-Reg8E i_reg(.clk50(clk50),.d(w_count),.e(inc),.q(q));
+Add8_1_8 i_counter(.a(q),.b(inc),.r(w_count));
+Reg8E i_reg(.clk(clk),.d(w_count),.e(inc),.q(q));
 endmodule
 
-// This file was automatically created by py4hw RTL generator
+// This file was automatically created by py4hw Verilog generator
+module Add8_1_8 (
+	input [7:0] a,
+	input  b,
+	output [7:0] r);
+wire w_ci;
+
+assign w_ci = 0;
+assign r = a + b + w_ci;
+endmodule
+
+// This file was automatically created by py4hw Verilog generator
 module Reg8E (
-	input clk50,
+	input clk,
 	input [7:0] d,
 	input  e,
 	output [7:0] q);
 reg [7:0] rq = 0;
-always @(posedge clk50)
+always @(posedge clk)
 if (e == 1)
 begin
    rq &lt;= d;
@@ -15097,7 +15110,7 @@ endmodule
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[10]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">rtl</span> <span class="o">=</span> <span class="n">py4hw</span><span class="o">.</span><span class="n">VerilogGenerator</span><span class="p">(</span><span class="n">count1</span><span class="p">)</span>
@@ -15124,9 +15137,10 @@ endmodule
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>// This file was automatically created by py4hw RTL generator
+<pre>transpiling sequential /HWSystem[HWSystem]/CounterRTL[counter_rtl]
+// This file was automatically created by py4hw Verilog generator
 module CounterRTL (
-	input clk50,
+	input clk,
 	input  inc,
 	output  reg [7:0] q);
 // Code generated from clock method
@@ -15136,7 +15150,7 @@ initial
 begin
 end
 // process
-always @(posedge clk50)
+always @(posedge clk)
 begin
     if (inc==1)
     begin
@@ -15175,7 +15189,7 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[23]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[15]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">CounterSeq</span><span class="p">(</span><span class="n">py4hw</span><span class="o">.</span><span class="n">Logic</span><span class="p">):</span>
@@ -15191,15 +15205,13 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
         <span class="bp">self</span><span class="o">.</span><span class="n">co</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
         
     <span class="k">def</span> <span class="nf">clock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">vinc</span> <span class="o">=</span> <span class="n">inc</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
         <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">co</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vq</span><span class="p">)</span>
         
     <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">while</span><span class="p">(</span><span class="kc">True</span><span class="p">):</span>
-            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vinc</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">vq</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">yield</span>
+            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inc</span><span class="o">.</span><span class="n">get</span><span class="p">()):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">q</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">yield</span>
 </pre></div>
 
      </div>
@@ -15224,7 +15236,7 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[24]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[16]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">sys</span> <span class="o">=</span> <span class="n">py4hw</span><span class="o">.</span><span class="n">HWSystem</span><span class="p">()</span>
@@ -15236,15 +15248,17 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
 
 <span class="n">py4hw</span><span class="o">.</span><span class="n">Sequence</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'inc'</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">inc</span><span class="p">)</span>
 
-<span class="n">count0</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_structural'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q0</span><span class="p">)</span>
+<span class="n">count0</span> <span class="o">=</span> <span class="n">CounterStructural</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_structural'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q0</span><span class="p">)</span>
 <span class="n">count1</span> <span class="o">=</span> <span class="n">CounterRTL</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_rtl'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q1</span><span class="p">)</span>
-<span class="n">count2</span> <span class="o">=</span> <span class="n">CounterRTL</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_seq'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q2</span><span class="p">)</span>
+<span class="n">count2</span> <span class="o">=</span> <span class="n">CounterSeq</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'counter_seq'</span><span class="p">,</span> <span class="n">inc</span><span class="p">,</span> <span class="n">q2</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s1">'circuit created'</span><span class="p">)</span>
 
 <span class="n">wvf</span> <span class="o">=</span> <span class="n">py4hw</span><span class="o">.</span><span class="n">Waveform</span><span class="p">(</span><span class="n">sys</span><span class="p">,</span> <span class="s1">'wvf'</span><span class="p">,</span> <span class="p">[</span><span class="n">inc</span><span class="p">,</span><span class="n">q0</span><span class="p">,</span><span class="n">q1</span><span class="p">,</span><span class="n">q2</span><span class="p">])</span>
 
 <span class="n">sys</span><span class="o">.</span><span class="n">getSimulator</span><span class="p">()</span><span class="o">.</span><span class="n">clk</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Simulation complete'</span><span class="p">)</span>
 <span class="n">wvf</span><span class="o">.</span><span class="n">draw_wavedrom</span><span class="p">()</span>
 </pre></div>
 
@@ -15268,6 +15282,7 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
 <pre>circuit created
+Simulation complete
 </pre>
 </div>
 </div>
@@ -15275,7 +15290,7 @@ You can use <strong>yield from</strong> to implement functions, increasing the c
 <div class="jp-OutputArea-child">
 
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[24]:</div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[16]:</div>
 
 
 
