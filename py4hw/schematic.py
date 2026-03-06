@@ -1722,7 +1722,7 @@ class Schematic:
             #    self.symbol_matrix = np.insert(self.symbol_matrix, r + 1, empty_row, axis=0)
             #    r += 1
             nr, nc = self.symbol_matrix.shape
-            self._expand_symbol_matrix(nr+1, nc)
+            self._expand_symbol_matrix(nr+1, sourcecol+2)
             r = nr
             
             # Insert feedback start in source column
@@ -3003,9 +3003,6 @@ class Schematic:
                 print('createNetsWithMaxFanout Exception', err)
                 
     def getNets(self):
-        #oa = np.array(self.objs)
-        #ba = np.array([isinstance(x, NetSymbol) for x in self.objs])
-        #return list(oa[ba])
         return self.nets
     
     def getNonNets(self):
@@ -3149,9 +3146,6 @@ class Schematic:
 
         return cost
     
-    def swap(self, a, b):
-        raise Exception('non used')
-        self.objs[a], self.objs[b] = self.objs[b], self.objs[a] 
 
 
     def areSourceTarget(self, srcobj, trgobj):
@@ -3278,26 +3272,6 @@ class Schematic:
             
         return grid
 
-    def isFreeRectangle(self, og, x0, y0, x1, y1):
-        raise Exception('non used')
-        try:
-            if (x0==x1 and y0==y1):
-                return True
-            
-            
-            if (y1 >= og.shape[0] or x1 >= og.shape[1]):
-                return False
-            
-            if (x0 > x1):
-                x0, x1 = x1, x0
-            if (y0 > y1):
-                y0, y1 = y1, y0
-            
-            v = np.max(og[y0:y1+1, x0:x1+1])
-        except:
-            return False
-        
-        return v == 0
 
         
     def routeNetSquare(self, net):
