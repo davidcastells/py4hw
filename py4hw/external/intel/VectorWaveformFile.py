@@ -171,7 +171,7 @@ class VWFNode(VWFObj):
 
 class ConvertVWF():
     def __init__(self):
-        self.verbose = True
+        self.verbose = False
     
     def readfile(self, filename):
         f = open(filename, 'r')
@@ -235,8 +235,9 @@ class ConvertVWF():
         while (self.i < len(self.lines)):
             line = self.lines[self.i].strip()
             self.i+=1
-            
-            print('{}:{}'.format(self.i, line))
+        
+            if (self.verbose):
+                print('{}:{}'.format(self.i, line))
             
             if (line == '}'):
                 obj.value = ret
@@ -268,7 +269,8 @@ class ConvertVWF():
             line = self.lines[self.i].strip()
             self.i+=1
             
-            print('{}:{}'.format(self.i, line))
+            if (self.verbose):
+                print('{}:{}'.format(self.i, line))
             
             if (line == '}'):
                 obj.value = ret
@@ -339,6 +341,8 @@ class ConvertVWF():
             elif (line == '}'):
                 #print('<<<<<', type(obj))
                 return
+            elif (line == ';'):
+                pass # ignore ;
             else:
                 print('?? - ?? - ??', line)
                 
@@ -350,7 +354,7 @@ class ConvertVWF():
     def get_wavedrom(self):
         
         header = self.top.find(VWFHeader)
-        period = float(header.value['GRID_PERIOD'])
+        period = float(self.getMinPeriod())
         
         #signals = [{"name": "clk", 'wave': 'P'}]
         signals = [] 
@@ -397,10 +401,24 @@ class ConvertVWF():
         return ret
     
     
+    def getMinPeriod(self):
+        import re
+
+        min_value = float('inf')  # Start with infinity
+        
+        for s in self.lines:
+            match = re.search(r'FOR\s+([0-9.]+)', s)
+            if match:
+                value = float(match.group(1))
+                if value < min_value:
+                    min_value = value
+                    
+        return min_value
+
     def getSignals(self):
         # returns a directory with signals and data
         header = self.top.find(VWFHeader)
-        period = float(header.value['GRID_PERIOD'])
+        period = float(self.getMinPeriod())
     
         ret = {}
         trans = self.top.findAll(VWFTransitionList)
