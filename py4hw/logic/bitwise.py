@@ -836,7 +836,6 @@ class ConcatenateMSBF(Logic):
         for idx, item in enumerate(ins):
             self.ins.append(self.addIn('in{}'.format(idx), item))
             total_w += item.getWidth()
-            ind_w.append(item.getWidth())
 
         if (total_w > max_w):
             raise Exception('Combined input widths {} larger than result width {}>{}'.format(ind_w, total_w, max_w))
