@@ -10,15 +10,26 @@ from deprecated import deprecated
 import math
 
 
-
-
-
 class And2(Logic):
-    """
-    Binary And
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Create an And2 logic gate between two wires.
+        
+        Parameters
+        ----------
+        parent : Logic
+            The parent component that contains this And2 gate.
+        name : str
+            The unique name identifier for this And2 gate instance.
+        a : Wire
+            The first input wire for the AND operation.
+        b : Wire
+            The second input wire for the AND operation.
+        r : Wire
+            The output wire that will receive the result of (a AND b).
+        
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -30,6 +41,24 @@ class And2(Logic):
         
 class And(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
+        '''
+        Initialize a multi-input AND gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this AND gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list or Input wire(s) to the AND gate. 
+        r : Wire
+            Output wire that will receive the result of ANDing all inputs.
+        
+        The current implementation uses a linear ladder structure for N>2 inputs.
+        Future optimization could implement a logarithmic tree structure for
+        better timing characteristics.
+
+        '''
         super().__init__(parent, name)
         lins = []
         r = self.addOut('r', r)
@@ -77,6 +106,7 @@ class Bit(Logic):
     """
 
     def __init__(self, parent: Logic, name: str, a: Wire, bit, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -97,6 +127,7 @@ class BitsMSBF(Logic):
     """
 
     def __init__(self, parent: Logic, name: str, a: Wire, bits):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -123,6 +154,7 @@ class BitsLSBF(Logic):
     """
 
     def __init__(self, parent: Logic, name: str, a: Wire, bits):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -148,6 +180,7 @@ class BitsLSBF(Logic):
     
 class Buf(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -159,6 +192,7 @@ class Buf(Logic):
 class BidirBuf(Logic):
     
     def __init__(self, parent, name: str, pin : Wire , pout : Wire, poe : Wire, bidir : BidirWire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         if (poe.getWidth() != 1):
@@ -179,6 +213,7 @@ class BufEnable(Logic):
     # This is just a way to control set to zero all bits of a signal
     # depending on an enable signal
     def __init__(self, parent, name, a, en, r):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         self.a = self.addIn('a', a)
@@ -201,6 +236,7 @@ class Constant(Logic):
     """
 
     def __init__(self, parent: Logic, name: str, value: int, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         assert(isinstance(value, int))
         assert(isinstance(r, Wire))
@@ -213,6 +249,7 @@ class Constant(Logic):
         
 class Demux(Logic):
     def __init__(self, parent, name, a, sel, r):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -234,6 +271,7 @@ class Nand2(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -250,6 +288,7 @@ class Nor(Logic):
     """
 
     def __init__(self, parent, name: str, ins, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         lins = []
@@ -275,6 +314,7 @@ class Nor2(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -287,6 +327,7 @@ class Nor2(Logic):
 
 class Not(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
@@ -304,6 +345,7 @@ class Or2(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -314,6 +356,7 @@ class Or2(Logic):
 
 class OrBits(Logic):
     def __init__(self, parent, name:str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -325,6 +368,7 @@ class OrBits(Logic):
     
 class Or(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         lins = []
         r = self.addOut('r', r)
@@ -367,6 +411,7 @@ class Or(Logic):
 
 class ShiftLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -378,6 +423,7 @@ class ShiftLeftConstant(Logic):
 
 class ShiftRightConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -388,6 +434,7 @@ class ShiftRightConstant(Logic):
 
 class RotateLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -402,6 +449,7 @@ class RotateLeftConstant(Logic):
 
 class RotateRightConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -419,6 +467,7 @@ class Xor2(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -436,6 +485,7 @@ class Xor2(Logic):
 
 class Xor(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         lins = []
         r = self.addOut('r', r)
@@ -473,6 +523,7 @@ class Xor(Logic):
 
 class Mux(Logic):
     def __init__(self, parent, name: str, sel: Wire, ins, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         if (sel.getWidth() != int(math.log2(len(ins)))):
@@ -519,6 +570,32 @@ class Mux(Logic):
 
 class Mux2(Logic):
     def __init__(self, parent, name: str, sel: Wire, sel0: Wire, sel1: Wire, r: Wire):
+        """
+        Initialize a 2-input multiplexer.
+        
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this multiplexer.
+        name : str
+            Unique identifier for this multiplexer instance.
+        sel : Wire
+            Select signal. When 0, output = sel0; when 1, output = sel1.
+        sel0 : Wire
+            Input selected when sel is 0.
+        sel1 : Wire
+            Input selected when sel is 1.
+        r : Wire
+            Output wire that receives the selected input value.
+            
+        Notes
+        -----
+        The multiplexer implements the following behavior:
+        - r = sel0 when sel = 0
+        - r = sel1 when sel = 1
+        
+        Only the LSB of the select signal is considered; higher bits are ignored.
+        """
         super().__init__(parent, name)
         self.sel = self.addIn("sel", sel)
         self.sel0 = self.addIn("sel0", sel0)
@@ -534,6 +611,7 @@ class Mux2(Logic):
 
 class Repeat(Logic):
     def __init__(self, parent, name: str, i: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         if (i.getWidth() != 1):
@@ -555,6 +633,7 @@ class Repeat(Logic):
 # deprecated use OneHotMux
 class Select(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         final = []
@@ -576,6 +655,7 @@ class Select(Logic):
 
 class OneHotMux(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         final = []
@@ -591,7 +671,7 @@ class OneHotMux(Logic):
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 
             Repeat(self, 'sel{}'.format(idx), sel, selx)
-            And2(self, 'and{}'.format(idx), selx, inv, and_sel)
+            And2(self, 'and{}'.format(idx), selx, inv, andsel)
             final.append(and_sel)
 
         self.addOut('r', r)
@@ -600,6 +680,7 @@ class OneHotMux(Logic):
 
 class OneHotDemux(Logic):
     def __init__(self, parent, name: str, sels:list, a:Wire, outs: list):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         final = []
@@ -618,6 +699,7 @@ class OneHotDemux(Logic):
         
 class SelectDefault(Logic):
     def __init__(self, parent, name, sels, ins, default, r):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         self.addIn('default', default)
@@ -645,6 +727,7 @@ class Decoder(Logic):
 
     def __init__(self, parent: Logic, name: str, a: Wire, b):
         """
+        improve this docstring ai!
         Creates a decoder. The outputs are dynamically created
 
         Parameters
@@ -679,7 +762,8 @@ class Minterm(Logic):
 
     def __init__(self, parent: Logic, name: str, bits, value: int, r: Wire):
         """
-
+        improve this docstring ai!
+        
         Parameters
         ----------
         parent : Logic
@@ -717,6 +801,7 @@ class Minterm(Logic):
 
 class SumOfMinterms(Logic):
     def __init__(self, parent, name, a, minterms:list, r):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -739,6 +824,7 @@ class ConcatenateMSBF(Logic):
     Concatenate wires circuit in MSBF order
     """
     def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         ind_w = []
@@ -771,6 +857,7 @@ class ConcatenateLSBF(Logic):
     Concatenate wires circuit in MSBF order
     """
     def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         total_w = 0
@@ -800,12 +887,44 @@ class ConcatenateLSBF(Logic):
         
 class Range(Logic):
     def __init__(self, parent: Logic, name: str, a: Wire, high: int, low: int, r: Wire):
+        '''
+        Initialize a bit range extraction gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this Range gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire containing the source value.
+        high : int
+            Upper bound of the bit range to extract (inclusive).
+        low : int
+            Lower bound of the bit range to extract (inclusive).
+        r : Wire
+            Output wire that will receive the extracted range, right-aligned.
+            
+        Raises
+        ------
+        AssertionError
+            If high < low.
+            
+        Notes
+        -----
+        The output width is automatically determined as (high - low + 1) bits.
+        The extracted range is right-aligned in the output, meaning bit 'low'
+        from the input becomes bit 0 of the output.
+
+        '''
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
         self.high = high
         self.low = low
+        
+        assert(high >= low) #, f'high value ({high}) must be >= than low ({low})')
 
     def propagate(self):
         value = self.a.get()
@@ -815,6 +934,7 @@ class Range(Logic):
 
 class Digit7Segment(Logic):
     def __init__(self, parent, name, v, led):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         assert(led.getWidth() == 7)
@@ -860,6 +980,7 @@ class Digit7Segment(Logic):
         
 class PriorityEncoder(Logic):
     def __init__(self, parent, name, a, r, inc_priority=True):
+        # replace this by a good docstring ai!
         from ..helper import LogicHelper
         super().__init__(parent, name)
         assert(len(a) == len(r))
