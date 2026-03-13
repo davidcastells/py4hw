@@ -100,13 +100,24 @@ class And(Logic):
                 
                         
                 
-class Bit(Logic):
-    """ 
-    Gets one bit from a wire
-    """
+class Bit(Logic):    
+    def __init__(self, parent: Logic, name: str, a: Wire, bit: int, r: Wire):
+        """ 
+        Extracts a specific bit from a wire.
 
-    def __init__(self, parent: Logic, name: str, a: Wire, bit, r: Wire):
-        # replace this by a good docstring ai!
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this Bit gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire from which the bit is extracted.
+        bit : int
+            The bit position to extract (0-indexed).
+        r : Wire
+            Output wire that will receive the extracted bit.
+        """
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -121,13 +132,21 @@ class Bit(Logic):
 
 
 class BitsMSBF(Logic):
-    """
-    Returns a list of 1 bit wires from a wider wire 
-    in least significant bit first order
-    """
-
     def __init__(self, parent: Logic, name: str, a: Wire, bits):
-        # replace this by a good docstring ai!
+        """
+        Assigns a list of 1-bit wires from a wider wire in most significant bit first order.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this BitsMSBF gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire from which bits are extracted.
+        bits : list of Wire
+            List of output wires that will receive the extracted bits in MSBF order.
+        """
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -148,13 +167,23 @@ class BitsMSBF(Logic):
             self.bits[i].put((v >> i) & 1)
             
 class BitsLSBF(Logic):
-    """
-    Returns a list of 1 bit wires from a wider wire 
-    in least significant bit first order
-    """
+
 
     def __init__(self, parent: Logic, name: str, a: Wire, bits):
-        # replace this by a good docstring ai!
+        """
+        Assigns a list of 1-bit wires from a wider wire in least significant bit first order.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this BitsLSBF gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire from which bits are extracted.
+        bits : list of Wire
+            List of output wires that will receive the extracted bits in LSBF order.
+        """
         super().__init__(parent, name)
 
         self.a = self.addIn('a', a)
@@ -180,7 +209,21 @@ class BitsLSBF(Logic):
     
 class Buf(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Assign a input wire to an output wire, this is a way to connect two
+        unconnected wires.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this buffer gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be buffered.
+        r : Wire
+            Output wire that will receive the buffered value.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -191,8 +234,25 @@ class Buf(Logic):
     
 class BidirBuf(Logic):
     
-    def __init__(self, parent, name: str, pin : Wire , pout : Wire, poe : Wire, bidir : BidirWire):
-        # replace this by a good docstring ai!
+    def __init__(self, parent, name: str, pin: Wire, pout: Wire, poe: Wire, bidir: BidirWire):
+        """
+        Initialize a bidirectional buffer with output enable.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this bidirectional buffer.
+        name : str
+            Unique identifier for this bidirectional buffer instance.
+        pin : Wire
+            Input wire that will receive the value from the bidirectional wire when output enable is low.
+        pout : Wire
+            Output wire that will drive the bidirectional wire when output enable is high.
+        poe : Wire
+            Output enable wire. When high, pout drives bidir; when low, bidir drives pin.
+        bidir : BidirWire
+            Bidirectional wire to be controlled by this buffer.
+        """
         super().__init__(parent, name)
         
         if (poe.getWidth() != 1):
@@ -210,10 +270,26 @@ class BidirBuf(Logic):
             self.pin.put(self.bidir.get())
 
 class BufEnable(Logic):
-    # This is just a way to control set to zero all bits of a signal
-    # depending on an enable signal
+     
     def __init__(self, parent, name, a, en, r):
-        # replace this by a good docstring ai!
+        """
+        Controls the output signal based on an enable signal.
+        This is just a way to control set to zero all bits of a signal
+        # depending on an enable signal
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this buffer enable gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be buffered.
+        en : Wire
+            Enable signal. When high, the output is the same as the input; when low, the output is zero.
+        r : Wire
+            Output wire that will receive the buffered value or zero based on the enable signal.
+        """
         super().__init__(parent, name)
         
         self.a = self.addIn('a', a)
@@ -231,12 +307,21 @@ class BufEnable(Logic):
     
 
 class Constant(Logic):
-    """
-    A constant value
-    """
-
     def __init__(self, parent: Logic, name: str, value: int, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Provides a constant value to a wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this constant gate.
+        name : str
+            Unique identifier for this gate instance.
+        value : int
+            The constant value to be provided.
+        r : Wire
+            Output wire that will receive the constant value.
+        """
         super().__init__(parent, name)
         assert(isinstance(value, int))
         assert(isinstance(r, Wire))
@@ -249,7 +334,29 @@ class Constant(Logic):
         
 class Demux(Logic):
     def __init__(self, parent, name, a, sel, r):
-        # replace this by a good docstring ai!
+        """
+        Implements a demultiplexer (demux) that routes a single input wire to 
+        one of several output wires based on a selection signal.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this demultiplexer.
+        name : str
+            Unique identifier for this demultiplexer instance.
+        a : Wire
+            Input wire to be routed to one of the output wires.
+        sel : Wire
+            Selection signal that determines which output wire receives the input.
+        r : list of Wire
+            List of output wires, one of which will receive the input based on 
+            the selection signal.
+        
+        Notes
+        -----
+        The number of output wires must be a power of 2, and the width of the 
+        selection signal must be log2(number of outputs).
+        """
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -266,12 +373,23 @@ class Demux(Logic):
             BufEnable(self, 'en{}'.format(idx), a, ss[idx], ri)
             
 class Nand2(Logic):
-    """
-    Binary Nand
-    """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a binary NAND gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this NAND gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            First input wire for the NAND operation.
+        b : Wire
+            Second input wire for the NAND operation.
+        r : Wire
+            Output wire that will receive the result of (a NAND b).
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -283,12 +401,21 @@ class Nand2(Logic):
         Not(self, "Not", self.mid, r)
 
 class Nor(Logic):
-    """
-    Binary Nand
-    """
-
     def __init__(self, parent, name: str, ins, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a multi-input NOR gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this NOR gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list of Wire
+            List of input wires to the NOR gate.
+        r : Wire
+            Output wire that will receive the result of NORing all inputs.
+        """
         super().__init__(parent, name)
         
         lins = []
@@ -309,12 +436,23 @@ class Nor(Logic):
 
 
 class Nor2(Logic):
-    """
-    Binary Nand
-    """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a binary NOR gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this NOR gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            First input wire for the NOR operation.
+        b : Wire
+            Second input wire for the NOR operation.
+        r : Wire
+            Output wire that will receive the result of (a NOR b).
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -327,36 +465,67 @@ class Nor2(Logic):
 
 class Not(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a NOT gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this NOT gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire for the NOT operation.
+        r : Wire
+            Output wire that will receive the result of NOT(a).
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
-
-    def propagate(self):
-        self.r.put(~self.a.get())
 
     def getSymbol(self, x, y):
         return NotSymbol(self, x, y)
 
 
 class Or2(Logic):
-    """
-    Binary And
-    """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a binary OR gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this OR gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            First input wire for the OR operation.
+        b : Wire
+            Second input wire for the OR operation.
+        r : Wire
+            Output wire that will receive the result of (a OR b).
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
-    def propagate(self):
-        self.r.put(self.a.get() | self.b.get())
-
 class OrBits(Logic):
     def __init__(self, parent, name:str, a: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements an OR gate that ORs all bits of a single input wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this OR gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire whose bits are to be ORed.
+        r : Wire
+            Output wire that will receive the result of ORing all bits of the input wire.
+        """
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -368,7 +537,20 @@ class OrBits(Logic):
     
 class Or(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a multi-input OR gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this OR gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list of Wire
+            List of input wires to the OR gate.
+        r : Wire
+            Output wire that will receive the result of ORing all inputs.
+        """
         super().__init__(parent, name)
         lins = []
         r = self.addOut('r', r)
@@ -411,7 +593,22 @@ class Or(Logic):
 
 class ShiftLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a shift left operation by a constant number of positions.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this shift left gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be shifted.
+        n : int
+            Number of positions to shift left.
+        r : Wire
+            Output wire that will receive the shifted value.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -423,7 +620,22 @@ class ShiftLeftConstant(Logic):
 
 class ShiftRightConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a shift right operation by a constant number of positions.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this shift right gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be shifted.
+        n : int
+            Number of positions to shift right.
+        r : Wire
+            Output wire that will receive the shifted value.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -434,7 +646,22 @@ class ShiftRightConstant(Logic):
 
 class RotateLeftConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a rotate left operation by a constant number of positions.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this rotate left gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be rotated.
+        n : int
+            Number of positions to rotate left.
+        r : Wire
+            Output wire that will receive the rotated value.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -449,7 +676,22 @@ class RotateLeftConstant(Logic):
 
 class RotateRightConstant(Logic):
     def __init__(self, parent, name: str, a: Wire, n: int, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a rotate right operation by a constant number of positions.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this rotate right gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire to be rotated.
+        n : int
+            Number of positions to rotate right.
+        r : Wire
+            Output wire that will receive the rotated value.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -462,12 +704,23 @@ class RotateRightConstant(Logic):
         self.r.put((a >> n) | (a << (w - n)))
                 
 class Xor2(Logic):
-    """
-    Binary Xor
-    """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a binary XOR gate using NAND gates.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this XOR gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            First input wire for the XOR operation.
+        b : Wire
+            Second input wire for the XOR operation.
+        r : Wire
+            Output wire that will receive the result of (a XOR b).
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -485,7 +738,20 @@ class Xor2(Logic):
 
 class Xor(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a multi-input XOR gate.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this XOR gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list of Wire
+            List of input wires to the XOR gate.
+        r : Wire
+            Output wire that will receive the result of XORing all inputs.
+        """
         super().__init__(parent, name)
         lins = []
         r = self.addOut('r', r)
@@ -497,7 +763,7 @@ class Xor(Logic):
         num = len(ins)
 
         if (num == 2):
-            Xor2(self, 'and2', ins[0], ins[1], r)
+            Xor2(self, 'xor2', ins[0], ins[1], r)
             return
             
         if (num < 3):
@@ -507,23 +773,42 @@ class Xor(Logic):
         # do a more fancy logarithmic design
         
         auxin = lins[0]
-        auxout = self.wire('and{}'.format(0), w)
+        auxout = self.wire('xor{}'.format(0), w)
         
         for i in range(num-1):
-            # print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
-            # print('creating and{} input1: {}'.format(i, lins[i+1].getFullPath()))
-            # print('creating and{} output: {}'.format(i, auxout.getFullPath()))
-            Xor2(self, 'and{}'.format(i),  auxin, lins[i+1], auxout)
+            # print('creating xor{} input0: {}'.format(i, auxin.getFullPath()))
+            # print('creating xor{} input1: {}'.format(i, lins[i+1].getFullPath()))
+            # print('creating xor{} output: {}'.format(i, auxout.getFullPath()))
+            Xor2(self, 'xor{}'.format(i),  auxin, lins[i+1], auxout)
             auxin = auxout
             if (i == num-3):
                 auxout = r
             else:
-                auxout = self.wire('and{}'.format(i+1), w)
+                auxout = self.wire('xor{}'.format(i+1), w)
                 
 
 class Mux(Logic):
     def __init__(self, parent, name: str, sel: Wire, ins, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a multiplexer (mux) that selects one of several input wires based on a selection signal.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this multiplexer.
+        name : str
+            Unique identifier for this multiplexer instance.
+        sel : Wire
+            Selection signal that determines which input wire is selected.
+        ins : list of Wire
+            List of input wires to the multiplexer.
+        r : Wire
+            Output wire that will receive the selected input value.
+        
+        Notes
+        -----
+        The selection signal width must be log2(number of inputs). The multiplexer implements a logarithmic selection tree for efficient selection.
+        """
         super().__init__(parent, name)
         
         if (sel.getWidth() != int(math.log2(len(ins)))):
@@ -611,7 +896,24 @@ class Mux2(Logic):
 
 class Repeat(Logic):
     def __init__(self, parent, name: str, i: Wire, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Repeats a single-bit input wire to a multi-bit output wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this repeat gate.
+        name : str
+            Unique identifier for this gate instance.
+        i : Wire
+            Single-bit input wire to be repeated.
+        r : Wire
+            Multi-bit output wire that will receive the repeated value.
+        
+        Notes
+        -----
+        The input wire must be 1 bit wide. The output wire width is determined by the width of the output wire provided.
+        """
         super().__init__(parent, name)
 
         if (i.getWidth() != 1):
@@ -633,7 +935,26 @@ class Repeat(Logic):
 # deprecated use OneHotMux
 class Select(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a one-hot multiplexer using one-hot encoded selection signals.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this one-hot multiplexer.
+        name : str
+            Unique identifier for this multiplexer instance.
+        sels : list of Wire
+            List of one-hot encoded selection signals.
+        ins : list of Wire
+            List of input wires to the multiplexer.
+        r : Wire
+            Output wire that will receive the selected input value.
+        
+        Notes
+        -----
+        The selection signals must be one-hot encoded, meaning only one signal can be high at a time.
+        """
         super().__init__(parent, name)
 
         final = []
@@ -655,7 +976,26 @@ class Select(Logic):
 
 class OneHotMux(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Implements a one-hot multiplexer using one-hot encoded selection signals.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this one-hot multiplexer.
+        name : str
+            Unique identifier for this multiplexer instance.
+        sels : list of Wire
+            List of one-hot encoded selection signals.
+        ins : list of Wire
+            List of input wires to the multiplexer.
+        r : Wire
+            Output wire that will receive the selected input value.
+        
+        Notes
+        -----
+        The selection signals must be one-hot encoded, meaning only one signal can be high at a time.
+        """
         super().__init__(parent, name)
 
         final = []
@@ -671,7 +1011,7 @@ class OneHotMux(Logic):
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 
             Repeat(self, 'sel{}'.format(idx), sel, selx)
-            And2(self, 'and{}'.format(idx), selx, inv, andsel)
+            And2(self, 'and{}'.format(idx), selx, inv, and_sel)
             final.append(and_sel)
 
         self.addOut('r', r)
@@ -680,7 +1020,26 @@ class OneHotMux(Logic):
 
 class OneHotDemux(Logic):
     def __init__(self, parent, name: str, sels:list, a:Wire, outs: list):
-        # replace this by a good docstring ai!
+        """
+        Implements a one-hot demultiplexer using one-hot encoded selection signals.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this one-hot demultiplexer.
+        name : str
+            Unique identifier for this demultiplexer instance.
+        sels : list of Wire
+            List of one-hot encoded selection signals.
+        a : Wire
+            Input wire to be demultiplexed.
+        outs : list of Wire
+            List of output wires that will receive the input value based on the selection signals.
+        
+        Notes
+        -----
+        The selection signals must be one-hot encoded, meaning only one signal can be high at a time.
+        """
         super().__init__(parent, name)
 
         final = []
@@ -699,7 +1058,28 @@ class OneHotDemux(Logic):
         
 class SelectDefault(Logic):
     def __init__(self, parent, name, sels, ins, default, r):
-        # replace this by a good docstring ai!
+        """
+        Implements a multiplexer with a default value.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this multiplexer.
+        name : str
+            Unique identifier for this multiplexer instance.
+        sels : list of Wire
+            List of selection signals.
+        ins : list of Wire
+            List of input wires to the multiplexer.
+        default : Wire
+            Default output value when no selection signal is high.
+        r : Wire
+            Output wire that will receive the selected input value or the default value.
+        
+        Notes
+        -----
+        If no selection signal is high, the default value is selected.
+        """
         super().__init__(parent, name)
         
         self.addIn('default', default)
@@ -721,30 +1101,24 @@ class SelectDefault(Logic):
 
 
 class Decoder(Logic):
-    """
-    A decoder
-    """
-
     def __init__(self, parent: Logic, name: str, a: Wire, b):
         """
-        improve this docstring ai!
-        Creates a decoder. The outputs are dynamically created
+        Implements a decoder that converts a binary input to a one-hot encoded output.
 
         Parameters
         ----------
         parent : Logic
-            Parent circuit.
+            The parent component containing this decoder.
         name : str
-            Name of the instance.
+            Unique identifier for this decoder instance.
         a : Wire
-            Input signal.
-        b : List of Wire
-            List of the output signals.
-
-        Returns
-        -------
-        None.
-
+            Input wire containing the binary value to be decoded.
+        b : list of Wire
+            List of output wires that will receive the one-hot encoded result.
+        
+        Notes
+        -----
+        The number of output wires must be 2 raised to the power of the input wire width.
         """
         super().__init__(parent, name)
         a = self.addIn("a", a)
@@ -756,31 +1130,22 @@ class Decoder(Logic):
 
 
 class Minterm(Logic):
-    """
-    A minterm in a boolean expression
-    """
-
     def __init__(self, parent: Logic, name: str, bits, value: int, r: Wire):
         """
-        improve this docstring ai!
-        
+        Implements a minterm gate that outputs true only when the input bits match the specified minterm value.
+
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            The parent component containing this minterm gate.
         name : str
-            DESCRIPTION.
-        bits : List of Wires (least significant order first)
-            DESCRIPTION.
+            Unique identifier for this gate instance.
+        bits : list of Wire
+            List of input wires representing the bits to be checked.
         value : int
-            DESCRIPTION.
+            The minterm value to match.
         r : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Output wire that will receive the result of the minterm evaluation.
         """
         super().__init__(parent, name)
         r = self.addOut('r', r)
@@ -801,7 +1166,22 @@ class Minterm(Logic):
 
 class SumOfMinterms(Logic):
     def __init__(self, parent, name, a, minterms:list, r):
-        # replace this by a good docstring ai!
+        """
+        Implements a sum of minterms gate that outputs true if any of the specified minterms match the input bits.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this sum of minterms gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire containing the bits to be checked.
+        minterms : list of int
+            List of minterm values to match.
+        r : Wire
+            Output wire that will receive the result of the sum of minterms evaluation.
+        """
         super().__init__(parent, name)
         
         self.addIn('a', a)
@@ -820,11 +1200,21 @@ class SumOfMinterms(Logic):
         Or(self, 'sum', acum, r)
         
 class ConcatenateMSBF(Logic):
-    """
-    Concatenate wires circuit in MSBF order
-    """
     def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Concatenates multiple wires into a single wire in most significant bit first (MSBF) order.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this concatenate gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list of Wire
+            List of input wires to be concatenated.
+        r : Wire
+            Output wire that will receive the concatenated result.
+        """
         super().__init__(parent, name)
 
         ind_w = []
@@ -852,11 +1242,21 @@ class ConcatenateMSBF(Logic):
         self.r.put(value)
         
 class ConcatenateLSBF(Logic):
-    """
-    Concatenate wires circuit in MSBF order
-    """
     def __init__(self, parent: Logic, name: str, ins:list, r: Wire):
-        # replace this by a good docstring ai!
+        """
+        Concatenates multiple wires into a single wire in least significant bit first (LSBF) order.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this concatenate gate.
+        name : str
+            Unique identifier for this gate instance.
+        ins : list of Wire
+            List of input wires to be concatenated.
+        r : Wire
+            Output wire that will receive the concatenated result.
+        """
         super().__init__(parent, name)
 
         total_w = 0
@@ -933,7 +1333,20 @@ class Range(Logic):
 
 class Digit7Segment(Logic):
     def __init__(self, parent, name, v, led):
-        # replace this by a good docstring ai!
+        """
+        Implements a 7-segment display driver that converts a 4-bit input to the corresponding 7-segment LED output.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this 7-segment display driver.
+        name : str
+            Unique identifier for this gate instance.
+        v : Wire
+            4-bit input wire representing the decimal digit to be displayed.
+        led : Wire
+            7-bit output wire representing the segments of the 7-segment display (a, b, c, d, e, f, g).
+        """
         super().__init__(parent, name)
         
         assert(led.getWidth() == 7)
@@ -979,7 +1392,22 @@ class Digit7Segment(Logic):
         
 class PriorityEncoder(Logic):
     def __init__(self, parent, name, a, r, inc_priority=True):
-        # replace this by a good docstring ai!
+        """
+        Implements a priority encoder that encodes the highest priority active input.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this priority encoder.
+        name : str
+            Unique identifier for this gate instance.
+        a : list of Wire
+            List of input wires representing the priority levels.
+        r : list of Wire
+            List of output wires representing the encoded priority.
+        inc_priority : bool, optional
+            If True, the lowest index has the highest priority. If False, the highest index has the highest priority. Default is True.
+        """
         from ..helper import LogicHelper
         super().__init__(parent, name)
         assert(len(a) == len(r))
@@ -988,8 +1416,8 @@ class PriorityEncoder(Logic):
         a = a.copy()
         r = r.copy()
         
-        # It the priority is decreasing, the a[0] is the more priorized
-        # Otherwise is the higher index
+        # If the priority is decreasing, the a[0] is the more prioritized
+        # Otherwise, the higher index is more prioritized
         if (inc_priority):
             a.reverse()
             r.reverse()
