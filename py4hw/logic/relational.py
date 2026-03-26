@@ -9,11 +9,21 @@ from .. import *
 from deprecated import deprecated
 
 class AnyEqual(Logic):
-    """
-    Checks whether there are any equal values in the inputs
-    """
-    
-    def __init__(self, parent, name, ins, r:Wire):
+    def __init__(self, parent, name, ins, r: Wire):
+        """
+        Checks whether there are any equal values in the inputs
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        ins : list of Wire
+            List of input wires to compare.
+        r : Wire
+            Output wire that will be active if any two inputs are equal.
+        """
         super().__init__(parent, name)
         
         from .bitwise import Or
@@ -36,11 +46,23 @@ class AnyEqual(Logic):
         Or(self, 'anyEqual', checks, r)
 
 class NotEqualConstant(Logic):
-    """
-    An Equal comparator circuit
-    """
-
     def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
+        """
+        A not equal comparator with a constant circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to compare.
+        v : int
+            Constant value to compare against.
+        r : Wire
+            Output wire that will be active if the input is not equal to the constant.
+        """
         super().__init__(parent, name)
 
         from .bitwise import Not
@@ -53,11 +75,23 @@ class NotEqualConstant(Logic):
         Not(self, 'r', eq, r)
                 
 class EqualConstant(Logic):
-    """
-    An Equal comparator circuit
-    """
-
     def __init__(self, parent, name: str, a: Wire, v: int, r: Wire):
+        """
+        An Equal comparator with a constant circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to compare.
+        v : int
+            Constant value to compare against.
+        r : Wire
+            Output wire that will be active if the input is equal to the constant.
+        """
         super().__init__(parent, name)
 
         from .bitwise import BitsLSBF
@@ -87,11 +121,23 @@ class EqualConstant(Logic):
 
 
 class Equal(Logic):
-    """
-    An Equal comparator circuit
-    """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        An Equal comparator circuit
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire to compare.
+        b : Wire
+            Second input wire to compare.
+        r : Wire
+            Output wire that will be active if the two inputs are equal.
+        """
         super().__init__(parent, name)
 
         from .bitwise import BitsLSBF
@@ -129,37 +175,28 @@ class Equal(Logic):
             Nor(self, 'nor', bits, r)
         
 class Comparator(Logic):
-    """
-    A Greater Than, Equal and Less Than comparator circuit
-    """
 
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, gt: Wire, eq: Wire, lt: Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, gt: Wire, eq: Wire, lt: Wire):
         """
-        Constructor of the comparator circuit
+        A Greater Than, Equal and Less Than comparator circuit
 
         Parameters
         ----------
         parent : Logic
-            parent circuit.
+            Parent circuit.
         name : str
-            instance name.
+            Name of the instance.
         a : Wire
-            operand a.
+            First input wire.
         b : Wire
-            operand b.
+            Second input wire.
         gt : Wire
-            1 if a > b.
+            Output wire that will be active if a > b.
         eq : Wire
-            1 if a == b.
+            Output wire that will be active if a == b.
         lt : Wire
-            1 if a < b.
-
-        Returns
-        -------
-        the object.
-
+            Output wire that will be active if a < b.
         """
-        
         from .bitwise import Equal
         from .bitwise import And2
         from .bitwise import Not
@@ -197,37 +234,33 @@ class Comparator(Logic):
 
 
 class ComparatorSignedUnsigned(Logic):
-    """
-    A Greater Than, Equal and Less Than comparator circuit that considers a and b having sign or not
-    """
 
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, gtu: Wire, eq: Wire, ltu: Wire, gt:Wire, lt:Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, gtu: Wire, eq: Wire, ltu: Wire, gt: Wire, lt: Wire):
         """
-        Constructor of the comparator circuit
+        A Greater Than, Equal and Less Than comparator circuit that considers
+        a and b having sign or not
 
         Parameters
         ----------
         parent : Logic
-            parent circuit.
+            Parent circuit.
         name : str
-            instance name.
+            Name of the instance.
         a : Wire
-            operand a.
+            First input wire.
         b : Wire
-            operand b.
-        gt : Wire
-            1 if a > b.
+            Second input wire.
+        gtu : Wire
+            Output wire that will be active if a > b (unsigned comparison).
         eq : Wire
-            1 if a == b.
+            Output wire that will be active if a == b.
+        ltu : Wire
+            Output wire that will be active if a < b (unsigned comparison).
+        gt : Wire
+            Output wire that will be active if a > b (signed comparison).
         lt : Wire
-            1 if a < b.
-
-        Returns
-        -------
-        the object.
-
+            Output wire that will be active if a < b (signed comparison).
         """
-        
         from .bitwise import Equal
         from .bitwise import And2
         from .bitwise import Not
@@ -278,31 +311,23 @@ class ComparatorSignedUnsigned(Logic):
         Xor2(self, 'gt', gtu, difs, gt)
         
 class Max2(Logic):
-    """
-    A circuit that computes the maximum from two inputs
-    """
 
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
-        Implements the function r = max(a,b)
+        A circuit that computes the maximum from two inputs
 
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            Parent circuit.
         name : str
-            DESCRIPTION.
+            Name of the instance.
         a : Wire
-            DESCRIPTION.
+            First input wire.
         b : Wire
-            DESCRIPTION.
+            Second input wire.
         r : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Output wire that will hold the maximum of the two inputs.
         """
         from .bitwise import Mux2
         
@@ -321,31 +346,22 @@ class Max2(Logic):
         Mux2(self, 'mux', lt, a, b, r)
 
 class SignedMax2(Logic):
-    """
-    A circuit that computes the maximum from two signed inputs
-    """
-
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
-        Implements the function r = max(a,b)
+        A circuit that computes the maximum from two signed inputs
 
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            Parent circuit.
         name : str
-            DESCRIPTION.
+            Name of the instance.
         a : Wire
-            DESCRIPTION.
+            First signed input wire.
         b : Wire
-            DESCRIPTION.
+            Second signed input wire.
         r : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Output wire that will hold the maximum of the two signed inputs.
         """
         from .bitwise import Mux2
         
@@ -368,31 +384,23 @@ class SignedMax2(Logic):
 
 
 class Min2(Logic):
-    """
-    A circuit that computes the minimum from two inputs
-    """
 
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
-        Implements the function r = max(a,b)
+        A circuit that computes the minimum from two inputs
 
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            Parent circuit.
         name : str
-            DESCRIPTION.
+            Name of the instance.
         a : Wire
-            DESCRIPTION.
+            First input wire.
         b : Wire
-            DESCRIPTION.
+            Second input wire.
         r : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Output wire that will hold the minimum of the two inputs.
         """
         from .bitwise import Mux2
         
@@ -411,31 +419,24 @@ class Min2(Logic):
         Mux2(self, 'mux', gt, a, b, r)
                 
 class SignedMin2(Logic):
-    """
-    A circuit that computes the minimum from two inputs
-    """
 
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, r: Wire):
+
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
-        Implements the function r = max(a,b)
+        A circuit that computes the minimum from two inputs
 
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            Parent circuit.
         name : str
-            DESCRIPTION.
+            Name of the instance.
         a : Wire
-            DESCRIPTION.
+            First signed input wire.
         b : Wire
-            DESCRIPTION.
+            Second signed input wire.
         r : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Output wire that will hold the minimum of the two signed inputs.
         """
         from .bitwise import Mux2
         
@@ -575,35 +576,26 @@ class FPComparator_SP(Logic):
         
 
 class Swap(Logic):
-    """
-    A circuit that computes the maximum from two inputs
-    """
-
-    def __init__(self, parent:Logic, name: str, a: Wire, b: Wire, swap:Wire, ra: Wire, rb:Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, swap: Wire, ra: Wire, rb: Wire):
         """
-        Swaps a and b if swap is active
+        A circuit that computes the maximum from two inputs and swaps if so
 
         Parameters
         ----------
         parent : Logic
-            DESCRIPTION.
+            Parent circuit.
         name : str
-            DESCRIPTION.
+            Name of the instance.
         a : Wire
-            DESCRIPTION.
+            First input wire.
         b : Wire
-            DESCRIPTION.
+            Second input wire.
         swap : Wire
-            DESCRIPTION.
+            Control wire to determine which input is passed to the outputs.
         ra : Wire
-            DESCRIPTION.
+            First output wire.
         rb : Wire
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
+            Second output wire.
         """
         from .bitwise import Mux2
         
@@ -620,37 +612,31 @@ class Swap(Logic):
         
 
 class FixedPointComparator(Logic):
-    """
-    A Greater Than, Equal and Less Than comparator circuit
-    """
-
-    def __init__(self, parent:Logic, name: str, a: Wire, af, b: Wire, bf, gt: Wire, eq: Wire, lt: Wire):
+    def __init__(self, parent: Logic, name: str, a: Wire, af, b: Wire, bf, gt: Wire, eq: Wire, lt: Wire):
         """
-        Constructor of the comparator circuit
+        A Greater Than, Equal and Less Than comparator circuit
 
         Parameters
         ----------
         parent : Logic
-            parent circuit.
+            Parent circuit.
         name : str
-            instance name.
+            Name of the instance.
         a : Wire
-            operand a.
+            First input wire.
+        af : int
+            Fractional part width of the first input.
         b : Wire
-            operand b.
+            Second input wire.
+        bf : int
+            Fractional part width of the second input.
         gt : Wire
-            1 if a > b.
+            Output wire that will be active if a > b.
         eq : Wire
-            1 if a == b.
+            Output wire that will be active if a == b.
         lt : Wire
-            1 if a < b.
-
-        Returns
-        -------
-        the object.
-
+            Output wire that will be active if a < b.
         """
-        
         from .bitwise import Equal
         from .bitwise import And2
         from .bitwise import Not
