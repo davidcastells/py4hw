@@ -32,31 +32,42 @@ class Reg(Logic):
     """
     This is a D flip flop with (optional) enable and (optional) reset
     """
+    
     def __init__(self, parent, name:str, d:Wire, q:Wire, enable:Wire=None, reset:Wire=None, reset_value:int=None ):
         """
+        Initialize a D flip-flop register.
         
-        D flip flop with (optional) enable and (optional) reset
-
         Parameters
         ----------
-        parent : TYPE
-            parent.
+        parent : Logic
+            The parent component containing this register.
         name : str
-            name.
+            Unique identifier for this register instance.
         d : Wire
-            input.
+            Data input wire.
         q : Wire
-            output.
+            Data output wire.
         enable : Wire, optional
-            Enable signal. The default is None.
+            Enable signal. When 1, data is captured on clock edge;
+            when 0, register holds current value. Default is None (always enabled).
         reset : Wire, optional
-            Synchronous reset signal. The default is None.
-
-        Returns
-        -------
-        the object.
-
-        """
+            Synchronous reset signal. When 1, register resets to reset_value
+            on next clock edge. Default is None (no reset).
+        reset_value : int, optional
+            Value to load during reset. If not specified, defaults to 0.
+            
+        Notes
+        -----
+        The register behavior on clock edge is determined by the control signals:
+        
+        | Reset | Enable | Action                    |
+        |-------|--------|---------------------------|
+        | 1     | X      | Load reset_value          |
+        | 0     | 1      | Capture d input           |
+        | 0     | 0      | Hold current value        |
+        
+        
+        """        
         super().__init__(parent, name)
         self.d = self.addIn("d", d)
         self.q = self.addOut("q", q)
