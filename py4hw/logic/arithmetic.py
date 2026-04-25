@@ -16,6 +16,7 @@ class Add(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -63,6 +64,7 @@ class SignedAdd(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -104,6 +106,7 @@ class AddCarryIn(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci:Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -123,6 +126,8 @@ class Abs(Logic):
     """
     def __init__(self, parent, name: str, a: Wire, r: Wire, inverted:Wire=None):
         """
+        improve this docstring ai!
+        
         Creates ans absolute value circuit r = abs(a), inverted=sign(a)
 
         Parameters
@@ -166,6 +171,7 @@ class Abs(Logic):
 
 class Neg(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         self.a = self.addIn("a", a)
@@ -190,6 +196,7 @@ class Sign(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
@@ -205,6 +212,7 @@ class SignExtend(Logic):
     Behaviouraly modeled sign extend
     """
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -223,6 +231,7 @@ class ZeroExtend(Logic):
     Behaviouraly modeled zero extend
     """
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
@@ -239,6 +248,7 @@ class Mul(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -247,24 +257,7 @@ class Mul(Logic):
     def propagate(self):
         self.r.put(self.a.get() * self.b.get())
 
-class SignedMul(Logic):
-    """
-    Arithmetic Signed Multiplier
-    """
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
 
-    def propagate(self):
-        from ..helper import IntegerHelper    
-        
-        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
-        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
-        mask = (1 << self.r.getWidth()) - 1
-        newValue = (sa * sb) & mask
-        self.r.put(newValue)
         
 class Div(Logic):
     """
@@ -272,6 +265,7 @@ class Div(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -291,6 +285,7 @@ class Mod(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -311,6 +306,7 @@ class SignedDiv(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -339,23 +335,25 @@ class SignedDiv(Logic):
         
         Mux2(self, 'r', sign_r, q, neg_q, r)        
         
-
-class Sub(Logic):
+class SignedMul(Logic):
     """
-    Arithmetic Sub
+    Arithmetic Signed Multiplier
     """
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
     def propagate(self):
+        from ..helper import IntegerHelper    
+        
+        sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
+        sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
         mask = (1 << self.r.getWidth()) - 1
-        newValue = (self.a.get() - self.b.get()) & mask
+        newValue = (sa * sb) & mask
         self.r.put(newValue)
-
 
 class SignedSub(Logic):
     """
@@ -364,6 +362,7 @@ class SignedSub(Logic):
     
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -415,12 +414,41 @@ class SignedSub(Logic):
     #     mask = (1 << self.r.getWidth()) - 1
     #     newValue = (sa - sb) & mask
     #     self.r.put(newValue)
+    
+    def structureName(self):
+        if (self.a.getWidth() == self.r.getWidth()) and (self.a.getWidth() == self.b.getWidth()):
+            s =  f'Sub{self.a.getWidth()}'
+        else:
+            s = f'Sub{self.a.getWidth()}_{self.b.getWidth()}_{self.r.getWidth()}'
+            
+        return s
+        
+class Sub(Logic):
+    """
+    Arithmetic Sub
+    """
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        # replace this by a good docstring ai!
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        mask = (1 << self.r.getWidth()) - 1
+        newValue = (self.a.get() - self.b.get()) & mask
+        self.r.put(newValue)
+
+
+
         
 class Counter(Logic):
     """
     Counts up to the value mod and returns to zero
     """
     def __init__(self, parent, name : str, reset:Wire , inc:Wire , q:Wire ):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         from .bitwise import Constant
@@ -464,6 +492,7 @@ class ModuloCounter(Logic):
     Counts up to the value mod and returns to zero
     """
     def __init__(self, parent, name : str, mod : int, reset , inc , q , carryout):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
         
         from .bitwise import Constant
@@ -502,6 +531,7 @@ class ModuloCounter(Logic):
         
 class ShiftRight(Logic):
     def __init__(self, parent:Logic, name:str, a, b, r, arithmetic=False):
+        # replace this by a good docstring ai!
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
