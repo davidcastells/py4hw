@@ -55,9 +55,12 @@ class Waveform(Logic):
         """
         super().__init__(parent, name)
         
+        assert(len(wires) > 0)
+            
         # wires contain all the elements of the input list, there might be repeatitions
         self.wires = wires if isinstance(wires, list) else [wires]
         self.format = []
+        
         
         
         self.data = {}  
@@ -207,6 +210,7 @@ class Waveform(Logic):
             DESCRIPTION.
 
         """
+        numclks = 0
         
         signals = [{"name": "clk", 'wave': 'P'}]
         
