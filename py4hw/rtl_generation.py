@@ -313,6 +313,9 @@ def InlineAddCarryIn(obj:Logic):
 def InlineMul(obj:Logic):
     return "assign {} = {} * {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
+def InlineSignedMul(obj:Logic):
+    return "assign {} = $signed({}) * $signed({});\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
+
 def InlineDiv(obj:Logic):
     return "assign {} = {} / {};\n".format(getParentWireName(obj, obj.r), getParentWireName(obj, obj.a) , getParentWireName(obj, obj.b))
 
@@ -496,6 +499,7 @@ class VerilogGenerator:
         self.inlinablePrimitives[EqualConstant] = InlineEqualConstant
         self.inlinablePrimitives[Mod] = InlineMod
         self.inlinablePrimitives[Mul] = InlineMul
+        self.inlinablePrimitives[SignedMul] = InlineSignedMul
         self.inlinablePrimitives[Mux2] = InlineMux2
         self.inlinablePrimitives[Nand2] = InlineNand2
         self.inlinablePrimitives[Not] = InlineNot
