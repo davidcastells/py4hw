@@ -194,7 +194,78 @@ class MulSymbol(BinaryOperatorSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
         self.operator = '*'
+
+
+class MissingConnectionSymbol(LogicSymbol):
+    """
+    Displayed when a sink port has no connected source wire.
+    Renders a red warning triangle with a '!' label.
+    """
+    _WIDTH  = 30
+    _HEIGHT = 22
+
+    def __init__(self, missing_wire_name="?"):
+        super().__init__(None, 0, 0)
+        self.name = f"MISSING({missing_wire_name})"
+        self.missing_wire_name = missing_wire_name
+
+    def getWidth(self):
+        return self._WIDTH
+
+    def getHeight(self):
+        return self._HEIGHT
+
+    def getPortSourcePos(self, port=None):
+        return (self._WIDTH, self._HEIGHT // 2)
+
+    def getPortSinkPos(self, port=None):
+        return (0, self._HEIGHT // 2)
+
+    def draw(self, canvas, debug=False):
+        x, y = self.x, self.y
+        w, h = self._WIDTH, self._HEIGHT
+        r = 3  # rounding offset in pixels
     
+        # Triangle vertices (pointing up):
+        #   apex: top-center
+        #   bottom-left, bottom-right
+        # Rounded by cutting each sharp corner with a small straight segment.
+    
+        xs = [
+            x + w / 2,          # apex
+            x + r,              # bottom-left, right of corner
+            x + r,                  # bottom-left corner (cut start)
+            x + r,              # bottom-left corner (cut end)  <- same as above, gives a tiny bevel
+            x + w - r,          # bottom-right corner (cut start)
+            x + w - r,              # bottom-right corner
+            x + w - r,          # bottom-right corner (cut end)
+            x + w / 2,          # back to apex (close)
+        ]
+    
+        ys = [
+            y,                  # apex
+            y + h,              # bottom-left, right of corner
+            y + h ,          # bottom-left corner (cut start)
+            y + h  ,              # bottom-left corner (cut end)
+            y + h ,              # bottom-right corner (cut start)
+            y + h ,          # bottom-right corner
+            y + h,              # bottom-right corner (cut end)
+            y,                  # back to apex (close)
+        ]
+    
+        # Red filled rounded triangle
+        canvas.setForecolor('r')
+        canvas.setFillcolor('r')
+        canvas.drawPolygon(xs, ys, fill=True)
+    
+        # White '!' centered in the triangle
+        canvas.setForecolor('w')
+        canvas.drawText(x + w // 2, y + int(h * 0.8), "!", 'c', color='w')
+    
+        # Reset colours
+        canvas.setForecolor('k')
+        canvas.setFillcolor('k')    
+
 class AndSymbol(LogicSymbol):
     def __init__(self, obj, x, y):
         super().__init__(obj, x, y)
