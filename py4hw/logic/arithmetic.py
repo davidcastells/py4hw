@@ -11,9 +11,6 @@ from deprecated import deprecated
 
 
 class Add(Logic):
-    """
-    Combinational Arithmetic Add
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
         """
@@ -80,9 +77,6 @@ class Add(Logic):
         return s
         
 class SignedAdd(Logic):
-    """
-    Combinational Arithmetic Add
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
         """
@@ -143,9 +137,6 @@ class SignedAdd(Logic):
     #     self.r.put(newValue)
         
 class AddCarryIn(Logic):
-    """
-    Combinational Arithmetic Add
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci: Wire):
         """
@@ -180,9 +171,6 @@ class AddCarryIn(Logic):
 
 
 class Abs(Logic):
-    """
-    Absolute value
-    """
 
     def __init__(self, parent, name: str, a: Wire, r: Wire, inverted: Wire = None):
         """
@@ -255,13 +243,25 @@ class Neg(Logic):
 
 
 class Sign(Logic):
-    """
-    Sign test.
-    r = 0 if a >= 0 (positive)
-    t = 1 if a < 0 (negative)
-    """
 
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        """
+        Initialize the Sign logic circuit.
+
+        This circuit determines the sign of the input wire `a` and outputs the result on wire `r`.
+        The output `r` is 0 if `a` is non-negative and 1 if `a` is negative.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire.
+        r : Wire
+            Output wire indicating the sign of `a`.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
@@ -273,15 +273,36 @@ class Sign(Logic):
         return f'Sign{self.a.getWidth()}'
 
 class SignExtend(Logic):
-    """
-    Behaviouraly modeled sign extend
-    """
+
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
+        """
+        Initialize the SignExtend logic circuit.
+
+        This circuit extends the sign bit of the input wire `a` to the width of the output wire `r`.
+        The sign bit of `a` is replicated to fill the additional bits in `r`, effectively sign-extending the value.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire.
+        r : Wire
+            Output wire with sign-extended value of `a`.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
 
     def propagate(self):
+        """
+        Propagate the sign extension operation.
+
+        This method extends the sign bit of the input wire `a` to the width of the output wire `r`.
+        The sign bit of `a` is replicated to fill the additional bits in `r`, effectively sign-extending the value.
+        """
         value = self.a.get()
         hb = value >> (self.a.getWidth() - 1)
         for i in range(self.a.getWidth(), self.r.getWidth()):
@@ -291,24 +312,42 @@ class SignExtend(Logic):
 
 
 class ZeroExtend(Logic):
-    """
-    Behaviouraly modeled zero extend
-    """
+
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire):
+        """
+        Initialize the ZeroExtend logic circuit.
+
+        This circuit extends the input wire `a` with zeros to the width of the output wire `r`.
+        The additional bits in `r` are set to zero, effectively zero-extending the value.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire.
+        r : Wire
+            Output wire with zero-extended value of `a`.
+        """
         super().__init__(parent, name)
         self.a = self.addIn('a', a)
         self.r = self.addOut('r', r)
 
     def propagate(self):
+        """
+        Propagate the zero extension operation.
+
+        This method extends the input wire `a` with zeros to the width of the output wire `r`.
+        The additional bits in `r` are set to zero, effectively zero-extending the value.
+        """
         value = self.a.get()
         self.r.put(value)
 
 
 
 class Mul(Logic):
-    """
-    Combinational Arithmetic Multiplier
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
         """
@@ -346,16 +385,39 @@ class Mul(Logic):
             self.r.propagate()
 
 class SignedMul(Logic):
-    """
-    Arithmetic Signed Multiplier
-    """
+
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the SignedMul logic circuit.
+
+        This circuit performs signed multiplication of two input wires `a` and `b` and outputs the result on wire `r`.
+        The inputs are treated as signed integers, and the result is also a signed integer.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire containing the result of the signed multiplication.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
     def propagate(self):
+        """
+        Propagate the signed multiplication operation.
+
+        This method performs signed multiplication of the input wires `a` and `b` and outputs the result on wire `r`.
+        The inputs are treated as signed integers, and the result is also a signed integer.
+        """
         from ..helper import IntegerHelper    
         
         sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
@@ -365,17 +427,40 @@ class SignedMul(Logic):
         self.r.put(newValue)
         
 class Div(Logic):
-    """
-    Combinational Arithmetic Divider
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the Div logic circuit.
+
+        This circuit performs integer division of two input wires `a` and `b` and outputs the result on wire `r`.
+        The division is performed as integer division, and the result is the quotient.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Dividend input wire.
+        b : Wire
+            Divisor input wire.
+        r : Wire
+            Output wire containing the quotient of the division.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
     def propagate(self):
+        """
+        Propagate the integer division operation.
+
+        This method performs integer division of the input wires `a` and `b` and outputs the result on wire `r`.
+        The division is performed as integer division, and the result is the quotient.
+        If the divisor `b` is zero, a random value is assigned to the output wire `r` to avoid division by zero.
+        """
         # @todo verilog implementation of div is unpredictable
         import random
         if (self.b.get() == 0):
@@ -384,17 +469,40 @@ class Div(Logic):
             self.r.put(self.a.get() // self.b.get())
 
 class Mod(Logic):
-    """
-    Combinational Arithmetic Modulo (reminder of div)
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the Mod logic circuit.
+
+        This circuit computes the remainder of the division of two input wires `a` and `b` and outputs the result on wire `r`.
+        The operation performed is the modulo operation, and the result is the remainder.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Dividend input wire.
+        b : Wire
+            Divisor input wire.
+        r : Wire
+            Output wire containing the remainder of the division.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
     def propagate(self):
+        """
+        Propagate the modulo operation.
+
+        This method computes the remainder of the division of the input wires `a` and `b` and outputs the result on wire `r`.
+        The operation performed is the modulo operation, and the result is the remainder.
+        If the divisor `b` is zero, a random value is assigned to the output wire `r` to avoid division by zero.
+        """
         # @todo verilog implementation of div is unpredictable
         import random
         if (self.b.get() == 0):
@@ -404,11 +512,27 @@ class Mod(Logic):
 
 
 class SignedDiv(Logic):
-    """
-    Combinational Arithmetic Divider
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the SignedDiv logic circuit.
+
+        This circuit performs signed integer division of two input wires `a` and `b` and outputs the result on wire `r`.
+        The inputs are treated as signed integers, and the result is also a signed integer.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Dividend input wire.
+        b : Wire
+            Divisor input wire.
+        r : Wire
+            Output wire containing the quotient of the signed division.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -439,29 +563,67 @@ class SignedDiv(Logic):
         
 
 class Sub(Logic):
-    """
-    Arithmetic Sub
-    """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the Sub logic circuit.
+
+        This circuit performs subtraction of two input wires `a` and `b` and outputs the result on wire `r`.
+        The operation performed is `a - b`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Minuend input wire.
+        b : Wire
+            Subtrahend input wire.
+        r : Wire
+            Output wire containing the result of the subtraction.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
     def propagate(self):
+        """
+        Propagate the subtraction operation.
+
+        This method performs subtraction of the input wires `a` and `b` and outputs the result on wire `r`.
+        The operation performed is `a - b`.
+        """
         mask = (1 << self.r.getWidth()) - 1
         newValue = (self.a.get() - self.b.get()) & mask
         self.r.put(newValue)
 
 
 class SignedSub(Logic):
-    """
-    Arithmetic Sub
-    """
-    
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the SignedSub logic circuit.
+
+        This circuit performs signed subtraction of two input wires `a` and `b` and outputs the result on wire `r`.
+        The inputs are treated as signed integers, and the result is also a signed integer.
+        The operation performed is `a - b`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Minuend input wire.
+        b : Wire
+            Subtrahend input wire.
+        r : Wire
+            Output wire containing the result of the signed subtraction.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -515,9 +677,6 @@ class SignedSub(Logic):
     #     self.r.put(newValue)
         
 class Counter(Logic):
-    """
-    Counts up to the value mod and returns to zero
-    """
     def __init__(self, parent, name: str, reset: Wire, inc: Wire, q: Wire):
         """
         Initialize the Counter logic circuit.
@@ -577,12 +736,8 @@ class Counter(Logic):
         Reg(self, 'reg', d, q, e_add)
         
 class ModuloCounter(Logic):
-    """
-    Counts up to the value mod and returns to zero
-    """
     def __init__(self, parent, name: str, mod: int, reset: Wire, inc: Wire, q: Wire, carryout: Wire):
         """
-        Initialize the ModuloCounter logic circuit.
 
         This circuit counts up to the value specified by `mod` and returns to zero.
         The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
@@ -860,9 +1015,6 @@ class RotateLeft(Logic):
 
         
 class BinaryToBCD(Logic):
-    """
-    Converts a binary number into BCD digits
-    """
     
     def __init__(self, parent, name : str, a: Wire, r:Wire):
         """
@@ -914,15 +1066,21 @@ class BinaryToBCD(Logic):
         ConcatenateLSBF(self, 'r', ret, r)
         
 
-class _FFunction(Logic):
-    def __init__(self, parent, name: str, a: list, r: Wire):
-        """
-        Initialize the _FFunction logic circuit.
+class CountLeadingZeros(Logic):
 
-        This circuit implements the F function described in the paper
-        DOI: 10.1109/TVLSI.2008.2000458. The F function is used in the
-        leading-zero counting logic to determine the presence of non-zero
-        bits in specific positions of the input vector.
+    def __init__(self, parent: Logic, name: str, a: Wire, r: Wire, z: Wire):
+        """
+        Initialize the CountLeadingZeros logic circuit.
+
+        This circuit counts the number of leading zero bits in the input wire `a` and outputs the count on wire `r`.
+        The circuit also outputs a wire `z` indicating whether the input is zero (all bits are zero).
+        The design is based on the paper:
+        Dimitrakopoulos, Giorgos, Kostas Galanopoulos, Christos Mavrokefalidis, 
+        and Dimitris Nikolos. "Low-power leading-zero counting and anticipation 
+        logic for high-speed floating point units." IEEE transactions on very large 
+        scale integration (VLSI) systems 16, no. 7 (2008): 837-850.
+        https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4539802    
+        DOI: 10.1109/TVLSI.2008.2000458
 
         Parameters
         ----------
@@ -930,96 +1088,13 @@ class _FFunction(Logic):
             Parent circuit.
         name : str
             Name of the instance.
-        a : list
-            List of input wires.
-        r : Wire
-            Output wire representing the result of the F function.
-        """
-        super().__init__(parent, name)
-
-        w = len(a)
-        an = []
-        
-        for i in range(w):
-            self.addIn('in{}'.format(i), a[i])
-            ann = self.wire('an{}'.format(i))
-            Not(self, 'an{}'.format(i), a[i], ann)
-            an.append(ann)
-            
-        self.addOut('r', r)
-        
-        products = []
-        notcount = 0
-        idx = w-1
-        negidx_start = w-2
-        negidx_stop = w-2
-        
-        while (True):
-            prodsig = [a[idx]]
-            #print('positive:', idx, 'negative:', end='')
-            
-            for j in range(negidx_start, negidx_stop, -2):
-                #print(j, end=',')
-                prodsig.append(an[j])
-                
-            #print()
-            prod = self.wire('prod{}'.format(idx))
-            
-            if (len(prodsig) > 1):
-                And(self, 'and{}'.format(idx), prodsig, prod)
-                products.append(prod)
-            else:
-                products.append(prodsig[0])
-                
-            idx -= 2
-            negidx_stop -= 2
-            
-            if (idx < 0):
-                break;
-        
-        if (len(products) > 1):
-            Or(self, 'or', products, r)
-        else:
-            Buf(self, 'r', products[0], r)
-        
-class CountLeadingZeros(Logic):
-    """
-    Count leading zero bits
-    We implement the design described in 
-    Dimitrakopoulos, Giorgos, Kostas Galanopoulos, Christos Mavrokefalidis, 
-    and Dimitris Nikolos. "Low-power leading-zero counting and anticipation 
-    logic for high-speed floating point units." IEEE transactions on very large 
-    scale integration (VLSI) systems 16, no. 7 (2008): 837-850.
-    https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=4539802    
-    DOI: 10.1109/TVLSI.2008.2000458
-    """
-    def __init__(self, parent:Logic, name : str, a: Wire, r:Wire, z:Wire):
-        '''
-        
-
-        Parameters
-        ----------
-        parent : Logic
-            Parent circuit.
-        name : str
-            Instance name.
         a : Wire
-            Input wire with the .
+            Input wire.
         r : Wire
-            Number of leading zeros in the input wire.
+            Output wire containing the count of leading zero bits.
         z : Wire
-            1 if input was zero.
-
-        Raises
-        ------
-        Exception
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        '''
+            Output wire indicating whether the input is zero (all bits are zero).
+        """
         super().__init__(parent, name)
         
         a = self.addIn('a', a)
