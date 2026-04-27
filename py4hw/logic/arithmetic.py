@@ -712,6 +712,25 @@ class RotateRight(Logic):
 
 class RotateLeft(Logic):
     def __init__(self, parent:Logic, name:str, a, b, r):
+        """
+        Initialize the RotateLeft logic circuit.
+
+        This circuit performs a left rotation on the input wire `a` by the number of positions specified by the input wire `b`.
+        The result is stored in the output wire `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to be rotated.
+        b : Wire
+            Input wire specifying the number of positions to rotate.
+        r : Wire
+            Output wire containing the result of the rotation.
+        """
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
@@ -744,6 +763,23 @@ class BinaryToBCD(Logic):
     """
     
     def __init__(self, parent, name : str, a: Wire, r:Wire):
+        """
+        Initialize the BinaryToBCD logic circuit.
+
+        This circuit converts a binary number represented by the input wire `a` into Binary-Coded Decimal (BCD) format.
+        The result is stored in the output wire `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire containing the binary number to be converted.
+        r : Wire
+            Output wire containing the BCD representation of the input number.
+        """
         from ..helper import LogicHelper    
 
         super().__init__(parent, name)
@@ -777,9 +813,6 @@ class BinaryToBCD(Logic):
         
 
 class _FFunction(Logic):
-    """
-    F function described in the paper DOI: 10.1109/TVLSI.2008.2000458
-    """
     def __init__(self, parent, name: str, a: list, r: Wire):
         """
         Initialize the _FFunction logic circuit.
