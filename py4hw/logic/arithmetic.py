@@ -780,7 +780,26 @@ class _FFunction(Logic):
     """
     F function described in the paper DOI: 10.1109/TVLSI.2008.2000458
     """
-    def __init__(self, parent, name : str, a: list, r:Wire):
+    def __init__(self, parent, name: str, a: list, r: Wire):
+        """
+        Initialize the _FFunction logic circuit.
+
+        This circuit implements the F function described in the paper
+        DOI: 10.1109/TVLSI.2008.2000458. The F function is used in the
+        leading-zero counting logic to determine the presence of non-zero
+        bits in specific positions of the input vector.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : list
+            List of input wires.
+        r : Wire
+            Output wire representing the result of the F function.
+        """
         super().__init__(parent, name)
 
         w = len(a)
