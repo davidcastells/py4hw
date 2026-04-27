@@ -371,7 +371,7 @@ class Mul(Logic):
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
-    def propagate(self, propagate_down: bool = True):
+    def propagate(self):
         """
         Propagate the multiplication operation.
 
@@ -381,8 +381,6 @@ class Mul(Logic):
             Whether to propagate the result to downstream components. Defaults to True.
         """
         self.r.put(self.a.get() * self.b.get())
-        if propagate_down:
-            self.r.propagate()
 
 class SignedMul(Logic):
 
@@ -1066,6 +1064,58 @@ class BinaryToBCD(Logic):
         ConcatenateLSBF(self, 'r', ret, r)
         
 
+class _FFunction(Logic):
+    """
+    F function described in the paper DOI: 10.1109/TVLSI.2008.2000458
+    """
+    def __init__(self, parent, name : str, a: list, r:Wire):
+        super().__init__(parent, name)
+
+        w = len(a)
+        an = []
+
+        for i in range(w):
+            self.addIn('in{}'.format(i), a[i])
+            ann = self.wire('an{}'.format(i))
+            Not(self, 'an{}'.format(i), a[i], ann)
+            an.append(ann)
+
+        self.addOut('r', r)
+
+        products = []
+        notcount = 0
+        idx = w-1
+        negidx_start = w-2
+        negidx_stop = w-2
+
+        while (True):
+            prodsig = [a[idx]]
+            #print('positive:', idx, 'negative:', end='')
+
+            for j in range(negidx_start, negidx_stop, -2):
+                #print(j, end=',')
+                prodsig.append(an[j])
+
+            #print()
+            prod = self.wire('prod{}'.format(idx))
+
+            if (len(prodsig) > 1):
+                And(self, 'and{}'.format(idx), prodsig, prod)
+                products.append(prod)
+            else:
+                products.append(prodsig[0])
+
+            idx -= 2
+            negidx_stop -= 2
+
+            if (idx < 0):
+                break;
+
+        if (len(products) > 1):
+            Or(self, 'or', products, r)
+        else:
+            Buf(self, 'r', products[0], r)
+            
 class CountLeadingZeros(Logic):
 
     def __init__(self, parent: Logic, name: str, a: Wire, r: Wire, z: Wire):
