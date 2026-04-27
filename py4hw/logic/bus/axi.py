@@ -141,3 +141,29 @@ class AXI4LiteInterface(Interface):
         self.bready = self.addSourceToSink('bready', 1)
         self.bresp = self.addSinkToSource('bresp', 2)
         
+class AXI4StreamInterface(Interface):
+    def __init__(self, parent, name:str, dw:int, 
+                 iw:int=None, rw:int=None, uw:int=None, has_tlast:bool=None, 
+                 has_tkeeb:bool=None, 
+                 has_tstrb:bool=None):
+        
+        super().__init__(parent, name)
+        
+        self.tvalid = self.addSourceToSink('tvalid', 1) # Indicates the master has valid data to send.
+        self.tready = self.addSinkToSource('tready', 1) # Indicates the slave is ready to receive data.
+        self.tdata = self.addSourceToSink('tdata', dw) # The main data payload. Width is typically a multiple of bytes.
+        
+        assert(dw % 8 == 0)
+        
+        self.tlast = self.addSourceToSink('tlast', 1) # Marks the final transfer in a packet or frame.
+        self.tkeep = self.addSourceToSink('tkeep', dw//8) # Byte qualifier. Indicates if a byte in TDATA is valid or a "null byte" to be removed.
+        self.tstrb = self.addSourceToSink('tstrb', dw//8) # Byte qualifier. Indicates if a byte in TDATA is data or a position byte.
+        
+        if (uw is not None):
+            self.tuser = self.addSourceToSink('tuser', uw) # User-defined sideband information that travels alongside the data.
+        
+        if (iw is not None):
+            self.tid = self.addSourceToSink('tid', iw) # Identifies different data streams interleaved on the same interface.
+        
+        if (rw is not None):
+            self.tdest = self.addSourceToSink('tdest', rw) # Provides routing information for the data stream.
