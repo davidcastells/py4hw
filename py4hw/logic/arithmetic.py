@@ -518,7 +518,26 @@ class Counter(Logic):
     """
     Counts up to the value mod and returns to zero
     """
-    def __init__(self, parent, name : str, reset:Wire , inc:Wire , q:Wire ):
+    def __init__(self, parent, name: str, reset: Wire, inc: Wire, q: Wire):
+        """
+        Initialize the Counter logic circuit.
+
+        This circuit counts up to the value specified by the width of the output wire `q` and returns to zero.
+        The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        reset : Wire
+            Input wire to reset the counter to zero.
+        inc : Wire
+            Input wire to increment the counter.
+        q : Wire
+            Output wire containing the current count value.
+        """
         super().__init__(parent, name)
         
         from .bitwise import Constant
@@ -561,7 +580,31 @@ class ModuloCounter(Logic):
     """
     Counts up to the value mod and returns to zero
     """
-    def __init__(self, parent, name : str, mod : int, reset , inc , q , carryout):
+    def __init__(self, parent, name: str, mod: int, reset: Wire, inc: Wire, q: Wire, carryout: Wire):
+        """
+        Initialize the ModuloCounter logic circuit.
+
+        This circuit counts up to the value specified by `mod` and returns to zero.
+        The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
+        When the counter reaches `mod-1`, it generates a carry-out signal on the `carryout` wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        mod : int
+            The modulus value up to which the counter counts.
+        reset : Wire
+            Input wire to reset the counter to zero.
+        inc : Wire
+            Input wire to increment the counter.
+        q : Wire
+            Output wire containing the current count value.
+        carryout : Wire
+            Output wire that generates a signal when the counter reaches `mod-1`.
+        """
         super().__init__(parent, name)
         
         from .bitwise import Constant
@@ -599,7 +642,29 @@ class ModuloCounter(Logic):
         
         
 class ShiftRight(Logic):
-    def __init__(self, parent:Logic, name:str, a, b, r, arithmetic=False):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire, arithmetic=False):
+        """
+        Initialize the ShiftRight logic circuit.
+
+        This circuit performs a right shift on the input wire `a` by the number of positions specified by the input wire `b`.
+        The result is stored in the output wire `r`. If `arithmetic` is True, the shift is arithmetic (sign-extended).
+        If `arithmetic` is a Wire, it determines whether the shift is arithmetic or logical.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to be shifted.
+        b : Wire
+            Input wire specifying the number of positions to shift.
+        r : Wire
+            Output wire containing the result of the shift.
+        arithmetic : bool or Wire, optional
+            If True, performs an arithmetic shift (sign-extended). If a Wire, it determines the type of shift.
+        """
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
@@ -626,7 +691,6 @@ class ShiftRight(Logic):
             
         else:
             if (arithmetic):
-                #
                 signExtended = self.wire(f'sign_extended', w + (1<<wb))
                 SignExtend(self, f'sign_extended', last, signExtended)
                 last = signExtended
@@ -653,7 +717,26 @@ class ShiftRight(Logic):
         Buf(self, 'r', prer, r)
 
 class ShiftLeft(Logic):
-    def __init__(self, parent:Logic, name:str, a, b, r):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the ShiftLeft logic circuit.
+
+        This circuit performs a left shift on the input wire `a` by the number of positions specified by the input wire `b`.
+        The result is stored in the output wire `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to be shifted.
+        b : Wire
+            Input wire specifying the number of positions to shift.
+        r : Wire
+            Output wire containing the result of the shift.
+        """
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
@@ -683,7 +766,26 @@ class ShiftLeft(Logic):
         Buf(self, 'r', prer, r)
 
 class RotateRight(Logic):
-    def __init__(self, parent:Logic, name:str, a, b, r):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the RotateRight logic circuit.
+
+        This circuit performs a right rotation on the input wire `a` by the number of positions specified by the input wire `b`.
+        The result is stored in the output wire `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire to be rotated.
+        b : Wire
+            Input wire specifying the number of positions to rotate.
+        r : Wire
+            Output wire containing the result of the rotation.
+        """
         super().__init__(parent, name)
 
         a = self.addIn('a', a)
@@ -711,7 +813,7 @@ class RotateRight(Logic):
 
 
 class RotateLeft(Logic):
-    def __init__(self, parent:Logic, name:str, a, b, r):
+    def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
         Initialize the RotateLeft logic circuit.
 
