@@ -482,6 +482,11 @@ class Not(Logic):
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.r = self.addOut("r", r)
+        
+        
+    def propagate(self):
+        self.r.put(~self.a.get())
+
 
     def getSymbol(self, x, y):
         return NotSymbol(self, x, y)
@@ -509,6 +514,9 @@ class Or2(Logic):
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
+        
+    def propagate(self):
+        self.r.put(self.a.get() | self.b.get())
 
 class OrBits(Logic):
     def __init__(self, parent, name:str, a: Wire, r: Wire):
@@ -577,7 +585,7 @@ class Or(Logic):
         # do a more fancy logarithmic design
         
         auxin = lins[0]
-        auxout = self.wire('and{}'.format(0), w)
+        auxout = self.wire('or{}'.format(0), w)
         
         for i in range(num-1):
             # print('creating and{} input0: {}'.format(i, auxin.getFullPath()))
