@@ -311,13 +311,39 @@ class Mul(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Initialize the Mul logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
         self.r = self.addOut("r", r)
 
-    def propagate(self):
+    def propagate(self, propagate_down: bool = True):
+        """
+        Propagate the multiplication operation.
+
+        Parameters
+        ----------
+        propagate_down : bool, optional
+            Whether to propagate the result to downstream components. Defaults to True.
+        """
         self.r.put(self.a.get() * self.b.get())
+        if propagate_down:
+            self.r.propagate()
 
 class SignedMul(Logic):
     """
