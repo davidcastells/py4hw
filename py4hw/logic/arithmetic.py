@@ -16,6 +16,28 @@ class Add(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        """
+        Initialize the Add logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        ci : Wire, optional
+            Carry-in wire. Defaults to None.
+        co : Wire, optional
+            Carry-out wire. Defaults to None.
+        width_check : bool, optional
+            Whether to perform width checks. Defaults to True.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -63,6 +85,28 @@ class SignedAdd(Logic):
     """
 
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        """
+        Initialize the SignedAdd logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        ci : Wire, optional
+            Carry-in wire. Defaults to None.
+        co : Wire, optional
+            Carry-out wire. Defaults to None.
+        width_check : bool, optional
+            Whether to perform width checks. Defaults to True.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -103,7 +147,25 @@ class AddCarryIn(Logic):
     Combinational Arithmetic Add
     """
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci:Wire):
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci: Wire):
+        """
+        Initialize the AddCarryIn logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        ci : Wire
+            Carry-in wire.
+        """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
         self.b = self.addIn("b", b)
@@ -121,27 +183,23 @@ class Abs(Logic):
     """
     Absolute value
     """
-    def __init__(self, parent, name: str, a: Wire, r: Wire, inverted:Wire=None):
+
+    def __init__(self, parent, name: str, a: Wire, r: Wire, inverted: Wire = None):
         """
-        Creates ans absolute value circuit r = abs(a), inverted=sign(a)
+        Initialize the Abs logic circuit.
 
         Parameters
         ----------
-        parent : TYPE
-            parent.
+        parent : Logic
+            Parent circuit.
         name : str
-            name.
+            Name of the instance.
         a : Wire
-            input.
+            Input wire.
         r : Wire
-            absolute value of a.
+            Output wire with the absolute value of a.
         inverted : Wire, optional
-            indicates wether a was negated. The default is None.
-
-        Returns
-        -------
-        None.
-
+            Output wire indicating whether a was negated. Defaults to None.
         """
         super().__init__(parent, name)
         self.a = self.addIn("a", a)
@@ -166,6 +224,20 @@ class Abs(Logic):
 
 class Neg(Logic):
     def __init__(self, parent, name: str, a: Wire, r: Wire):
+        """
+        Initialize the Neg logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire.
+        r : Wire
+            Output wire with the negated value of a.
+        """
         super().__init__(parent, name)
 
         self.a = self.addIn("a", a)
