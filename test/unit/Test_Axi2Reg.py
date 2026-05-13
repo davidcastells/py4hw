@@ -101,47 +101,47 @@ class Test_Axi2Reg:
         
         assert loaded.get() == 0, 'loaded should be zero'
     
-    # def test_ap_start_reset(self):
-    #     """Test ap_start clears loaded signal"""
-    #     sys = py4hw.HWSystem()
+    def test_ap_start_reset(self):
+        """Test ap_start clears loaded signal"""
+        sys = py4hw.HWSystem()
         
-    #     reset = sys.wire("reset", 1)
-    #     ap_start = sys.wire("ap_start", 1)
-    #     ap_reset = sys.wire("ap_reset", 1)
-    #     q = sys.wire("q", 64)
-    #     loaded = sys.wire("loaded", 1)
+        reset = sys.wire("reset", 1)
+        ap_start = sys.wire("ap_start", 1)
+        ap_reset = sys.wire("ap_reset", 1)
+        q = sys.wire("q", 64)
+        loaded = sys.wire("loaded", 1)
         
-    #     stream = AXI4StreamInterface(sys, "stream", dw=64)
+        stream = AXI4StreamInterface(sys, "stream", dw=64)
         
-    #     dut = Axi2Reg(sys, "axi2reg", reset, ap_start, ap_reset, stream, q, loaded)
+        dut = Axi2Reg(sys, "axi2reg", reset, ap_start, ap_reset, stream, q, loaded)
         
-    #     # Capture data
-    #     test_data = 0xCCCCCCCCCCCCCCCC
-    #     stream.tvalid.put(1)
-    #     stream.tdata.put(test_data)
+        # Capture data
+        test_data = 0xCCCCCCCCCCCCCCCC
+        stream.tvalid.put(1)
+        stream.tdata.put(test_data)
         
-    #     sys.getSimulator().clk(1)
-    #     assert q.get() == test_data
-    #     assert loaded.get() == 1
+        sys.getSimulator().clk(1)
+        assert q.get() == test_data
+        assert loaded.get() == 1
         
-    #     # Apply ap_start (should clear loaded but not q)
-    #     ap_start.put(1)
-    #     sys.getSimulator().clk(1)
+        # Apply ap_start (should clear loaded but not q)
+        ap_start.put(1)
+        sys.getSimulator().clk(1)
         
-    #     assert q.get() == test_data  # q should retain value
-    #     assert loaded.get() == 0     # loaded should be cleared
+        assert q.get() == test_data  # q should retain value
+        assert loaded.get() == 0     # loaded should be cleared
         
-    #     # Remove ap_start
-    #     ap_start.put(0)
+        # Remove ap_start
+        ap_start.put(0)
         
-    #     # Try to capture again
-    #     test_data2 = 0xDDDDDDDDDDDDDDDD
-    #     stream.tdata.put(test_data2)
-    #     stream.tvalid.put(1)
+        # Try to capture again
+        test_data2 = 0xDDDDDDDDDDDDDDDD
+        stream.tdata.put(test_data2)
+        stream.tvalid.put(1)
         
-    #     sys.getSimulator().clk(1)
-    #     assert q.get() == test_data2
-    #     assert loaded.get() == 1
+        sys.getSimulator().clk(1)
+        assert q.get() == test_data2
+        assert loaded.get() == 1
     
     # def test_ap_reset_behavior(self):
     #     """Test ap_reset clears loaded signal"""
