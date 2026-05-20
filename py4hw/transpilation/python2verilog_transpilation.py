@@ -60,15 +60,16 @@ class Python2VerilogTranspiler:
             the equivalent RTL
 
         '''
-        assert(self.ast_tree is None)
-        module = getMethod(self.obj, '__init__')
-        node = getBody(module)
+        
+        module = self.getMethodAST('__init__')
+        node = createVerilogBody(module.body)
+        
         
         initExtracter = ExtractInitializers(self.obj)
         init = initExtracter.visit(node)
         
-        module = getMethod(self.obj, 'propagate')
-        node = getBody(module, '*')
+        module = self.getMethodAST('propagate')
+        node = createVerilogBody(module.body, '*')
         
         #initExtracter = ExtractInitializers(self.obj)
         #init = initExtracter.visit(node)
@@ -92,7 +93,7 @@ class Python2VerilogTranspiler:
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
  
-        node = FlattenOperators().visit(node)
+        # node = FlattenOperators().visit(node)
 
         return node
         #return Python2VerilogTranspiler.toVerilog(node)
