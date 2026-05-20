@@ -197,7 +197,7 @@ class TkinterRender:
     def setLineWidth(self, w):
         self.linewidth = w
         
-    def drawText(self, x, y, text, anchor):
+    def drawText(self, x, y, text, anchor, color=None):
         if (anchor == 'w'):
             ha = 'left'
         elif (anchor == 'e'):
@@ -205,7 +205,9 @@ class TkinterRender:
         elif (anchor == 'c'):
             ha = 'center'
             
-        self.canvas.create_text(x + self.xmargin, y+self.ymargin, anchor=anchor, text=text)
+        text_color = colors.rgb2hex(colors.to_rgb(color)) if color is not None else self.color
+        
+        self.canvas.create_text(x + self.xmargin, y+self.ymargin, anchor=anchor, text=text, fill=text_color)
         
     def drawPolygon(self, x, y, fill=False):
         
