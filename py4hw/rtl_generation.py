@@ -904,7 +904,7 @@ class VerilogGenerator:
     def generateCodeFromPropagate(self, obj:Logic):
         str = "// Code generated from propagate method\n"
         
-        tr = Python2VerilogTranspiler(obj)
+        tr = Python2VerilogTranspiler(obj, self.ast_tree)
         
         node = tr.transpileCombinational()
         str += tr.toVerilog(node)
