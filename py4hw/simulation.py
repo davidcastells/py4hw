@@ -187,6 +187,8 @@ class Simulator:
         None.
 
         """
+        self.propagateAll()
+        
         self.do_run = True
         for i in range(cycles):
             if not(self.do_run):
