@@ -21,6 +21,35 @@ class CounterBehavioural(py4hw.Logic):
         if (self.inc.get() == 1):
             self.q.prepare(self.q.get()+1)
             
+class SelectType(py4hw.Logic):
+    def __init__(self, parent, name, opcode, imm_typ):
+        super().__init__(parent, name)
+
+        assert(opcode.getWidth() == 7)
+        
+        self.opcode = self.addIn ('opcode',  opcode)
+        self.imm_type = self.addOut('imm_typ', imm_typ)
+
+    def propagate(self):
+        a = (self.opcode.get() >> 4)  & ((1<<3)-1);
+        b = (self.opcode.get() )  & ((1<<4)-1);
+
+        if (a == 0): self.imm_type.put(0) # I Type
+        elif (a == 1): 
+            if (b == 3): self.imm_type.put(0) # I Type
+            else: self.imm_type.put(3)
+        elif (a == 2):
+            self.imm_type.put(1)
+        elif (a == 3):
+            self.imm_type.put(3)
+        elif (a == 6):
+            if (b == 3): self.imm_type.put(2)
+            elif (b==7): self.imm_type.put(0)
+            elif (b==0xF): self.imm_type.put(4)
+            else: self.imm_type.put(7)                
+
+            
+            
 class Test_RtlGeneration:
     
     def test_structural_verilog_1(self):
@@ -134,10 +163,25 @@ class Test_RtlGeneration:
         q = sys.wire('q', 32)
         inc = sys.wire('inc')
         py4hw.Constant(sys, 'inc', 1, inc)
-        block = CounterBehavioural(sys, 'counter', inc, q)
+        dut = CounterBehavioural(sys, 'counter', inc, q)
         
         rtlgen = py4hw.VerilogGenerator(sys)
-        print(rtlgen.getVerilogForHierarchy())
+        print(rtlgen.getVerilogForHierarchy(dut))
+        
+    
+    def test_behavioural_SelectType(self):
+        sys = py4hw.HWSystem()
+        
+        q = sys.wire('q', 3)
+        op = sys.wire('op', 7)
+        
+        
+        dut = SelectType(sys, 'select', op, q)
+        
+        rtlgen = py4hw.VerilogGenerator(sys)
+        print(rtlgen.getVerilogForHierarchy(dut))
+        
+    
         
 if __name__ == '__main__':
     pytest.main(args=['-s', '-q', 'Test_RtlGeneration.py'])
