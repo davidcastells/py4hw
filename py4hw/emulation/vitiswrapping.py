@@ -3,11 +3,36 @@ import py4hw.logic.bus.axi as axi
 import os
 
 class Axi2Reg(py4hw.Logic):
-    """
-    Captures the first 64 bits of an AXI4-Stream word into a register.
-    Translates the Verilog axi2reg module.
-    """
+    
     def __init__(self, parent, name, reset, ap_start, ap_reset, stream:axi.AXI4StreamInterface, q, loaded):
+        '''
+        Captures the first 64 bits of an AXI4-Stream word into a register.
+        Translates the Verilog axi2reg module.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent object.
+        name : str
+            instance name.
+        reset : Wire
+            reset signal.
+        ap_start : Wire
+            Kernel start signal.
+        ap_reset : Wire
+            Kernel reset signal.
+        stream : axi.AXI4StreamInterface
+            AXI streaming interface that we will acquire.
+        q : Wire
+            Value that we are acquiring.
+        loaded : Wire
+            Signal that tells if the value is loaded with data.
+
+        Returns
+        -------
+        None.
+
+        '''
         super().__init__(parent, name)
 
         # Add Ports
