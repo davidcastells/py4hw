@@ -740,3 +740,694 @@ def main():
 
 
 '''    
+
+
+#---------------------------------------------------------------------------
+# Ariadna
+from __future__ import annotations
+
+import argparse
+import importlib
+import stat
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+# ============================================================
+# CONFIGURACI
+# ============================================================
+
+@dataclass
+class BuildConfig:
+    dut_name: str = "RGB2YCrCb"
+    rtl_kernel_name: str = "rtl_rgb2ycbcr"
+    reader_kernel_name: str = "krnl_reader"
+    writer_kernel_name: str = "krnl_writer"
+
+    platform: str = "xilinx_u55c_gen3x16_xdma_3_202210_1"
+    target: str = "hw"
+
+    generated_dir: Path = Path("/tmp/generated")
+    build_dir: Path = Path("/tmp/build_hw")
+
+    #aix ho poso pq estic treballant
+    #amb el RTL .xo del projecte que vaig crear jo
+    existing_rtl_xo: Path | None = None
+
+    @property
+    def rtl_dir(self) -> Path:
+        return self.generated_dir / "rtl"
+
+    @property
+    def hls_dir(self) -> Path:
+        return self.generated_dir / "hls"
+
+    @property
+    def cfg_dir(self) -> Path:
+        return self.generated_dir / "cfg"
+
+    @property
+    def tcl_dir(self) -> Path:
+        return self.generated_dir / "tcl"
+
+    @property
+    def scripts_dir(self) -> Path:
+        return self.generated_dir / "scripts"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.build_dir / "logs"
+
+    @property
+    def dut_verilog_path(self) -> Path:
+        return self.rtl_dir / f"{self.dut_name}.v"
+
+    @property
+    def wrapper_verilog_path(self) -> Path:
+        return self.rtl_dir / f"{self.rtl_kernel_name}.v"
+
+    @property
+    def reader_cpp_path(self) -> Path:
+        return self.hls_dir / f"{self.reader_kernel_name}_generic.cpp"
+
+    @property
+    def writer_cpp_path(self) -> Path:
+        return self.hls_dir / f"{self.writer_kernel_name}_generic.cpp"
+
+    @property
+    def connectivity_path(self) -> Path:
+        return self.cfg_dir / "connectivity.cfg"
+
+    @property
+    def package_tcl_path(self) -> Path:
+        return self.tcl_dir / "package_rtl_kernel.tcl"
+
+    @property
+    def build_script_path(self) -> Path:
+        return self.scripts_dir / "build_xclbin.sh"
+
+    @property
+    def reader_xo_path(self) -> Path:
+        return self.build_dir / f"{self.reader_kernel_name}.xo"
+
+    @property
+    def writer_xo_path(self) -> Path:
+        return self.build_dir / f"{self.writer_kernel_name}.xo"
+
+    @property
+    def rtl_xo_path(self) -> Path:
+        return self.build_dir / f"{self.rtl_kernel_name}.xo"
+
+    @property
+    def xclbin_path(self) -> Path:
+        return self.build_dir / "kernel.xclbin"
+
+
+# ============================================================
+# UTILITATS
+# ============================================================
+
+def mkdirs(cfg: BuildConfig) -> None:
+    for directory in [
+        cfg.generated_dir,
+        cfg.rtl_dir,
+        cfg.hls_dir,
+        cfg.cfg_dir,
+        cfg.tcl_dir,
+        cfg.scripts_dir,
+        cfg.build_dir,
+        cfg.logs_dir,
+    ]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+def write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    print(f"[GEN] {path}")
+
+
+def make_executable(path: Path) -> None:
+    mode = path.stat().st_mode
+    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def p(path: Path) -> str:
+    return path.as_posix()
+
+
+# ============================================================
+# EXTRACCI DE METADATA A PARTIR DELS WIRES
+# ============================================================
+
+def get_wire_name(wire: Any) -> str:
+    """
+    Intenta obtenir el nom d'un wire py4hw.
+    S'ha fet flexible perqu py4hw pot guardar el nom amb atributs diferents.
+    """
+
+    for attr in ["name", "_name"]:
+        if hasattr(wire, attr):
+            value = getattr(wire, attr)
+            if callable(value):
+                value = value()
+            return str(value)
+
+    for method in ["getName", "get_name"]:
+        if hasattr(wire, method):
+            return str(getattr(wire, method)())
+
+    raise ValueError(f"No puc obtenir el nom del wire: {wire}")
+
+
+def get_wire_width(wire: Any) -> int:
+    """
+    Intenta obtenir l'amplada d'un wire py4hw.
+    Si no troba amplada, assumeix 1 bit.
+    """
+
+    for attr in ["width", "_width", "bits", "size"]:
+        if hasattr(wire, attr):
+            value = getattr(wire, attr)
+            if callable(value):
+                value = value()
+            return int(value)
+
+    for method in ["getWidth", "get_width", "getBits"]:
+        if hasattr(wire, method):
+            return int(getattr(wire, method)())
+
+    return 1
+
+
+def metadata_from_ports(
+    dut: Any,
+    inputs: list[Any],
+    outputs: list[Any],
+    dut_name: str,
+) -> dict[str, Any]:
+    """
+    Genera una metadata interna a partir dels objectes wire.
+
+    Aquesta metadata es calcula automticament a partir de:
+        - llista de wires d'entrada
+        - llista de wires de sortida
+    """
+
+    meta = {
+        "name": dut_name,
+        "instance_name": getattr(dut, "name", "dut"),
+        "inputs": [],
+        "outputs": [],
+    }
+
+    for index, wire in enumerate(inputs):
+        meta["inputs"].append({
+            "index": index,
+            "name": get_wire_name(wire),
+            "width": get_wire_width(wire),
+        })
+
+    for index, wire in enumerate(outputs):
+        meta["outputs"].append({
+            "index": index,
+            "name": get_wire_name(wire),
+            "width": get_wire_width(wire),
+        })
+
+    return meta
+
+
+# ============================================================
+# GENERACI DEL VERILOG DEL DUT
+# ============================================================
+
+def generate_dut_verilog(hw: Any, dut: Any, cfg: BuildConfig) -> None:
+    """
+    Genera el Verilog del DUT a partir de py4hw.
+
+    Si ja tenim una funci prpia tools/generate_dut_verilog.py,
+    aquesta tindr prioritat.
+    """
+
+    try:
+        from tools.generate_dut_verilog import generate_dut_verilog as gen
+
+        gen(hw=hw, dut=dut, output_file=cfg.dut_verilog_path)
+        print("[OK] Verilog del DUT generat amb tools.generate_dut_verilog")
+        return
+
+    except ImportError:
+        pass
+
+    try:
+        import py4hw
+
+        generator = py4hw.VerilogGenerator(hw)
+
+        if hasattr(generator, "getVerilog"):
+            verilog = generator.getVerilog()
+        elif hasattr(generator, "generate"):
+            verilog = generator.generate()
+        else:
+            raise AttributeError(
+                "py4hw.VerilogGenerator no t getVerilog() ni generate()."
+            )
+
+        write_text(cfg.dut_verilog_path, verilog)
+        print("[OK] Verilog del DUT generat amb py4hw.VerilogGenerator")
+
+    except Exception as exc:
+        raise RuntimeError(
+            "No he pogut generar el Verilog del DUT. "
+            "Adapta generate_dut_verilog() al vostre flux de py4hw."
+        ) from exc
+
+
+# ============================================================
+# CRIDES ALS GENERADORS EXISTENTS
+# ============================================================
+
+def generate_reader(meta: dict[str, Any], cfg: BuildConfig) -> None:
+    from tools.generate_reader_generic import generate_reader_generic as gen
+
+    gen(
+        meta=meta,
+        output_path=cfg.reader_cpp_path,
+        kernel_name=cfg.reader_kernel_name,
+    )
+
+    print(f"[OK] {cfg.reader_cpp_path} generat")
+
+
+def generate_writer(meta: dict[str, Any], cfg: BuildConfig) -> None:
+    from tools.generate_writer_generic import generate_writer_generic as gen
+
+    gen(
+        meta=meta,
+        output_path=cfg.writer_cpp_path,
+        kernel_name=cfg.writer_kernel_name,
+    )
+
+    print(f"[OK] {cfg.writer_cpp_path} generat")
+
+
+def generate_connectivity(meta: dict[str, Any], cfg: BuildConfig) -> None:
+    from tools.generate_connectivity_generic import generate_connectivity_generic as gen
+
+    gen(
+        meta=meta,
+        rtl_kernel_name=cfg.rtl_kernel_name,
+        reader_kernel_name=cfg.reader_kernel_name,
+        writer_kernel_name=cfg.writer_kernel_name,
+        output_path=cfg.connectivity_path,
+    )
+
+    print("[OK] connectivity.cfg generat")
+
+
+def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
+    """
+    Aquest generador ha de crear el wrapper RTL que instancia el DUT
+    i connecta axi2reg / reg2axi / axi2clk.
+
+    Si el profe ja t aquest generador, noms cal adaptar l'import.
+    """
+
+    from tools.generate_rtl_wrapper import generate_rtl_wrapper as gen
+
+    gen(
+        meta=meta,
+        dut_name=cfg.dut_name,
+        rtl_kernel_name=cfg.rtl_kernel_name,
+        output_file=cfg.wrapper_verilog_path,
+        rtl_dir=cfg.rtl_dir,
+    )
+
+    print("[OK] wrapper RTL generat")
+
+
+# ============================================================
+# TCL PER EMPAQUETAR EL RTL COM A .XO
+# ============================================================
+
+def collect_rtl_files(cfg: BuildConfig) -> list[Path]:
+    files = []
+    files.extend(sorted(cfg.rtl_dir.glob("*.v")))
+    files.extend(sorted(cfg.rtl_dir.glob("*.sv")))
+
+    if not files:
+        raise FileNotFoundError(f"No hi ha fitxers RTL a {cfg.rtl_dir}")
+
+    return files
+
+
+def generate_package_tcl(cfg: BuildConfig) -> None:
+    rtl_files = collect_rtl_files(cfg)
+
+    add_files_lines = "\n".join(
+        f'add_files -norecurse [file normalize "{p(file)}"]'
+        for file in rtl_files
+    )
+
+    tcl = f"""# Auto-generated package RTL TCL
+
+set kernel_name "{cfg.rtl_kernel_name}"
+set top_module  "{cfg.rtl_kernel_name}"
+
+set build_dir [file normalize "{p(cfg.build_dir)}"]
+set xo_path   [file normalize "{p(cfg.rtl_xo_path)}"]
+set proj_dir  [file normalize "$build_dir/vivado_$kernel_name"]
+set ip_dir    [file normalize "$build_dir/ip_$kernel_name"]
+
+file mkdir $build_dir
+file delete -force $proj_dir
+file delete -force $ip_dir
+file delete -force $xo_path
+
+# ATENCI:
+# Aquesta part est posada per U55C.
+# Si es fs servir una altra placa, s'hauria de canviar el part.
+create_project -force $kernel_name $proj_dir -part xcu55c-fsvh2892-2L-e
+
+{add_files_lines}
+
+set_property top $top_module [current_fileset]
+update_compile_order -fileset sources_1
+
+# Comprovaci RTL
+synth_design -rtl -top $top_module
+
+# Empaquetar com a IP
+ipx::package_project \\
+    -root_dir $ip_dir \\
+    -vendor user.org \\
+    -library user \\
+    -taxonomy /UserIP \\
+    -import_files \\
+    -set_current true
+
+set core [ipx::current_core]
+set_property sdx_kernel true $core
+set_property sdx_kernel_type rtl $core
+set_property vitis_drc {{ctrl_protocol ap_ctrl_hs}} $core
+
+ipx::save_core $core
+close_project
+
+# Generar el fitxer .xo del kernel RTL
+package_xo -force \\
+    -xo_path $xo_path \\
+    -kernel_name $kernel_name \\
+    -ip_directory $ip_dir \\
+    -ctrl_protocol ap_ctrl_hs
+
+puts "XO RTL generat a: $xo_path"
+"""
+
+    write_text(cfg.package_tcl_path, tcl)
+    print("[OK] package_rtl_kernel.tcl generat")
+
+
+# ============================================================
+# SCRIPT DE BUILD PER CREAR EL XCLBIN
+# ============================================================
+
+def generate_build_script(cfg: BuildConfig) -> None:
+    if cfg.existing_rtl_xo is None:
+        rtl_step = f"""echo "[3/4] Empaquetant RTL..."
+vivado -mode batch -source {p(cfg.package_tcl_path)} \\
+    2>&1 | tee {p(cfg.logs_dir / "package_rtl.log")}
+"""
+    else:
+        rtl_step = f"""echo "[3/4] Saltant packaging RTL..."
+echo "S'utilitza un .xo RTL existent: {p(cfg.rtl_xo_path)}"
+
+if [ ! -f "{p(cfg.rtl_xo_path)}" ]; then
+    echo "ERROR: No existeix el fitxer RTL XO esperat: {p(cfg.rtl_xo_path)}"
+    exit 1
+fi
+"""
+
+    script = f"""#!/usr/bin/env bash
+set -euo pipefail
+
+PLATFORM="${{PLATFORM:-{cfg.platform}}}"
+TARGET="${{TARGET:-{cfg.target}}}"
+
+mkdir -p {p(cfg.build_dir)}
+mkdir -p {p(cfg.logs_dir)}
+
+echo "======================================"
+echo " BUILD XCLBIN"
+echo " PLATFORM: $PLATFORM"
+echo " TARGET:   $TARGET"
+echo "======================================"
+
+echo "[1/4] Compilant reader..."
+v++ -c -t "$TARGET" --platform "$PLATFORM" \\
+    -k {cfg.reader_kernel_name} \\
+    -o {p(cfg.reader_xo_path)} \\
+    {p(cfg.reader_cpp_path)} \\
+    2>&1 | tee {p(cfg.logs_dir / "compile_reader.log")}
+
+echo "[2/4] Compilant writer..."
+v++ -c -t "$TARGET" --platform "$PLATFORM" \\
+    -k {cfg.writer_kernel_name} \\
+    -o {p(cfg.writer_xo_path)} \\
+    {p(cfg.writer_cpp_path)} \\
+    2>&1 | tee {p(cfg.logs_dir / "compile_writer.log")}
+
+{rtl_step}
+
+echo "[4/4] Link final XCLBIN..."
+v++ -l -t "$TARGET" --platform "$PLATFORM" \\
+    --config {p(cfg.connectivity_path)} \\
+    -o {p(cfg.xclbin_path)} \\
+    {p(cfg.reader_xo_path)} \\
+    {p(cfg.rtl_xo_path)} \\
+    {p(cfg.writer_xo_path)} \\
+    2>&1 | tee {p(cfg.logs_dir / "link_xclbin.log")}
+
+echo "======================================"
+echo "XCLBIN generat:"
+echo "{p(cfg.xclbin_path)}"
+echo "======================================"
+"""
+
+    write_text(cfg.build_script_path, script)
+    make_executable(cfg.build_script_path)
+    print("[OK] build_xclbin.sh generat")
+
+
+# ============================================================
+# README DE SORTIDA, per tenir un "summary"
+# ============================================================
+
+def generate_readme(cfg: BuildConfig, meta: dict[str, Any]) -> None:
+    lines = []
+
+    lines.append("# Projecte generat automticament\n")
+    lines.append(f"- DUT: `{cfg.dut_name}`")
+    lines.append(f"- Kernel RTL: `{cfg.rtl_kernel_name}`")
+    lines.append(f"- Reader: `{cfg.reader_kernel_name}`")
+    lines.append(f"- Writer: `{cfg.writer_kernel_name}`")
+    lines.append("")
+
+    lines.append("## Entrades detectades\n")
+    for port in meta["inputs"]:
+        lines.append(f"- `{port['name']}`: {port['width']} bits")
+
+    lines.append("\n## Sortides detectades\n")
+    for port in meta["outputs"]:
+        lines.append(f"- `{port['name']}`: {port['width']} bits")
+
+    lines.append("\n## Fitxers principals\n")
+    lines.append(f"- `{cfg.dut_verilog_path}`")
+    lines.append(f"- `{cfg.wrapper_verilog_path}`")
+    lines.append(f"- `{cfg.reader_cpp_path}`")
+    lines.append(f"- `{cfg.writer_cpp_path}`")
+    lines.append(f"- `{cfg.connectivity_path}`")
+    lines.append(f"- `{cfg.package_tcl_path}`")
+    lines.append(f"- `{cfg.build_script_path}`")
+
+    lines.append("\n## Com compilar\n")
+    lines.append("```bash")
+    lines.append(f"./{cfg.build_script_path}")
+    lines.append("```")
+
+    write_text(cfg.generated_dir / "README_generated.md", "\n".join(lines))
+
+
+# ============================================================
+# FLUX PRINCIPAL
+# ============================================================
+
+def generate_files_from_dut(
+    hw: Any,
+    dut: Any,
+    inputs: list[Any],
+    outputs: list[Any],
+    cfg: BuildConfig,
+) -> None:
+    """
+    Flux principal:
+        DUT rebut
+        -> metadata a partir dels wires
+        -> Verilog
+        -> wrapper
+        -> reader/writer
+        -> connectivity
+        -> TCL
+        -> build script
+    """
+
+    print("\n====================================")
+    print(" GENERACI FITXERS PER XCLBIN")
+    print("====================================\n")
+
+    mkdirs(cfg)
+
+    print("[1/8] Extraient metadata del DUT...")
+    meta = metadata_from_ports(
+        dut=dut,
+        inputs=inputs,
+        outputs=outputs,
+        dut_name=cfg.dut_name,
+    )
+
+    if cfg.existing_rtl_xo is None:
+        print("[2/8] Generant Verilog del DUT...")
+        generate_dut_verilog(hw, dut, cfg)
+
+        print("[3/8] Generant wrapper RTL...")
+        generate_rtl_wrapper(meta, cfg)
+
+        print("[7/8] Generant TCL de packaging RTL...")
+        generate_package_tcl(cfg)
+
+    else:
+        print("[2/8] Saltant generacio de Verilog del DUT...")
+        print("[3/8] Usant RTL .xo existent...")
+
+        cfg.build_dir.mkdir(parents=True, exist_ok=True)
+
+        if not cfg.existing_rtl_xo.exists():
+            raise FileNotFoundError(
+                f"No existeix el .xo RTL indicat: {cfg.existing_rtl_xo}\n"
+                "Comprova la ruta amb: find . -name '*.xo'"
+            )
+
+        shutil.copy2(cfg.existing_rtl_xo, cfg.rtl_xo_path)
+
+        print(f"[OK] RTL .xo copiat a {cfg.rtl_xo_path}")
+
+
+    print("[4/8] Generant reader.cpp...")
+    generate_reader(meta, cfg)
+
+    print("[5/8] Generant writer.cpp...")
+    generate_writer(meta, cfg)
+
+    print("[6/8] Generant connectivity.cfg...")
+    generate_connectivity(meta, cfg)
+
+    print("[8/8] Generant script de build...")
+    generate_build_script(cfg)
+    generate_readme(cfg, meta)
+
+    print("\n====================================")
+    print(" FITXERS GENERATS CORRECTAMENT")
+    print("====================================")
+    print(f"Directori generat: {cfg.generated_dir}")
+    print(f"Per compilar:")
+    print(f"  ./{cfg.build_script_path}")
+
+
+# ============================================================
+# EXECUCI DES DE TERMINAL
+# ============================================================
+
+def load_factory(factory_path: str):
+    """
+    Carrega una funci amb format:
+        module.submodule:function
+
+    Exemple:
+        duts.dut_object:create_rgb2ycrcb_dut
+    """
+
+    if ":" not in factory_path:
+        raise ValueError(
+            "Format incorrecte. Usa: module.submodule:function"
+        )
+
+    module_name, function_name = factory_path.split(":", 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, function_name)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--dut-factory",
+        default="duts.dut_object:create_rgb2ycrcb_dut",
+        help="Funci que retorna hw, dut, inputs, outputs",
+    )
+
+    parser.add_argument("--dut-name", default="RGB2YCrCb")
+    parser.add_argument("--rtl-kernel-name", default="rtl_rgb2ycbcr")
+    parser.add_argument("--reader-kernel-name", default="krnl_reader")
+    parser.add_argument("--writer-kernel-name", default="krnl_writer")
+    parser.add_argument("--platform", default="xilinx_u55c_gen3x16_xdma_3_202210_1")
+    parser.add_argument("--target", default="hw", choices=["hw", "hw_emu", "sw_emu"])
+    parser.add_argument("--generated-dir", default="generated")
+    parser.add_argument("--build-dir", default="build_hw")
+    parser.add_argument(
+        "--existing-rtl-xo",
+        default=None,
+        help="Ruta a un .xo RTL existent per reutilitzar-lo en comptes de generar-lo amb Vivado",
+    )
+
+    return parser.parse_args()
+
+
+def main_ariadna() -> None:
+    args = parse_args()
+
+
+    cfg = BuildConfig(
+        dut_name=args.dut_name,
+        rtl_kernel_name=args.rtl_kernel_name,
+        reader_kernel_name=args.reader_kernel_name,
+        writer_kernel_name=args.writer_kernel_name,
+        platform=args.platform,
+        target=args.target,
+        generated_dir=Path(args.generated_dir),
+        build_dir=Path(args.build_dir),
+        existing_rtl_xo=Path(args.existing_rtl_xo) if args.existing_rtl_xo else None,
+    )
+
+    factory = load_factory(args.dut_factory)
+    result = factory()
+
+    if not isinstance(result, tuple) or len(result) != 4:
+        raise ValueError(
+            "La funci del DUT ha de retornar exactament: "
+            "hw, dut, inputs, outputs"
+        )
+
+    hw, dut, inputs, outputs = result
+
+    generate_files_from_dut(
+        hw=hw,
+        dut=dut,
+        inputs=inputs,
+        outputs=outputs,
+        cfg=cfg,
+    )
+
+
