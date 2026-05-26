@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import py4hw
 import py4hw.logic.bus.axi as axi
 import os
@@ -289,7 +291,7 @@ extern "C" void krnl_writer_generic(
 
 
     output_file = os.path.join(output_path, 'krnl_writer.cpp') 
-    #output_file.parent.mkdir(parents=True, exist_ok=True)
+
     with open(output_file, 'w') as f:
         f.write(code)
     
@@ -744,7 +746,7 @@ def main():
 
 #---------------------------------------------------------------------------
 # Ariadna
-from __future__ import annotations
+
 
 import argparse
 import importlib
@@ -863,10 +865,12 @@ def mkdirs(cfg: BuildConfig) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-    print(f"[GEN] {path}")
+def write_text(output_file, content: str) -> None:
+
+    with open(output_file, 'w') as f:
+        f.write(content)
+
+    print(f"[GEN] {output_file}")
 
 
 def make_executable(path: Path) -> None:
@@ -964,88 +968,27 @@ def metadata_from_ports(
 # GENERACI DEL VERILOG DEL DUT
 # ============================================================
 
-def generate_dut_verilog(hw: Any, dut: Any, cfg: BuildConfig) -> None:
+def generate_verilog(dut, output_dir) -> list:
     """
-    Genera el Verilog del DUT a partir de py4hw.
+    Generates a list of Verilog files from the DUT.
 
-    Si ja tenim una funci prpia tools/generate_dut_verilog.py,
-    aquesta tindr prioritat.
     """
-
-    try:
-        from tools.generate_dut_verilog import generate_dut_verilog as gen
-
-        gen(hw=hw, dut=dut, output_file=cfg.dut_verilog_path)
-        print("[OK] Verilog del DUT generat amb tools.generate_dut_verilog")
-        return
-
-    except ImportError:
-        pass
-
-    try:
-        import py4hw
-
-        generator = py4hw.VerilogGenerator(hw)
-
-        if hasattr(generator, "getVerilog"):
-            verilog = generator.getVerilog()
-        elif hasattr(generator, "generate"):
-            verilog = generator.generate()
-        else:
-            raise AttributeError(
-                "py4hw.VerilogGenerator no t getVerilog() ni generate()."
-            )
-
-        write_text(cfg.dut_verilog_path, verilog)
-        print("[OK] Verilog del DUT generat amb py4hw.VerilogGenerator")
-
-    except Exception as exc:
-        raise RuntimeError(
-            "No he pogut generar el Verilog del DUT. "
-            "Adapta generate_dut_verilog() al vostre flux de py4hw."
-        ) from exc
+    
+    rtlgen = py4hw.VerilogGenerator(dut)
+    
+    structure_name = gut.structureName()
+    rtlfile = os.path.join(output_dir, f'{structure_name}.v')
+    rtl = rtlgen.getVerilogForHierarchy(dut)
+    
+    write_text(rtlfile, rtl)
+    
+    return [rtlfile]
 
 
 # ============================================================
 # CRIDES ALS GENERADORS EXISTENTS
 # ============================================================
 
-def generate_reader(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_reader_generic import generate_reader_generic as gen
-
-    gen(
-        meta=meta,
-        output_path=cfg.reader_cpp_path,
-        kernel_name=cfg.reader_kernel_name,
-    )
-
-    print(f"[OK] {cfg.reader_cpp_path} generat")
-
-
-def generate_writer(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_writer_generic import generate_writer_generic as gen
-
-    gen(
-        meta=meta,
-        output_path=cfg.writer_cpp_path,
-        kernel_name=cfg.writer_kernel_name,
-    )
-
-    print(f"[OK] {cfg.writer_cpp_path} generat")
-
-
-def generate_connectivity(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_connectivity_generic import generate_connectivity_generic as gen
-
-    gen(
-        meta=meta,
-        rtl_kernel_name=cfg.rtl_kernel_name,
-        reader_kernel_name=cfg.reader_kernel_name,
-        writer_kernel_name=cfg.writer_kernel_name,
-        output_path=cfg.connectivity_path,
-    )
-
-    print("[OK] connectivity.cfg generat")
 
 
 def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
@@ -1055,18 +998,9 @@ def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
 
     Si el profe ja t aquest generador, noms cal adaptar l'import.
     """
+    raise Exception('not implemented')
+    
 
-    from tools.generate_rtl_wrapper import generate_rtl_wrapper as gen
-
-    gen(
-        meta=meta,
-        dut_name=cfg.dut_name,
-        rtl_kernel_name=cfg.rtl_kernel_name,
-        output_file=cfg.wrapper_verilog_path,
-        rtl_dir=cfg.rtl_dir,
-    )
-
-    print("[OK] wrapper RTL generat")
 
 
 # ============================================================
@@ -1084,21 +1018,24 @@ def collect_rtl_files(cfg: BuildConfig) -> list[Path]:
     return files
 
 
-def generate_package_tcl(cfg: BuildConfig) -> None:
-    rtl_files = collect_rtl_files(cfg)
+def generate_package_tcl(dut, dut_files, output_dir) -> None:
+    rtl_files = []
 
     add_files_lines = "\n".join(
-        f'add_files -norecurse [file normalize "{p(file)}"]'
-        for file in rtl_files
+        f'add_files -norecurse [file normalize "{file}"]'
+        for file in dut_files
     )
+    
+    rtl_kernel_name = 'rtl_kernel'
+    rtl_xo_path = os.path.join(output_dir, rtl_kernel_name+'.xo')
 
     tcl = f"""# Auto-generated package RTL TCL
 
-set kernel_name "{cfg.rtl_kernel_name}"
-set top_module  "{cfg.rtl_kernel_name}"
+set kernel_name "{rtl_kernel_name}"
+set top_module  "{rtl_kernel_name}"
 
-set build_dir [file normalize "{p(cfg.build_dir)}"]
-set xo_path   [file normalize "{p(cfg.rtl_xo_path)}"]
+set build_dir [file normalize "{output_dir}"]
+set xo_path   [file normalize "{rtl_xo_path}"]
 set proj_dir  [file normalize "$build_dir/vivado_$kernel_name"]
 set ip_dir    [file normalize "$build_dir/ip_$kernel_name"]
 
@@ -1147,7 +1084,7 @@ package_xo -force \\
 puts "XO RTL generat a: $xo_path"
 """
 
-    write_text(cfg.package_tcl_path, tcl)
+    write_text(os.path.join(output_dir, 'package_rtl_kernel.tcl'), tcl)
     print("[OK] package_rtl_kernel.tcl generat")
 
 
