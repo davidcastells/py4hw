@@ -32,6 +32,15 @@ py4hw.Sequence(hw, 'b', [0x1A00,0x2B00,0x3C00], b)
 
 dut = DUT(hw, 'dut', a, b, p, s)
 
-hil.generate_connectivity(dut, '.')
-hil.generate_reader(dut, '.')
-hil.generate_writer(dut, '.')
+output_dir = '/tmp/vitis_hil'
+
+import os
+os.makedirs(output_dir, exist_ok=True)
+
+hil.generate_connectivity(dut, output_dir)
+hil.generate_reader(dut, output_dir)
+hil.generate_writer(dut, output_dir)
+
+dut_files = hil.generate_verilog(dut, output_dir)
+
+hil.generate_package_tcl(dut, dut_files, output_dir)
