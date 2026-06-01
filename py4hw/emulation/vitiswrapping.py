@@ -3,6 +3,7 @@ from __future__ import annotations
 import py4hw
 import py4hw.logic.bus.axi as axi
 import os
+import math
 
 class Axi2Reg(py4hw.Logic):
     
@@ -77,6 +78,218 @@ class Axi2Reg(py4hw.Logic):
         py4hw.Reg(self, "loaded", d=handshake, q=loaded, enable=handshake, reset=rearm_final)
 
 
+def AbstractClassInit(self, parent:py4hw.Logic, name:str):
+    super(self.__class__, self).__init__(parent, name)
+
+def AbstractClassStructureName(self):
+    return self.name
+    
+def AbstractClass(class_name):
+    return type(class_name, # class name
+                (py4hw.Logic,), # base classes
+                {
+                    '__init__': AbstractClassInit,              # constructor
+                    'structureName': AbstractClassStructureName # structure name
+                }
+                )
+                
+class HILPlatform:
+    
+    def __init__(self, platform, projectDir, dutName):
+        self.platform = platform
+        self.projectDir = projectDir
+        self.dutName = dutName
+        
+        
+    def build(self):
+        #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
+        rtl = py4hw.VerilogGenerator(self.plaform.children['rlt_kernel'])
+        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
+        verilog_file = os.path.join(projectDir, 'rtl_kernel.v')
+    
+        with open(verilog_file, 'w') as file:
+            file.write(rtl_code)  
+	
+        print('Generating', verilog_file)
+        
+    def download(self):
+        #self.platform.download(self.projectDir)
+        print('Downloading', self.platform)
+
+def getDUTValidIns(dut):
+    # we only support a maximum of 32 bits per input by now
+    for i in range(len(dut.inPorts)):
+        assert(dut.inPorts[i].wire.getWidth() <= 32)
+    return len(dut.inPorts)
+
+def getDUTValidOuts(dut):
+    # we only support a maximum of 32 bits per input by now
+    for i in range(len(dut.outPorts)):
+        assert(dut.outPorts[i].wire.getWidth() <= 32)
+    return len(dut.outPorts)
+
+
+def createHILVitis(platform, dut, projectDir):
+    dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
+    dutStructureNameWithInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=False)
+    
+    # use instance number if necessary
+    dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
+
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName)
+    
+    if not(os.path.exists(projectDir)):
+        print('Creating the directory', projectDir)
+        os.makedirs(projectDir)
+        
+    # First create verilog for the dut        
+    rtl = py4hw.VerilogGenerator(dut)
+    
+    rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
+    verilog_file = os.path.join(projectDir, dutStructureName+'.v')
+    
+    with open(verilog_file, 'w') as file:
+        file.write(rtl_code)
+            
+    # Create the wrapping elements -----------------------------------------------------
+    
+    ready_req = platform.wire('ready_req')
+    valid_req = platform.wire('valid_req')
+    c_req = platform.wire('c_req', 8)
+    
+    ser_ready = platform.wire('ser_ready')
+    ser_valid = platform.wire('ser_valid')
+    ser_v = platform.wire('ser_v', 8)
+
+    num_ins = getDUTValidIns(dut)
+    num_outs = getDUTValidOuts(dut)
+    
+    
+    rtl_kernel_class = AbstractClass('rtl_kernel')
+    rtl_kernel = rtl_kernel_class(platform, 'rtl_kernel')
+
+
+
+    #index_in_w = int(math.ceil(math.log2(num_ins)))
+    #num_ins_up = 1 << index_in_w
+    
+    #index_out_w = int(math.ceil(math.log2(num_outs)))
+    #num_outs_up = 1 << index_out_w
+
+    #ena_in_list = platform.wires('ena_in', num_ins_up, 1)    # create extra ins because the decoder has to be a power of 2
+    #ena_out_list = platform.wires('ena_out', num_outs_up, 1) # create extra outs because the decoder has to be a power of 2
+
+    #index_in = platform.wire('index_in', index_in_w)
+    #index_in_r = platform.wire('index_in_r', index_in_w)
+    #v_in = platform.wire('v_in', 32)
+    ##v_in_r = platform.wire('v_in_r', 32)
+    #index_out = platform.wire('index_out', index_out_w)
+    #index_out_r = platform.wire('index_out_r', index_out_w)
+    # 
+    #set_index_in = platform.wire('set_index_in')
+    # set_v_in = platform.wire('set_v_in')
+    #set_index_out = platform.wire('set_index_out')
+    #set_index_out_r = platform.wire('set_index_out_r')
+    #clk_pulse = platform.wire('clk_pulse')
+    #start_resp = platform.wire('start_resp')
+
+
+    #hlp = py4hw.LogicHelper(platform)
+    
+    ## input/output selection 
+    #py4hw.Reg(platform, 'index_in_r', d=index_in, enable=set_index_in, q=index_in_r)
+    ##py4hw.Reg(platform, 'v_in_r', d=v_in, enable=set_v_in, q=v_in_r)
+    #py4hw.Reg(platform, 'index_out_r', d=index_out, enable=set_index_out, q=index_out_r)
+    #py4hw.Reg(platform, 'set_index_out_r', d=set_index_out, q=set_index_out_r)
+    
+    #py4hw.Decoder(platform, 'decode_ena_in', index_in_r, ena_in_list)
+    #py4hw.Decoder(platform, 'decode_ena_out', index_out_r, ena_out_list)
+
+    fake_ins = []
+    fake_outs = []
+        
+    ap_start = platform.wire('ap_start')
+    ap_reset = platform.wire('ap_reset')
+    reset = platform.wire('reset')
+    rtl_kernel.addIn('ap_start', ap_start)
+    rtl_kernel.addIn('ap_reset', ap_reset)
+    rtl_kernel.addIn('reset', reset)
+    
+    stream_ins = []
+        
+    for i in range(num_ins):
+        ip = dut.inPorts[i]
+        in_name = ip.name
+        iw = ip.wire.getWidth()
+        in_wire = rtl_kernel.wire(f'in{i}', iw)
+        fake_ins.append((in_name, in_wire))
+
+        from py4hw.logic.bus.axi import AXI4StreamInterface
+        stream_in = AXI4StreamInterface(platform, f'axis{i:02}', 64)
+	
+        stream_in = rtl_kernel.addInterfaceSink(f'axis{i:02}', stream_in)
+	
+        loaded = rtl_kernel.wire(f'loaded{i}')
+        Axi2Reg(rtl_kernel, f'axis{i:02}', reset, ap_start, ap_reset, stream_in, in_wire, loaded)
+        
+    #    py4hw.Reg(platform, f'in{i}', d=v_in,  q=in_wire, enable=hlp.hw_and2(ena_in_list[i], set_v_in))
+
+    #resp_v = platform.wire('resp_v', 32)
+    #resp_size = platform.wire('resp_size', 8)
+    #reg_out = platform.wires('reg_out', num_outs_up, 32)
+    #size_out = platform.wires('size_out', num_outs_up, 8)
+
+    for i in range(num_outs):
+        if (i < num_outs):
+            op = dut.outPorts[i]
+            out_name = op.name
+            ow = op.wire.getWidth()
+            out_wire = rtl_kernel.wire(f'out{i}', ow)
+            fake_outs.append((out_name, out_wire))
+            
+    #        py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_index_out_r))
+            
+    #        py4hw.Constant(platform, f'out_size{i}', ow, size_out[i])
+            
+    #        print(f'HIL output {i} size:',  ow) 
+    #    else:
+    #        py4hw.Constant(platform, f'out_{i}', 0, reg_out[i])
+    #        py4hw.Constant(platform, f'out_size{i}', 0, size_out[i])
+
+
+    #py4hw.Mux(platform, 'resp_v', index_out_r, reg_out, resp_v)
+    #py4hw.Mux(platform, 'resp_size', index_out_r, size_out, resp_size)
+
+    #desync = platform.wire('desync')
+    #tx_clk_pulse = platform.wire('tx_clk_pulse')
+    #rx_sample = platform.wire('rx_sample')
+    
+    #CMDRequest(platform, 'cmd_req', ready_req, valid_req, c_req, index_in, v_in, index_out, set_index_in, set_v_in, set_index_out, clk_pulse, start_resp)
+
+    #CMDResponse(platform, 'cmd_resp', resp_v, resp_size, start_resp, ser_ready, ser_valid, ser_v)
+
+    #sysFreq = 50E6 # @todo this frequency should be obtained from the clock source
+    #uartFreq = 115200
+
+    #UART.ClockGenerationAndRecovery(platform, 'uart_clock', platform.rx, desync, tx_clk_pulse, rx_sample, sysFreq, uartFreq)
+
+    #des = UART.UARTDeserializer(platform, 'des', platform.rx, rx_sample, ready_req, valid_req, c_req, desync)
+    #ser = UART.UARTSerializer(platform, 'ser', ser_ready, ser_valid, ser_v, tx_clk_pulse, platform.tx)
+
+    # Black Box Placeholder
+    abstract_class = AbstractClass(dutStructureName)
+    obj = abstract_class(rtl_kernel, dutStructureName)
+
+    
+    for i in range(len(fake_ins)):
+        obj.addIn(fake_ins[i][0], fake_ins[i][1])
+
+    for i in range(len(fake_outs)):
+        obj.addOut(fake_outs[i][0], fake_outs[i][1])
+    
+    return hil_plt
+    
+        
 def generate_connectivity(dut, output_path):
     
     
@@ -298,6 +511,10 @@ extern "C" void krnl_writer_generic(
     print(f"File created: {output_file}")
     
     
+def generate_rtl_kernel(output_path):
+    tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
+    cmd = f'vivado -mode batch -source {tcl_path}'
+    os.system(cmd)
     
 '''
 #!/usr/bin/env python3
@@ -974,10 +1191,11 @@ def generate_verilog(dut, output_dir) -> list:
 
     """
     
-    rtlgen = py4hw.VerilogGenerator(dut)
+    rtlgen = py4hw.VerilogGenerator(rtl_kernel)
     
-    structure_name = gut.structureName()
-    rtlfile = os.path.join(output_dir, f'{structure_name}.v')
+    #structure_name = py4hw.getVerilogModuleName(dut)
+    #rtlfile = os.path.join(output_dir, f'{structure_name}.v')
+    rtlfile = os.path.join(output_dir, 'rtl_kernel.v')
     rtl = rtlgen.getVerilogForHierarchy(dut)
     
     write_text(rtlfile, rtl)
