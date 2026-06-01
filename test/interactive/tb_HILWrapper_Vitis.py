@@ -17,7 +17,9 @@ class DUT(py4hw.Logic):
         py4hw.Sub(self, 'sub', a, b, m)
 
 
-
+def createHILPlatform():
+    
+    return py4hw.HWSystem()
 
 hw = py4hw.HWSystem()
 
@@ -34,13 +36,22 @@ dut = DUT(hw, 'dut', a, b, p, s)
 
 output_dir = '/tmp/vitis_hil'
 
-import os
-os.makedirs(output_dir, exist_ok=True)
+import py4hw.emulation.vitiswrapping as hil
 
-hil.generate_connectivity(dut, output_dir)
-hil.generate_reader(dut, output_dir)
-hil.generate_writer(dut, output_dir)
+if (True):
+    hil_plt = hil.createHILVitis(createHILPlatform(), dut, output_dir)
+    py4hw.gui.Workbench(hil_plt.platform)
+    hil_plt.build()
+    hil_plt.download()
+	
+#import os
+#os.makedirs(output_dir, exist_ok=True)
 
-dut_files = hil.generate_verilog(dut, output_dir)
+#hil.generate_connectivity(dut, output_dir)
+#hil.generate_reader(dut, output_dir)
+#hil.generate_writer(dut, output_dir)
 
-hil.generate_package_tcl(dut, dut_files, output_dir)
+#dut_files = hil.generate_verilog(dut, output_dir)
+
+#hil.generate_package_tcl(dut, dut_files, output_dir)
+#hil.generate_rtl_kernel(output_dir)
