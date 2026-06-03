@@ -76,6 +76,101 @@ class Axi2Reg(py4hw.Logic):
         # loaded_next = handshake ? 1 : 0 (effectively just the handshake wire)
         # We use a register to capture the state
         py4hw.Reg(self, "loaded", d=handshake, q=loaded, enable=handshake, reset=rearm_final)
+        
+        
+
+#%part que he afegit jo        
+class Reg2Axi(py4hw.Logic):
+
+    def __init__(self, parent, name, reset, ap_start, ap_reset, load_outs,
+                 reg_in, stream: axi.AXI4StreamInterface, sent):
+        '''
+        Sends a register value out through an AXI4-Stream interface.
+        Translates the Verilog reg2axi module.
+
+        Parameters
+        ----------
+        parent : Logic
+        name : str
+        reset : Wire        -- areset
+        ap_start : Wire     -- ap_start (rearm)
+        ap_reset : Wire     -- ap_reset (rearm)
+        load_outs : Wire    -- pols que diu "carrega les sortides"
+        reg_in : Wire       -- valor a enviar (W bits)
+        stream : AXI4StreamInterface  -- AXI-Stream de sortida (master)
+        sent : Wire         -- 1 quan la transaccio s'ha completat
+        '''
+        super().__init__(parent, name)
+
+        W = reg_in.getWidth()
+        AXIS_W = stream.tdata.getWidth()
+
+        # Ports
+        self.addIn('areset',    reset)
+        self.addIn('ap_start',  ap_start)
+        self.addIn('ap_reset',  ap_reset)
+        self.addIn('load_outs', load_outs)
+        self.addIn('reg_in',    reg_in)
+
+        self.addInterfaceSource('', stream)   # master: nosaltres generem tvalid
+
+        self.addOut('sent', sent)
+
+        # ---- FSM amb un sol Reg: pending ----
+        # pending = 1 quan tenim dades a enviar pero encara no hem rebut tready
+        #
+        # pending_next:
+        #   - s activa quan arriba load_outs (i no sent en el mateix cicle)
+        #   - es desactiva quan handshake (tvalid & tready) => "sent"
+        #   - es desactiva per reset / ap_start / ap_reset
+
+        hlp = py4hw.LogicHelper(self)
+
+        rearm = self.wire('rearm')
+        py4hw.Or(self, 'rearm_or', [reset, ap_start, ap_reset], rearm)
+
+        pending     = self.wire('pending')
+        handshake   = self.wire('handshake')
+        pending_set = self.wire('pending_set')   # load_outs & ~handshake
+
+        # handshake = tvalid & tready  (tvalid = pending)
+        py4hw.And2(self, 'and_hs',  pending, stream.tready, handshake)
+
+        # pending_set = load_outs (un nou cicle de carrega)
+        # Usem load_outs directament com a enable del Reg
+        # d = 1 (sempre que l'enable dispara, volem pending=1)
+        one_bit = self.wire('one', 1)
+        py4hw.Constant(self, 'c1', 1, one_bit)
+
+        # El Reg es posa a 1 quan load_outs, i es reseteja per rearm o handshake
+        reset_pending = self.wire('reset_pending')
+        py4hw.Or(self, 'or_rst_pending', [rearm, handshake], reset_pending)
+
+        py4hw.Reg(self, 'reg_pending',
+                  d=one_bit, q=pending,
+                  enable=load_outs,
+                  reset=reset_pending)
+
+        # tvalid = pending
+        py4hw.Buf(self, 'tvalid_buf', pending, stream.tvalid)
+
+        # tdata: reg_in als bits baixos, zeros a la resta
+        py4hw.ZeroExtend(self, 'tdata_ext', reg_in, stream.tdata)
+
+        # tkeep: ceil(W/8) bytes valids als bits baixos
+        import math
+        n_bytes_valid = math.ceil(W / 8)
+        n_bytes_total = AXIS_W // 8
+        tkeep_val = (1 << n_bytes_valid) - 1   # e.g. W=32 -> 0xF, W=8 -> 0x1
+        py4hw.Constant(self, 'tkeep_const', tkeep_val, stream.tkeep)
+
+        # tlast = tvalid (paquet d'un sol beat))
+        py4hw.Buf(self, 'tlast_buf',  pending, stream.tlast)
+
+        # sent = handshake
+        py4hw.Buf(self, 'sent_buf',   handshake, sent)
+#%part que he afegit jo             
+            
 
 
 def AbstractClassInit(self, parent:py4hw.Logic, name:str):
@@ -103,9 +198,11 @@ class HILPlatform:
         
     def build(self):
         #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
-        rtl = py4hw.VerilogGenerator(self.plaform.children['rlt_kernel'])
+        rtl = py4hw.VerilogGenerator(self.platform.children['rtl_kernel'])
         rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
-        verilog_file = os.path.join(projectDir, 'rtl_kernel.v')
+        #verilog_file = os.path.join(projectDir, 'rtl_kernel.v')
+#%canvio jo 
+        verilog_file = os.path.join(self.projectDir, 'rtl_kernel.v')
     
         with open(verilog_file, 'w') as file:
             file.write(rtl_code)  
@@ -238,15 +335,31 @@ def createHILVitis(platform, dut, projectDir):
     #resp_size = platform.wire('resp_size', 8)
     #reg_out = platform.wires('reg_out', num_outs_up, 32)
     #size_out = platform.wires('size_out', num_outs_up, 8)
+    
+    
+#%part que he afegit jo    
+    load_outs = rtl_kernel.wire('load_outs')
+    py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
+    # ^^ De moment sempre a 1; quan tinguis la FSM, connecta-ho a la senyal real
 
     for i in range(num_outs):
-        if (i < num_outs):
-            op = dut.outPorts[i]
-            out_name = op.name
-            ow = op.wire.getWidth()
-            out_wire = rtl_kernel.wire(f'out{i}', ow)
-            fake_outs.append((out_name, out_wire))
-            
+        op = dut.outPorts[i]
+        out_name = op.name
+        ow = op.wire.getWidth()
+        out_wire = rtl_kernel.wire(f'out{i}', ow)
+        fake_outs.append((out_name, out_wire))
+
+        from py4hw.logic.bus.axi import AXI4StreamInterface
+        stream_out = AXI4StreamInterface(platform, f'axis{num_ins + i:02}', 64)
+        stream_out = rtl_kernel.addInterfaceSource(f'axis{num_ins + i:02}', stream_out)
+
+        sent = rtl_kernel.wire(f'sent{i}')
+        Reg2Axi(rtl_kernel, f'reg2axi{i}',
+                reset, ap_start, ap_reset, load_outs,
+                out_wire, stream_out, sent)
+#%part que he afegit jo    
+
+
     #        py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_index_out_r))
             
     #        py4hw.Constant(platform, f'out_size{i}', ow, size_out[i])
