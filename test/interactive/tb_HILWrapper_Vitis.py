@@ -55,8 +55,8 @@ dut = DUT(hw, 'dut', a, b, p, s)
 #canvio el dut
 #dut = RGB2YCrCb(hw, 'rgb2ycrcb', reset, enable, a, b, ctrl, alu_result, result, done)
 
-#output_dir = '/tmp/vitis_hil'
-output_dir = '/home/aoliva/py4hw1/tmp/vitis_hil'
+output_dir = '/tmp/vitis_hil'
+#output_dir = '/home/aoliva/py4hw1/tmp/vitis_hil'
 
 import py4hw.emulation.vitiswrapping as hil
 
@@ -67,7 +67,7 @@ if (True):
     hil_plt.build()
     hil_plt.download()
        
-    py4hw.gui.Workbench(hil_plt.platform)
+    #py4hw.gui.Workbench(hil_plt.platform)
 	
 #import os
 #os.makedirs(output_dir, exist_ok=True)

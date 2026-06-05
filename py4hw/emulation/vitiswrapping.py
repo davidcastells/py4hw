@@ -199,22 +199,34 @@ class HILPlatform:
         
     def build(self):
         #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
-        rtl = py4hw.VerilogGenerator(self.platform.children['rtl_kernel'])
-        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
-        #verilog_file = os.path.join(projectDir, 'rtl_kernel.v')
-#%canvio jo 
+        
+        # 1. Generate rtl_kernel
+        kernel = self.platform.children['rtl_kernel']
+        
+        rtl = py4hw.VerilogGenerator(kernel)
+        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False, createdStructures=[self.dutName])
+
         verilog_file = os.path.join(self.projectDir, 'rtl_kernel.v')
+        dut_file = os.path.join(self.projectDir, f'{self.dutName}.v' )
     
         with open(verilog_file, 'w') as file:
             file.write(rtl_code)  
 	
         print('Generating', verilog_file)
         
+<<<<<<< HEAD
         # afegit -->
         import glob  # Importa el modul per cercar fitxers amb comodins
         dut_files = glob.glob(os.path.join(self.projectDir, '*.v'))  # Recull tots els fitxers .v del directori de sortida
         generate_package_tcl(self.dut, dut_files, self.projectDir)  # Genera el TCL incloent tots els fitxers Verilog
 
+=======
+        # 2. Generate TCL
+        generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
+        
+        # 3. Run Vivado
+        generate_rtl_kernel(self.projectDir)
+>>>>>>> 0047426ba968f8e78b0666b4eebae267a77d607b
         
     def download(self):
         #self.platform.download(self.projectDir)
@@ -249,6 +261,7 @@ def createHILVitis(platform, dut, projectDir):
         os.makedirs(projectDir)
         
     # First create verilog for the dut        
+    # @todo maybe we should move this to the build function of the platform
     rtl = py4hw.VerilogGenerator(dut)
     
     rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
@@ -346,7 +359,7 @@ def createHILVitis(platform, dut, projectDir):
     #size_out = platform.wires('size_out', num_outs_up, 8)
     
     
-#%part que he afegit jo    
+    #%part que he afegit jo    
     load_outs = rtl_kernel.wire('load_outs')
     py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
     # ^^ De moment sempre a 1; quan tinguis la FSM, connecta-ho a la senyal real
@@ -366,7 +379,7 @@ def createHILVitis(platform, dut, projectDir):
         Reg2Axi(rtl_kernel, f'reg2axi{i}',
                 reset, ap_start, ap_reset, load_outs,
                 out_wire, stream_out, sent)
-#%part que he afegit jo    
+    #%part que he afegit jo    
 
 
     #        py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_index_out_r))
