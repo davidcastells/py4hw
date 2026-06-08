@@ -143,9 +143,10 @@ class AXI4LiteInterface(Interface):
         
 class AXI4StreamInterface(Interface):
     def __init__(self, parent, name:str, dw:int, 
-                 iw:int=None, rw:int=None, uw:int=None, has_tlast:bool=None, 
-                 has_tkeeb:bool=None, 
-                 has_tstrb:bool=None):
+                 iw:int=None, rw:int=None, uw:int=None, 
+                 has_tlast:bool=False, 
+                 has_tkeep:bool=False, 
+                 has_tstrb:bool=False):
         
         super().__init__(parent, name)
         
@@ -155,9 +156,14 @@ class AXI4StreamInterface(Interface):
         
         assert(dw % 8 == 0)
         
-        self.tlast = self.addSourceToSink('tlast', 1) # Marks the final transfer in a packet or frame.
-        self.tkeep = self.addSourceToSink('tkeep', dw//8) # Byte qualifier. Indicates if a byte in TDATA is valid or a "null byte" to be removed.
-        self.tstrb = self.addSourceToSink('tstrb', dw//8) # Byte qualifier. Indicates if a byte in TDATA is data or a position byte.
+        if (has_tlast):
+            self.tlast = self.addSourceToSink('tlast', 1) # Marks the final transfer in a packet or frame.
+        
+        if (has_tkeep):
+            self.tkeep = self.addSourceToSink('tkeep', dw//8) # Byte qualifier. Indicates if a byte in TDATA is valid or a "null byte" to be removed.
+        
+        if (has_tstrb):
+            self.tstrb = self.addSourceToSink('tstrb', dw//8) # Byte qualifier. Indicates if a byte in TDATA is data or a position byte.
         
         if (uw is not None):
             self.tuser = self.addSourceToSink('tuser', uw) # User-defined sideband information that travels alongside the data.
