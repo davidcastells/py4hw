@@ -598,7 +598,7 @@ def generate_rtl_kernel(output_path):
 
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
-    os.system(cmd)
+    #os.system(cmd)
     
 '''
 #!/usr/bin/env python3
