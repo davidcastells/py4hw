@@ -190,10 +190,11 @@ def AbstractClass(class_name):
                 
 class HILPlatform:
     
-    def __init__(self, platform, projectDir, dutName):
+    def __init__(self, platform, projectDir, dutName, dut):
         self.platform = platform
         self.projectDir = projectDir
         self.dutName = dutName
+        self.dut = dut # <-- afegit
         
         
     def build(self):
@@ -213,12 +214,24 @@ class HILPlatform:
 	
         print('Generating', verilog_file)
         
+<<<<<<< HEAD
         # 2. Generate TCLs
         generate_create_project_tcl(kernel, [verilog_file, dut_file], self.projectDir)
+=======
+<<<<<<< HEAD
+        # afegit -->
+        import glob  # Importa el modul per cercar fitxers amb comodins
+        dut_files = glob.glob(os.path.join(self.projectDir, '*.v'))  # Recull tots els fitxers .v del directori de sortida
+        generate_package_tcl(self.dut, dut_files, self.projectDir)  # Genera el TCL incloent tots els fitxers Verilog
+
+=======
+        # 2. Generate TCL
+>>>>>>> 57a26aeda71d0b9f5331519772a2c4807b5decde
         generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
         
         # 3. Run Vivado
         generate_rtl_kernel(self.projectDir)
+>>>>>>> 0047426ba968f8e78b0666b4eebae267a77d607b
         
     def download(self):
         #self.platform.download(self.projectDir)
@@ -244,7 +257,9 @@ def createHILVitis(platform, dut, projectDir):
     # use instance number if necessary
     dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
 
-    hil_plt = HILPlatform(platform, projectDir, dutStructureName)
+    #hil_plt = HILPlatform(platform, projectDir, dutStructureName)
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  # <-- afegit
+    
     
     if not(os.path.exists(projectDir)):
         print('Creating the directory', projectDir)
@@ -1398,16 +1413,61 @@ def generate_create_project_tcl(dur, dut_files, output_dir):
     print("[OK] create_project.tcl generat")
 
 def generate_package_tcl(dut, dut_files, output_dir) -> None:
-    rtl_files = []
+
+    num_ins  = getDUTValidIns(dut)
+    num_outs = getDUTValidOuts(dut)
+    # axis00 = clk, axis01..N = entrades, axis(N+1).. = sortides
+    total_streams = 1 + num_ins + num_outs  # +1 per Axi2Clk
+
+    rtl_kernel_name = 'rtl_kernel'
+    rtl_xo_path = os.path.join(output_dir, rtl_kernel_name + '.xo')
 
     add_files_lines = "\n".join(
         f'add_files -norecurse [file normalize "{file}"]'
         for file in dut_files
     )
-    
-    rtl_kernel_name = 'rtl_kernel'
-    rtl_xo_path = os.path.join(output_dir, rtl_kernel_name+'.xo')
 
+    # -- Generar el bloc edit_core dinamicament ----------------------
+    axis_blocks = []
+    for i in range(total_streams):
+        axis_name = f'axis{i:02}'
+        block = f"""\
+  ::ipx::associate_bus_interfaces -busif "{axis_name}" -clock "ap_clk" $core
+  set axis_bif [::ipx::get_bus_interfaces -of $core "{axis_name}"]
+  set bifparam [::ipx::add_bus_parameter -quiet "TDATA_NUM_BYTES" $axis_bif]
+  set_property value        64  $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TUSER_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TID_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TDEST_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TREADY" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TSTRB" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TKEEP" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TLAST" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam"""
+        axis_blocks.append(block)
+
+    axis_tcl = "\n".join(axis_blocks)
+
+    # -- Generar parametres a eliminar dinamicament ------------------
+    axis_params = " ".join(
+        f'C_AXIS{i:02}_TDATA_WIDTH' for i in range(total_streams)
+    )
+
+<<<<<<< HEAD
     tcl = f'''
 # This is a generated file. Use and modify at your own risk.
 ################################################################################
@@ -1415,6 +1475,125 @@ def generate_package_tcl(dut, dut_files, output_dir) -> None:
 set kernel_name    "{rtl_kernel_name}"
 set kernel_vendor  "xilinx.com"
 set kernel_library "kernel"
+=======
+    tcl = f"""# Auto-generated package RTL TCL
+# Generated by py4hw vitiswrapping
+
+set kernel_name   "{rtl_kernel_name}"
+set kernel_vendor  "mycompany.com"
+set kernel_library "kernel"
+
+################################################################################
+
+proc edit_core {{core}} {{
+{axis_tcl}
+  # s_axi_control: no present al rtl_kernel.v generat per py4hw (necessari si hi ha control AXI-Lite)
+  #::ipx::associate_bus_interfaces -busif "s_axi_control" -clock "clk" $core
+
+  # Frequencia del rellotge; comentat pq el port es diu 'clk' no 'clk' al rtl_kernel.v generat
+  #set clkbif      [::ipx::get_bus_interfaces -of $core "clk"]
+  #set clkbifparam [::ipx::add_bus_parameter -quiet "FREQ_HZ" $clkbif]
+  #set_property value 250000000 $clkbifparam
+  #Standard frequency for the U55C with the gen3x16_xdma platform
+  #set_property value_resolve_type user $clkbifparam
+
+  # Mapa de memoria AXI-Lite (protocol ap_ctrl_hs)
+  # comentat pq el rtl_kernel.v no te interficie s_axi_control
+  #set mem_map    [::ipx::add_memory_map -quiet "s_axi_control" $core]
+  #set addr_block [::ipx::add_address_block -quiet "reg0" $mem_map]
+
+  #set reg [::ipx::add_register "CTRL" $addr_block]
+  #set_property description    "Control signals" $reg
+  #set_property address_offset 0x000 $reg
+  #set_property size           32    $reg
+  #set field [ipx::add_field AP_START $reg]
+  #  set_property ACCESS {{read-write}} $field
+  #  set_property BIT_OFFSET {{0}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_start.}} $field
+  #  set_property MODIFIED_WRITE_VALUE {{modify}} $field
+  #set field [ipx::add_field AP_DONE $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{1}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_done.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AP_IDLE $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{2}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_idle.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AP_READY $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{3}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_ready.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field RESERVED_1 $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{4}} $field
+  #  set_property BIT_WIDTH  {{3}} $field
+  #  set_property DESCRIPTION {{Reserved. 0s on read.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AUTO_RESTART $reg]
+  #  set_property ACCESS {{read-write}} $field
+  #  set_property BIT_OFFSET {{7}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for auto_restart.}} $field
+  #  set_property MODIFIED_WRITE_VALUE {{modify}} $field
+  #set field [ipx::add_field RESERVED_2 $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{8}} $field
+  #  set_property BIT_WIDTH  {{24}} $field
+  #  set_property DESCRIPTION {{Reserved. 0s on read.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+
+  #set reg [::ipx::add_register "GIER" $addr_block]
+  #set_property description    "Global Interrupt Enable Register" $reg
+  #set_property address_offset 0x004 $reg
+  #set_property size           32    $reg
+
+  #set reg [::ipx::add_register "IP_IER" $addr_block]
+  #set_property description    "IP Interrupt Enable Register" $reg
+  #set_property address_offset 0x008 $reg
+  #set_property size           32    $reg
+
+  #set reg [::ipx::add_register "IP_ISR" $addr_block]
+  #set_property description    "IP Interrupt Status Register" $reg
+  #set_property address_offset 0x00C $reg
+  #set_property size           32    $reg
+
+  #set_property slave_memory_map_ref "s_axi_control" [::ipx::get_bus_interfaces -of $core "s_axi_control"]
+
+  set_property xpm_libraries {{XPM_CDC XPM_MEMORY XPM_FIFO}} $core
+  set_property sdx_kernel true $core
+  set_property sdx_kernel_type rtl $core
+}}
+
+################################################################################
+
+proc package_project {{path_to_packaged kernel_vendor kernel_library kernel_name}} {{
+  set core [::ipx::package_project -root_dir $path_to_packaged -vendor $kernel_vendor -library $kernel_library -taxonomy "/KernelIP" -import_files -set_current false]
+  #eliminats pq no hi ha s_axi_control
+  #foreach user_parameter [list C_S_AXI_CONTROL_ADDR_WIDTH C_S_AXI_CONTROL_DATA_WIDTH {axis_params}] {{
+  #  ::ipx::remove_user_parameter $user_parameter $core
+  #}}
+  ::ipx::create_xgui_files $core
+  set_property supported_families {{ }} $core
+  set_property auto_family_support_level level_2 $core
+  set_property used_in {{out_of_context implementation synthesis}} [::ipx::get_files -type xdc -of_objects [::ipx::get_file_groups "xilinx_anylanguagesynthesis" -of_objects $core] *_ooc.xdc]
+  edit_core $core
+  ::ipx::update_checksums $core
+  ::ipx::check_integrity -kernel $core
+  ::ipx::check_integrity -xrt $core
+  ::ipx::save_core $core
+  ::ipx::unload_core $core
+  unset core
+}}
+
+################################################################################
+>>>>>>> 57a26aeda71d0b9f5331519772a2c4807b5decde
 
 ##############################################################################
 
@@ -1430,6 +1609,7 @@ proc edit_core {{core}} {{
   set_property value        32           $bifparam
   set_property value_source constant     $bifparam
 
+<<<<<<< HEAD
   ::ipx::associate_bus_interfaces -busif "fontread_axi_m" -clock "ap_clk" $core
   ::ipx::associate_bus_interfaces -busif "dataout_axis_m" -clock "ap_clk" $core
   set axis_bif      [::ipx::get_bus_interfaces -of $core  "dataout_axis_m"] 
@@ -1458,6 +1638,11 @@ proc edit_core {{core}} {{
   set_property value        1   $bifparam
   set_property value_source constant     $bifparam
   ::ipx::associate_bus_interfaces -busif "s_axi_control" -clock "ap_clk" $core
+=======
+# Part especifica per a la U55C.
+# Si es fa servir una altra placa, s'hauria de canviar el part.
+create_project -force $kernel_name $proj_dir -part xcu55c-fsvh2892-2L-e
+>>>>>>> 57a26aeda71d0b9f5331519772a2c4807b5decde
 
   # Specify the freq_hz parameter 
   set clkbif      [::ipx::get_bus_interfaces -of $core "ap_clk"]
@@ -1471,6 +1656,7 @@ proc edit_core {{core}} {{
   set mem_map    [::ipx::add_memory_map -quiet "s_axi_control" $core]
   set addr_block [::ipx::add_address_block -quiet "reg0" $mem_map]
 
+<<<<<<< HEAD
   set reg      [::ipx::add_register "CTRL" $addr_block]
   set_property description    "Control signals"    $reg
   set_property address_offset 0x000 $reg
@@ -1540,6 +1726,18 @@ proc edit_core {{core}} {{
   set reg      [::ipx::add_register -quiet "cs_count" $addr_block]
   set_property address_offset 0x018 $reg
   set_property size           [expr {4*8}]   $reg
+=======
+set_property top $kernel_name [current_fileset]
+update_compile_order -fileset sources_1
+
+package_project $ip_dir $kernel_vendor $kernel_library $kernel_name
+
+package_xo -force \\
+    -xo_path $xo_path \\
+    -kernel_name $kernel_name \\
+    -ip_directory $ip_dir \\
+    -ctrl_protocol ap_ctrl_hs
+>>>>>>> 57a26aeda71d0b9f5331519772a2c4807b5decde
 
   set reg      [::ipx::add_register -quiet "time_format" $addr_block]
   set_property address_offset 0x020 $reg
@@ -1629,7 +1827,6 @@ package_xo  -xo_path {rtl_xo_path} -kernel_name {rtl_kernel_name} -ip_directory 
 
     write_text(os.path.join(output_dir, 'package_rtl_kernel.tcl'), tcl)
     print("[OK] package_rtl_kernel.tcl generat")
-
 
 # ============================================================
 # SCRIPT DE BUILD PER CREAR EL XCLBIN
@@ -1786,7 +1983,8 @@ def generate_files_from_dut(
         generate_rtl_wrapper(meta, cfg)
 
         print("[7/8] Generant TCL de packaging RTL...")
-        generate_package_tcl(cfg)
+        #generate_package_tcl(cfg)
+        generate_package_tcl(dut, dut_files, output_dir)
 
     else:
         print("[2/8] Saltant generacio de Verilog del DUT...")

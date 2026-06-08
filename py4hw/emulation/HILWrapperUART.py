@@ -270,20 +270,20 @@ def getDUTValidOuts(dut):
         assert(dut.outPorts[i].wire.getWidth() <= 32)
     return len(dut.outPorts)
     
-def AbstractClassInit(self, parent:py4hw.Logic, name:str):
-    super(self.__class__, self).__init__(parent, name)
-
-def AbstractClassStructureName(self):
-    return self.name
+    def AbstractClassInit(self, parent:py4hw.Logic, name:str):
+        super(self.__class__, self).__init__(parent, name)
     
-def AbstractClass(class_name):
-    return type(class_name, # class name
-                (py4hw.Logic,), # base classes
-                {
-                    '__init__': AbstractClassInit,              # constructor
-                    'structureName': AbstractClassStructureName # structure name
-                }
-                )
+    def AbstractClassStructureName(self):
+        return self.name
+        
+    def AbstractClass(class_name):
+        return type(class_name, # class name
+                    (py4hw.Logic,), # base classes
+                    {
+                        '__init__': AbstractClassInit,              # constructor
+                        'structureName': AbstractClassStructureName # structure name
+                    }
+                    )
 
 def createHILUART(platform, dut, projectDir):
     dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
@@ -409,6 +409,8 @@ def createHILUART(platform, dut, projectDir):
     des = UART.UARTDeserializer(platform, 'des', platform.rx, rx_sample, ready_req, valid_req, c_req, desync)
     ser = UART.UARTSerializer(platform, 'ser', ser_ready, ser_valid, ser_v, tx_clk_pulse, platform.tx)
 
+
+    # Black Box Placeholder
     abstract_class = AbstractClass(dutStructureName)
     obj = abstract_class(platform, dutStructureName)
 
