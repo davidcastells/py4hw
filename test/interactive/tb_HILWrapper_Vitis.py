@@ -19,9 +19,9 @@ class DUT(py4hw.Logic):
       py4hw.Sub(self, 'sub', a, b, m)
 
 
-def createHILPlatform():
+
     
-    return py4hw.HWSystem()
+
 
 hw = py4hw.HWSystem()
 
@@ -61,7 +61,7 @@ output_dir = '/tmp/vitis_hil'
 import py4hw.emulation.vitiswrapping as hil
 
 if (True):
-    hil_plt = hil.createHILVitis(createHILPlatform(), dut, output_dir)
+    hil_plt = hil.createHILVitis(dut, output_dir)
     #el poso mes avall
     #py4hw.gui.Workbench(hil_plt.platform)
     hil_plt.build()
