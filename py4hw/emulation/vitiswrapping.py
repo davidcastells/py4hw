@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import py4hw
 import py4hw.logic.bus.axi as axi
 import os
+import math
 
 class Axi2Reg(py4hw.Logic):
     
@@ -73,8 +76,355 @@ class Axi2Reg(py4hw.Logic):
         # loaded_next = handshake ? 1 : 0 (effectively just the handshake wire)
         # We use a register to capture the state
         py4hw.Reg(self, "loaded", d=handshake, q=loaded, enable=handshake, reset=rearm_final)
+        
+        
+
+#%part que he afegit jo        
+class Reg2Axi(py4hw.Logic):
+
+    def __init__(self, parent, name, reset, ap_start, ap_reset, load_outs,
+                 reg_in, stream: axi.AXI4StreamInterface, sent):
+        '''
+        Sends a register value out through an AXI4-Stream interface.
+        Translates the Verilog reg2axi module.
+
+        Parameters
+        ----------
+        parent : Logic
+        name : str
+        reset : Wire        -- areset
+        ap_start : Wire     -- ap_start (rearm)
+        ap_reset : Wire     -- ap_reset (rearm)
+        load_outs : Wire    -- pols que diu "carrega les sortides"
+        reg_in : Wire       -- valor a enviar (W bits)
+        stream : AXI4StreamInterface  -- AXI-Stream de sortida (master)
+        sent : Wire         -- 1 quan la transaccio s'ha completat
+        '''
+        super().__init__(parent, name)
+
+        W = reg_in.getWidth()
+        AXIS_W = stream.tdata.getWidth()
+
+        # Ports
+        self.addIn('areset',    reset)
+        self.addIn('ap_start',  ap_start)
+        self.addIn('ap_reset',  ap_reset)
+        self.addIn('load_outs', load_outs)
+        self.addIn('reg_in',    reg_in)
+
+        self.addInterfaceSource('', stream)   # master: nosaltres generem tvalid
+
+        self.addOut('sent', sent)
+
+        # ---- FSM amb un sol Reg: pending ----
+        # pending = 1 quan tenim dades a enviar pero encara no hem rebut tready
+        #
+        # pending_next:
+        #   - s activa quan arriba load_outs (i no sent en el mateix cicle)
+        #   - es desactiva quan handshake (tvalid & tready) => "sent"
+        #   - es desactiva per reset / ap_start / ap_reset
+
+        hlp = py4hw.LogicHelper(self)
+
+        rearm = self.wire('rearm')
+        py4hw.Or(self, 'rearm_or', [reset, ap_start, ap_reset], rearm)
+
+        pending     = self.wire('pending')
+        handshake   = self.wire('handshake')
+        pending_set = self.wire('pending_set')   # load_outs & ~handshake
+
+        # handshake = tvalid & tready  (tvalid = pending)
+        py4hw.And2(self, 'and_hs',  pending, stream.tready, handshake)
+
+        # pending_set = load_outs (un nou cicle de carrega)
+        # Usem load_outs directament com a enable del Reg
+        # d = 1 (sempre que l'enable dispara, volem pending=1)
+        one_bit = self.wire('one', 1)
+        py4hw.Constant(self, 'c1', 1, one_bit)
+
+        # El Reg es posa a 1 quan load_outs, i es reseteja per rearm o handshake
+        reset_pending = self.wire('reset_pending')
+        py4hw.Or(self, 'or_rst_pending', [rearm, handshake], reset_pending)
+
+        py4hw.Reg(self, 'reg_pending',
+                  d=one_bit, q=pending,
+                  enable=load_outs,
+                  reset=reset_pending)
+
+        # tvalid = pending
+        py4hw.Buf(self, 'tvalid_buf', pending, stream.tvalid)
+
+        # tdata: reg_in als bits baixos, zeros a la resta
+        py4hw.ZeroExtend(self, 'tdata_ext', reg_in, stream.tdata)
+
+        # tkeep: ceil(W/8) bytes valids als bits baixos
+        import math
+        n_bytes_valid = math.ceil(W / 8)
+        n_bytes_total = AXIS_W // 8
+        tkeep_val = (1 << n_bytes_valid) - 1   # e.g. W=32 -> 0xF, W=8 -> 0x1
+        py4hw.Constant(self, 'tkeep_const', tkeep_val, stream.tkeep)
+
+        # tlast = tvalid (paquet d'un sol beat))
+        py4hw.Buf(self, 'tlast_buf',  pending, stream.tlast)
+
+        # sent = handshake
+        py4hw.Buf(self, 'sent_buf',   handshake, sent)
+#%part que he afegit jo             
+            
 
 
+def AbstractClassInit(self, parent:py4hw.Logic, name:str):
+    super(self.__class__, self).__init__(parent, name)
+
+def AbstractClassStructureName(self):
+    return self.name
+    
+def AbstractClass(class_name):
+    return type(class_name, # class name
+                (py4hw.Logic,), # base classes
+                {
+                    '__init__': AbstractClassInit,              # constructor
+                    'structureName': AbstractClassStructureName # structure name
+                }
+                )
+                
+class HILPlatform:
+    
+    def __init__(self, platform, projectDir, dutName, dut):
+        self.platform = platform
+        self.projectDir = projectDir
+        self.dutName = dutName
+        self.dut = dut # <-- afegit
+        
+        
+    def build(self):
+        #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
+        
+        # 1. Generate rtl_kernel
+        kernel = self.platform.children['rtl_kernel']
+        
+        rtl = py4hw.VerilogGenerator(kernel)
+        rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False, createdStructures=[self.dutName])
+
+        verilog_file = os.path.join(self.projectDir, 'rtl_kernel.v')
+        dut_file = os.path.join(self.projectDir, f'{self.dutName}.v' )
+    
+        with open(verilog_file, 'w') as file:
+            file.write(rtl_code)  
+	
+        print('Generating', verilog_file)
+        
+<<<<<<< HEAD
+        # afegit -->
+        import glob  # Importa el modul per cercar fitxers amb comodins
+        dut_files = glob.glob(os.path.join(self.projectDir, '*.v'))  # Recull tots els fitxers .v del directori de sortida
+        generate_package_tcl(self.dut, dut_files, self.projectDir)  # Genera el TCL incloent tots els fitxers Verilog
+
+=======
+        # 2. Generate TCL
+        generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
+        
+        # 3. Run Vivado
+        generate_rtl_kernel(self.projectDir)
+>>>>>>> 0047426ba968f8e78b0666b4eebae267a77d607b
+        
+    def download(self):
+        #self.platform.download(self.projectDir)
+        print('Downloading', self.platform)
+
+def getDUTValidIns(dut):
+    # we only support a maximum of 32 bits per input by now
+    for i in range(len(dut.inPorts)):
+        assert(dut.inPorts[i].wire.getWidth() <= 32)
+    return len(dut.inPorts)
+
+def getDUTValidOuts(dut):
+    # we only support a maximum of 32 bits per input by now
+    for i in range(len(dut.outPorts)):
+        assert(dut.outPorts[i].wire.getWidth() <= 32)
+    return len(dut.outPorts)
+
+
+def createHILVitis(platform, dut, projectDir):
+    dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
+    dutStructureNameWithInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=False)
+    
+    # use instance number if necessary
+    dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
+
+    #hil_plt = HILPlatform(platform, projectDir, dutStructureName)
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  # <-- afegit
+    
+    
+    if not(os.path.exists(projectDir)):
+        print('Creating the directory', projectDir)
+        os.makedirs(projectDir)
+        
+    # First create verilog for the dut        
+    # @todo maybe we should move this to the build function of the platform
+    rtl = py4hw.VerilogGenerator(dut)
+    
+    rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
+    verilog_file = os.path.join(projectDir, dutStructureName+'.v')
+    
+    with open(verilog_file, 'w') as file:
+        file.write(rtl_code)
+            
+    # Create the wrapping elements -----------------------------------------------------
+    
+    ready_req = platform.wire('ready_req')
+    valid_req = platform.wire('valid_req')
+    c_req = platform.wire('c_req', 8)
+    
+    ser_ready = platform.wire('ser_ready')
+    ser_valid = platform.wire('ser_valid')
+    ser_v = platform.wire('ser_v', 8)
+
+    num_ins = getDUTValidIns(dut)
+    num_outs = getDUTValidOuts(dut)
+    
+    
+    rtl_kernel_class = AbstractClass('rtl_kernel')
+    rtl_kernel = rtl_kernel_class(platform, 'rtl_kernel')
+
+
+
+    #index_in_w = int(math.ceil(math.log2(num_ins)))
+    #num_ins_up = 1 << index_in_w
+    
+    #index_out_w = int(math.ceil(math.log2(num_outs)))
+    #num_outs_up = 1 << index_out_w
+
+    #ena_in_list = platform.wires('ena_in', num_ins_up, 1)    # create extra ins because the decoder has to be a power of 2
+    #ena_out_list = platform.wires('ena_out', num_outs_up, 1) # create extra outs because the decoder has to be a power of 2
+
+    #index_in = platform.wire('index_in', index_in_w)
+    #index_in_r = platform.wire('index_in_r', index_in_w)
+    #v_in = platform.wire('v_in', 32)
+    ##v_in_r = platform.wire('v_in_r', 32)
+    #index_out = platform.wire('index_out', index_out_w)
+    #index_out_r = platform.wire('index_out_r', index_out_w)
+    # 
+    #set_index_in = platform.wire('set_index_in')
+    # set_v_in = platform.wire('set_v_in')
+    #set_index_out = platform.wire('set_index_out')
+    #set_index_out_r = platform.wire('set_index_out_r')
+    #clk_pulse = platform.wire('clk_pulse')
+    #start_resp = platform.wire('start_resp')
+
+
+    #hlp = py4hw.LogicHelper(platform)
+    
+    ## input/output selection 
+    #py4hw.Reg(platform, 'index_in_r', d=index_in, enable=set_index_in, q=index_in_r)
+    ##py4hw.Reg(platform, 'v_in_r', d=v_in, enable=set_v_in, q=v_in_r)
+    #py4hw.Reg(platform, 'index_out_r', d=index_out, enable=set_index_out, q=index_out_r)
+    #py4hw.Reg(platform, 'set_index_out_r', d=set_index_out, q=set_index_out_r)
+    
+    #py4hw.Decoder(platform, 'decode_ena_in', index_in_r, ena_in_list)
+    #py4hw.Decoder(platform, 'decode_ena_out', index_out_r, ena_out_list)
+
+    fake_ins = []
+    fake_outs = []
+        
+    ap_start = platform.wire('ap_start')
+    ap_reset = platform.wire('ap_reset')
+    reset = platform.wire('reset')
+    rtl_kernel.addIn('ap_start', ap_start)
+    rtl_kernel.addIn('ap_reset', ap_reset)
+    rtl_kernel.addIn('reset', reset)
+    
+    stream_ins = []
+        
+    for i in range(num_ins):
+        ip = dut.inPorts[i]
+        in_name = ip.name
+        iw = ip.wire.getWidth()
+        in_wire = rtl_kernel.wire(f'in{i}', iw)
+        fake_ins.append((in_name, in_wire))
+
+        from py4hw.logic.bus.axi import AXI4StreamInterface
+        stream_in = AXI4StreamInterface(platform, f'axis{i:02}', 64)
+	
+        stream_in = rtl_kernel.addInterfaceSink(f'axis{i:02}', stream_in)
+	
+        loaded = rtl_kernel.wire(f'loaded{i}')
+        Axi2Reg(rtl_kernel, f'axis{i:02}', reset, ap_start, ap_reset, stream_in, in_wire, loaded)
+        
+    #    py4hw.Reg(platform, f'in{i}', d=v_in,  q=in_wire, enable=hlp.hw_and2(ena_in_list[i], set_v_in))
+
+    #resp_v = platform.wire('resp_v', 32)
+    #resp_size = platform.wire('resp_size', 8)
+    #reg_out = platform.wires('reg_out', num_outs_up, 32)
+    #size_out = platform.wires('size_out', num_outs_up, 8)
+    
+    
+    #%part que he afegit jo    
+    load_outs = rtl_kernel.wire('load_outs')
+    py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
+    # ^^ De moment sempre a 1; quan tinguis la FSM, connecta-ho a la senyal real
+
+    for i in range(num_outs):
+        op = dut.outPorts[i]
+        out_name = op.name
+        ow = op.wire.getWidth()
+        out_wire = rtl_kernel.wire(f'out{i}', ow)
+        fake_outs.append((out_name, out_wire))
+
+        from py4hw.logic.bus.axi import AXI4StreamInterface
+        stream_out = AXI4StreamInterface(platform, f'axis{num_ins + i:02}', 64)
+        stream_out = rtl_kernel.addInterfaceSource(f'axis{num_ins + i:02}', stream_out)
+
+        sent = rtl_kernel.wire(f'sent{i}')
+        Reg2Axi(rtl_kernel, f'reg2axi{i}',
+                reset, ap_start, ap_reset, load_outs,
+                out_wire, stream_out, sent)
+    #%part que he afegit jo    
+
+
+    #        py4hw.Reg(platform, f'out{i}', d=out_wire, q=reg_out[i], enable=hlp.hw_and2(ena_out_list[i], set_index_out_r))
+            
+    #        py4hw.Constant(platform, f'out_size{i}', ow, size_out[i])
+            
+    #        print(f'HIL output {i} size:',  ow) 
+    #    else:
+    #        py4hw.Constant(platform, f'out_{i}', 0, reg_out[i])
+    #        py4hw.Constant(platform, f'out_size{i}', 0, size_out[i])
+
+
+    #py4hw.Mux(platform, 'resp_v', index_out_r, reg_out, resp_v)
+    #py4hw.Mux(platform, 'resp_size', index_out_r, size_out, resp_size)
+
+    #desync = platform.wire('desync')
+    #tx_clk_pulse = platform.wire('tx_clk_pulse')
+    #rx_sample = platform.wire('rx_sample')
+    
+    #CMDRequest(platform, 'cmd_req', ready_req, valid_req, c_req, index_in, v_in, index_out, set_index_in, set_v_in, set_index_out, clk_pulse, start_resp)
+
+    #CMDResponse(platform, 'cmd_resp', resp_v, resp_size, start_resp, ser_ready, ser_valid, ser_v)
+
+    #sysFreq = 50E6 # @todo this frequency should be obtained from the clock source
+    #uartFreq = 115200
+
+    #UART.ClockGenerationAndRecovery(platform, 'uart_clock', platform.rx, desync, tx_clk_pulse, rx_sample, sysFreq, uartFreq)
+
+    #des = UART.UARTDeserializer(platform, 'des', platform.rx, rx_sample, ready_req, valid_req, c_req, desync)
+    #ser = UART.UARTSerializer(platform, 'ser', ser_ready, ser_valid, ser_v, tx_clk_pulse, platform.tx)
+
+    # Black Box Placeholder
+    abstract_class = AbstractClass(dutStructureName)
+    obj = abstract_class(rtl_kernel, dutStructureName)
+
+    
+    for i in range(len(fake_ins)):
+        obj.addIn(fake_ins[i][0], fake_ins[i][1])
+
+    for i in range(len(fake_outs)):
+        obj.addOut(fake_outs[i][0], fake_outs[i][1])
+    
+    return hil_plt
+    
+        
 def generate_connectivity(dut, output_path):
     
     
@@ -289,13 +639,17 @@ extern "C" void krnl_writer_generic(
 
 
     output_file = os.path.join(output_path, 'krnl_writer.cpp') 
-    #output_file.parent.mkdir(parents=True, exist_ok=True)
+
     with open(output_file, 'w') as f:
         f.write(code)
     
     print(f"File created: {output_file}")
     
     
+def generate_rtl_kernel(output_path):
+    tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
+    cmd = f'vivado -mode batch -source {tcl_path}'
+    os.system(cmd)
     
 '''
 #!/usr/bin/env python3
@@ -744,7 +1098,7 @@ def main():
 
 #---------------------------------------------------------------------------
 # Ariadna
-from __future__ import annotations
+
 
 import argparse
 import importlib
@@ -863,10 +1217,12 @@ def mkdirs(cfg: BuildConfig) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-    print(f"[GEN] {path}")
+def write_text(output_file, content: str) -> None:
+
+    with open(output_file, 'w') as f:
+        f.write(content)
+
+    print(f"[GEN] {output_file}")
 
 
 def make_executable(path: Path) -> None:
@@ -964,88 +1320,28 @@ def metadata_from_ports(
 # GENERACI DEL VERILOG DEL DUT
 # ============================================================
 
-def generate_dut_verilog(hw: Any, dut: Any, cfg: BuildConfig) -> None:
+def generate_verilog(dut, output_dir) -> list:
     """
-    Genera el Verilog del DUT a partir de py4hw.
+    Generates a list of Verilog files from the DUT.
 
-    Si ja tenim una funci prpia tools/generate_dut_verilog.py,
-    aquesta tindr prioritat.
     """
-
-    try:
-        from tools.generate_dut_verilog import generate_dut_verilog as gen
-
-        gen(hw=hw, dut=dut, output_file=cfg.dut_verilog_path)
-        print("[OK] Verilog del DUT generat amb tools.generate_dut_verilog")
-        return
-
-    except ImportError:
-        pass
-
-    try:
-        import py4hw
-
-        generator = py4hw.VerilogGenerator(hw)
-
-        if hasattr(generator, "getVerilog"):
-            verilog = generator.getVerilog()
-        elif hasattr(generator, "generate"):
-            verilog = generator.generate()
-        else:
-            raise AttributeError(
-                "py4hw.VerilogGenerator no t getVerilog() ni generate()."
-            )
-
-        write_text(cfg.dut_verilog_path, verilog)
-        print("[OK] Verilog del DUT generat amb py4hw.VerilogGenerator")
-
-    except Exception as exc:
-        raise RuntimeError(
-            "No he pogut generar el Verilog del DUT. "
-            "Adapta generate_dut_verilog() al vostre flux de py4hw."
-        ) from exc
+    
+    rtlgen = py4hw.VerilogGenerator(rtl_kernel)
+    
+    #structure_name = py4hw.getVerilogModuleName(dut)
+    #rtlfile = os.path.join(output_dir, f'{structure_name}.v')
+    rtlfile = os.path.join(output_dir, 'rtl_kernel.v')
+    rtl = rtlgen.getVerilogForHierarchy(dut)
+    
+    write_text(rtlfile, rtl)
+    
+    return [rtlfile]
 
 
 # ============================================================
 # CRIDES ALS GENERADORS EXISTENTS
 # ============================================================
 
-def generate_reader(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_reader_generic import generate_reader_generic as gen
-
-    gen(
-        meta=meta,
-        output_path=cfg.reader_cpp_path,
-        kernel_name=cfg.reader_kernel_name,
-    )
-
-    print(f"[OK] {cfg.reader_cpp_path} generat")
-
-
-def generate_writer(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_writer_generic import generate_writer_generic as gen
-
-    gen(
-        meta=meta,
-        output_path=cfg.writer_cpp_path,
-        kernel_name=cfg.writer_kernel_name,
-    )
-
-    print(f"[OK] {cfg.writer_cpp_path} generat")
-
-
-def generate_connectivity(meta: dict[str, Any], cfg: BuildConfig) -> None:
-    from tools.generate_connectivity_generic import generate_connectivity_generic as gen
-
-    gen(
-        meta=meta,
-        rtl_kernel_name=cfg.rtl_kernel_name,
-        reader_kernel_name=cfg.reader_kernel_name,
-        writer_kernel_name=cfg.writer_kernel_name,
-        output_path=cfg.connectivity_path,
-    )
-
-    print("[OK] connectivity.cfg generat")
 
 
 def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
@@ -1055,18 +1351,9 @@ def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
 
     Si el profe ja t aquest generador, noms cal adaptar l'import.
     """
+    raise Exception('not implemented')
+    
 
-    from tools.generate_rtl_wrapper import generate_rtl_wrapper as gen
-
-    gen(
-        meta=meta,
-        dut_name=cfg.dut_name,
-        rtl_kernel_name=cfg.rtl_kernel_name,
-        output_file=cfg.wrapper_verilog_path,
-        rtl_dir=cfg.rtl_dir,
-    )
-
-    print("[OK] wrapper RTL generat")
 
 
 # ============================================================
@@ -1084,21 +1371,181 @@ def collect_rtl_files(cfg: BuildConfig) -> list[Path]:
     return files
 
 
-def generate_package_tcl(cfg: BuildConfig) -> None:
-    rtl_files = collect_rtl_files(cfg)
+def generate_package_tcl(dut, dut_files, output_dir) -> None:
+
+    num_ins  = getDUTValidIns(dut)
+    num_outs = getDUTValidOuts(dut)
+    # axis00 = clk, axis01..N = entrades, axis(N+1).. = sortides
+    total_streams = 1 + num_ins + num_outs  # +1 per Axi2Clk
+
+    rtl_kernel_name = 'rtl_kernel'
+    rtl_xo_path = os.path.join(output_dir, rtl_kernel_name + '.xo')
 
     add_files_lines = "\n".join(
-        f'add_files -norecurse [file normalize "{p(file)}"]'
-        for file in rtl_files
+        f'add_files -norecurse [file normalize "{file}"]'
+        for file in dut_files
+    )
+
+    # -- Generar el bloc edit_core dinamicament ----------------------
+    axis_blocks = []
+    for i in range(total_streams):
+        axis_name = f'axis{i:02}'
+        block = f"""\
+  ::ipx::associate_bus_interfaces -busif "{axis_name}" -clock "ap_clk" $core
+  set axis_bif [::ipx::get_bus_interfaces -of $core "{axis_name}"]
+  set bifparam [::ipx::add_bus_parameter -quiet "TDATA_NUM_BYTES" $axis_bif]
+  set_property value        64  $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TUSER_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TID_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "TDEST_WIDTH" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TREADY" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TSTRB" $axis_bif]
+  set_property value        0   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TKEEP" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam
+  set bifparam [::ipx::add_bus_parameter -quiet "HAS_TLAST" $axis_bif]
+  set_property value        1   $bifparam
+  set_property value_source constant $bifparam"""
+        axis_blocks.append(block)
+
+    axis_tcl = "\n".join(axis_blocks)
+
+    # -- Generar parametres a eliminar dinamicament ------------------
+    axis_params = " ".join(
+        f'C_AXIS{i:02}_TDATA_WIDTH' for i in range(total_streams)
     )
 
     tcl = f"""# Auto-generated package RTL TCL
+# Generated by py4hw vitiswrapping
 
-set kernel_name "{cfg.rtl_kernel_name}"
-set top_module  "{cfg.rtl_kernel_name}"
+set kernel_name   "{rtl_kernel_name}"
+set kernel_vendor  "mycompany.com"
+set kernel_library "kernel"
 
-set build_dir [file normalize "{p(cfg.build_dir)}"]
-set xo_path   [file normalize "{p(cfg.rtl_xo_path)}"]
+################################################################################
+
+proc edit_core {{core}} {{
+{axis_tcl}
+  # s_axi_control: no present al rtl_kernel.v generat per py4hw (necessari si hi ha control AXI-Lite)
+  #::ipx::associate_bus_interfaces -busif "s_axi_control" -clock "clk" $core
+
+  # Frequencia del rellotge; comentat pq el port es diu 'clk' no 'clk' al rtl_kernel.v generat
+  #set clkbif      [::ipx::get_bus_interfaces -of $core "clk"]
+  #set clkbifparam [::ipx::add_bus_parameter -quiet "FREQ_HZ" $clkbif]
+  #set_property value 250000000 $clkbifparam
+  #Standard frequency for the U55C with the gen3x16_xdma platform
+  #set_property value_resolve_type user $clkbifparam
+
+  # Mapa de memoria AXI-Lite (protocol ap_ctrl_hs)
+  # comentat pq el rtl_kernel.v no te interficie s_axi_control
+  #set mem_map    [::ipx::add_memory_map -quiet "s_axi_control" $core]
+  #set addr_block [::ipx::add_address_block -quiet "reg0" $mem_map]
+
+  #set reg [::ipx::add_register "CTRL" $addr_block]
+  #set_property description    "Control signals" $reg
+  #set_property address_offset 0x000 $reg
+  #set_property size           32    $reg
+  #set field [ipx::add_field AP_START $reg]
+  #  set_property ACCESS {{read-write}} $field
+  #  set_property BIT_OFFSET {{0}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_start.}} $field
+  #  set_property MODIFIED_WRITE_VALUE {{modify}} $field
+  #set field [ipx::add_field AP_DONE $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{1}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_done.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AP_IDLE $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{2}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_idle.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AP_READY $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{3}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for ap_ready.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field RESERVED_1 $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{4}} $field
+  #  set_property BIT_WIDTH  {{3}} $field
+  #  set_property DESCRIPTION {{Reserved. 0s on read.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+  #set field [ipx::add_field AUTO_RESTART $reg]
+  #  set_property ACCESS {{read-write}} $field
+  #  set_property BIT_OFFSET {{7}} $field
+  #  set_property BIT_WIDTH  {{1}} $field
+  #  set_property DESCRIPTION {{Control signal Register for auto_restart.}} $field
+  #  set_property MODIFIED_WRITE_VALUE {{modify}} $field
+  #set field [ipx::add_field RESERVED_2 $reg]
+  #  set_property ACCESS {{read-only}} $field
+  #  set_property BIT_OFFSET {{8}} $field
+  #  set_property BIT_WIDTH  {{24}} $field
+  #  set_property DESCRIPTION {{Reserved. 0s on read.}} $field
+  #  set_property READ_ACTION {{modify}} $field
+
+  #set reg [::ipx::add_register "GIER" $addr_block]
+  #set_property description    "Global Interrupt Enable Register" $reg
+  #set_property address_offset 0x004 $reg
+  #set_property size           32    $reg
+
+  #set reg [::ipx::add_register "IP_IER" $addr_block]
+  #set_property description    "IP Interrupt Enable Register" $reg
+  #set_property address_offset 0x008 $reg
+  #set_property size           32    $reg
+
+  #set reg [::ipx::add_register "IP_ISR" $addr_block]
+  #set_property description    "IP Interrupt Status Register" $reg
+  #set_property address_offset 0x00C $reg
+  #set_property size           32    $reg
+
+  #set_property slave_memory_map_ref "s_axi_control" [::ipx::get_bus_interfaces -of $core "s_axi_control"]
+
+  set_property xpm_libraries {{XPM_CDC XPM_MEMORY XPM_FIFO}} $core
+  set_property sdx_kernel true $core
+  set_property sdx_kernel_type rtl $core
+}}
+
+################################################################################
+
+proc package_project {{path_to_packaged kernel_vendor kernel_library kernel_name}} {{
+  set core [::ipx::package_project -root_dir $path_to_packaged -vendor $kernel_vendor -library $kernel_library -taxonomy "/KernelIP" -import_files -set_current false]
+  #eliminats pq no hi ha s_axi_control
+  #foreach user_parameter [list C_S_AXI_CONTROL_ADDR_WIDTH C_S_AXI_CONTROL_DATA_WIDTH {axis_params}] {{
+  #  ::ipx::remove_user_parameter $user_parameter $core
+  #}}
+  ::ipx::create_xgui_files $core
+  set_property supported_families {{ }} $core
+  set_property auto_family_support_level level_2 $core
+  set_property used_in {{out_of_context implementation synthesis}} [::ipx::get_files -type xdc -of_objects [::ipx::get_file_groups "xilinx_anylanguagesynthesis" -of_objects $core] *_ooc.xdc]
+  edit_core $core
+  ::ipx::update_checksums $core
+  ::ipx::check_integrity -kernel $core
+  ::ipx::check_integrity -xrt $core
+  ::ipx::save_core $core
+  ::ipx::unload_core $core
+  unset core
+}}
+
+################################################################################
+
+set build_dir [file normalize "{output_dir}"]
+set xo_path   [file normalize "{rtl_xo_path}"]
 set proj_dir  [file normalize "$build_dir/vivado_$kernel_name"]
 set ip_dir    [file normalize "$build_dir/ip_$kernel_name"]
 
@@ -1107,37 +1554,17 @@ file delete -force $proj_dir
 file delete -force $ip_dir
 file delete -force $xo_path
 
-# ATENCI:
-# Aquesta part est posada per U55C.
-# Si es fs servir una altra placa, s'hauria de canviar el part.
+# Part especifica per a la U55C.
+# Si es fa servir una altra placa, s'hauria de canviar el part.
 create_project -force $kernel_name $proj_dir -part xcu55c-fsvh2892-2L-e
 
 {add_files_lines}
 
-set_property top $top_module [current_fileset]
+set_property top $kernel_name [current_fileset]
 update_compile_order -fileset sources_1
 
-# Comprovaci RTL
-synth_design -rtl -top $top_module
+package_project $ip_dir $kernel_vendor $kernel_library $kernel_name
 
-# Empaquetar com a IP
-ipx::package_project \\
-    -root_dir $ip_dir \\
-    -vendor user.org \\
-    -library user \\
-    -taxonomy /UserIP \\
-    -import_files \\
-    -set_current true
-
-set core [ipx::current_core]
-set_property sdx_kernel true $core
-set_property sdx_kernel_type rtl $core
-set_property vitis_drc {{ctrl_protocol ap_ctrl_hs}} $core
-
-ipx::save_core $core
-close_project
-
-# Generar el fitxer .xo del kernel RTL
 package_xo -force \\
     -xo_path $xo_path \\
     -kernel_name $kernel_name \\
@@ -1147,9 +1574,8 @@ package_xo -force \\
 puts "XO RTL generat a: $xo_path"
 """
 
-    write_text(cfg.package_tcl_path, tcl)
+    write_text(os.path.join(output_dir, 'package_rtl_kernel.tcl'), tcl)
     print("[OK] package_rtl_kernel.tcl generat")
-
 
 # ============================================================
 # SCRIPT DE BUILD PER CREAR EL XCLBIN
@@ -1306,7 +1732,8 @@ def generate_files_from_dut(
         generate_rtl_wrapper(meta, cfg)
 
         print("[7/8] Generant TCL de packaging RTL...")
-        generate_package_tcl(cfg)
+        #generate_package_tcl(cfg)
+        generate_package_tcl(dut, dut_files, output_dir)
 
     else:
         print("[2/8] Saltant generacio de Verilog del DUT...")
