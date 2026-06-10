@@ -193,7 +193,7 @@ class HILPlatform:
         self.platform = platform
         self.projectDir = projectDir
         self.dutName = dutName
-        self.dut = dut # <-- afegit
+        self.dut = dut 
         
         
     def build(self):
@@ -219,7 +219,7 @@ class HILPlatform:
         print('Generating', verilog_file)
         
         # 2. Generate TCLs
-        generate_create_project_tcl(kernel, [verilog_file, dut_file], self.projectDir)
+        generate_create_project_tcl(self.dut, [verilog_file, dut_file], self.projectDir)
         generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
         
         # 3. Run Vivado
@@ -1328,20 +1328,34 @@ def collect_rtl_files(cfg: BuildConfig) -> list[Path]:
 
     return files
 
-def generate_create_project_tcl(dur, dut_files, output_dir):
+def generate_create_project_tcl(dut, dut_files, output_dir):
+
+    num_ins = getDUTValidIns(dut)
+    num_outs = getDUTValidOuts(dut)
+
     rtl_kernel_name = 'rtl_kernel'
-    
     xci_path = f'{output_dir}/{rtl_kernel_name}.srcs/sources_1/ip/{rtl_kernel_name}/{rtl_kernel_name}.xci'
-    tcl = f'''
-    create_project {rtl_kernel_name} {output_dir} -part xcu55c-fsvh2892-2L-e
-    create_ip -name rtl_kernel_wizard -vendor xilinx.com -library ip -version 1.0 -module_name {rtl_kernel_name}
-    set_property -dict [list \
-       CONFIG.KERNEL_VENDOR {{xilinx.com}} \
-       CONFIG.NUM_AXIS {{2}} \
-       CONFIG.NUM_INPUT_ARGS {{0}} \
-       CONFIG.NUM_M_AXI {{0}} \
-       CONFIG.NUM_RESETS {{1}} \
-       ] [get_ips {rtl_kernel_name}]
+
+    
+    tcl =  f'create_project {rtl_kernel_name} {output_dir} -part xcu55c-fsvh2892-2L-e\n'
+    tcl += f'create_ip -name rtl_kernel_wizard -vendor xilinx.com -library ip -version 1.0 -module_name {rtl_kernel_name}\n'
+
+    tcl += f'set_property -dict [list '
+    tcl += f'CONFIG.KERNEL_VENDOR {{xilinx.com}} '
+    
+    for i in range(num_ins):
+    	tcl += f'CONFIG.AXIS{i:02d}_MODE {{read_only}} '
+
+    for i in range(num_outs):
+    	tcl += f'CONFIG.AXIS{num_ins+1+i:02d}_MODE {{write_only}} '
+
+    tcl += f'CONFIG.NUM_AXIS {{{num_ins+num_outs}}} '
+    tcl += f'       CONFIG.NUM_INPUT_ARGS {{0}} '
+    tcl += f'       CONFIG.NUM_M_AXI {{0}} '
+    tcl += f'       CONFIG.NUM_RESETS {{1}} '
+    tcl += f'       ] [get_ips {rtl_kernel_name}] \n'
+    
+    tcl += f'''
     generate_target {{instantiation_template}} [get_files {xci_path}]
     update_compile_order -fileset sources_1
     open_example_project -dir {output_dir} [get_ips  {rtl_kernel_name}]
