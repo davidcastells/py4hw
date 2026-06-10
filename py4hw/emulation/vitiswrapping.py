@@ -199,6 +199,11 @@ class HILPlatform:
     def build(self):
         #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
         
+        # netejar el directori per arrencar de zero
+        if os.path.exists(self.projectDir):
+            shutil.rmtree(self.projectDir)
+        os.makedirs(self.projectDir, exist_ok=True)
+        
         # 1. Generate rtl_kernel
         kernel = self.platform.children['rtl_kernel']
         
@@ -592,14 +597,18 @@ extern "C" void krnl_writer_generic(
     
     
 def generate_rtl_kernel(output_path):
+    # Fase 1: projecte + IP wizard + example design (crea rtl_kernel_ex/imports/...)
     tcl_path = os.path.join(output_path, 'create_project.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
     os.system(cmd)
-
+    
+    # Fase 2: empaquetar IP + generar el .xo (les 3 comandes del boto)
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
-    #os.system(cmd)
+    os.system(cmd)
     
+    
+     
 '''
 #!/usr/bin/env python3
 # -*- coding: latin-1 -*-
@@ -1569,9 +1578,16 @@ proc package_project_dcp_and_xdc {{path_to_dcp path_to_xdc path_to_packaged kern
 
 ##############################################################################
 
-#Now run 
-package_project {output_dir} xilinx.com kernel {rtl_kernel_name} 
-package_xo  -xo_path {rtl_xo_path} -kernel_name {rtl_kernel_name} -ip_directory {output_dir} -kernel_xml kernel.xml
+#Now run (ho comento pq a sota hi poso el definitiu) 
+#package_project {output_dir} xilinx.com kernel {rtl_kernel_name} 
+#package_xo  -xo_path {rtl_xo_path} -kernel_name {rtl_kernel_name} -ip_directory {output_dir} -kernel_xml kernel.xml
+
+open_project {output_dir}/rtl_kernel_ex/rtl_kernel_ex.xpr
+source -notrace {output_dir}/rtl_kernel_ex/imports/package_kernel.tcl
+package_project {output_dir}/rtl_kernel_ex/rtl_kernel xilinx.com kernel {rtl_kernel_name}
+file delete -force {output_dir}/rtl_kernel_ex/exports/{rtl_kernel_name}.xo
+package_xo -xo_path {output_dir}/rtl_kernel_ex/exports/{rtl_kernel_name}.xo -kernel_name {rtl_kernel_name} -ip_directory {output_dir}/rtl_kernel_ex/rtl_kernel -kernel_xml {output_dir}/rtl_kernel_ex/imports/kernel.xml
+
 
 '''
 
