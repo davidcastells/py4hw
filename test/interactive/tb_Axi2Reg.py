@@ -11,7 +11,7 @@ from py4hw.emulation.vitiswrapping import Axi2Reg
 sys = py4hw.HWSystem()
 
 # Create signals
-reset = sys.wire("reset", 1)
+
 ap_start = sys.wire("ap_start", 1)
 ap_reset = sys.wire("ap_reset", 1)
 q = sys.wire("q", 64)
@@ -21,12 +21,12 @@ loaded = sys.wire("loaded", 1)
 stream = AXI4StreamInterface(sys, "stream", dw=64)
 
 # Instantiate DUT
-dut = Axi2Reg(sys, "axi2reg", reset, ap_start, ap_reset, stream, q, loaded)
+dut = Axi2Reg(sys, "axi2reg",  ap_start, ap_reset, stream, q, loaded)
 
-reset.put(1)
+ap_reset.put(1)
 sys.getSimulator().clk(1)
 
-reset.put(0)
+ap_reset.put(0)
 sys.getSimulator().clk(1)
                        
 assert loaded.get() == 0, 'loaded should be zero'
@@ -46,7 +46,7 @@ sys.getSimulator().clk(1)
 assert q.get() == test_data, 'unexpected test_data'
 assert loaded.get() == 1, 'loaded should be one'
 
-reset.put(1)
+ap_reset.put(1)
 sys.getSimulator().clk(1)
 
 py4hw.gui.Workbench(sys)
