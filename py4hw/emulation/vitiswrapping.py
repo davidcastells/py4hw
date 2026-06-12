@@ -79,7 +79,7 @@ class Axi2Reg(py4hw.Logic):
         
         
 
-#%part que he afegit jo        
+  
 class Reg2Axi(py4hw.Logic):
 
     def __init__(self, parent, name, ap_start, ap_reset, load_outs,
@@ -169,7 +169,7 @@ class Reg2Axi(py4hw.Logic):
 
         # sent = handshake
         py4hw.Buf(self, 'sent_buf',   handshake, sent)
-#%part que he afegit jo             
+
             
 
 
@@ -198,26 +198,27 @@ class HILPlatform:
         
         
     def build(self):
-        #self.platform.build(self.projectDir, createdStructures=[self.dutName])  
         
         # netejar el directori per arrencar de zero
         if os.path.exists(self.projectDir):
             shutil.rmtree(self.projectDir)
         os.makedirs(self.projectDir, exist_ok=True)
         
-        # 1. Generate rtl_kernel
-        kernel = self.platform.children['rtl_kernel']
+        # 1. Generate rtl_kernel_example Verilog file. The DUT will be generated separatelly because it is a living object
+        # from an existing HWSystem different from the one that we use to synthesize for the FPGA.
+        
+        kernel = self.platform.children['rtl_kernel_example']
         
         rtl = py4hw.VerilogGenerator(kernel)
         rtl_code = rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False, createdStructures=[self.dutName])
 
-        verilog_file = os.path.join(self.projectDir, 'rtl_kernel.v')
+        verilog_file = os.path.join(self.projectDir, 'rtl_kernel_example.v')
         dut_file = os.path.join(self.projectDir, f'{self.dutName}.v' )
     
         with open(verilog_file, 'w') as file:
             file.write(rtl_code)  
 	
-        print('Generating', verilog_file)
+        print('[GEN]', verilog_file)
         
         #afegit a partir d'aquí
         # generar el Verilog del DUT (la definició del black box)
@@ -233,8 +234,16 @@ class HILPlatform:
         generate_create_project_tcl(self.dut, [verilog_file, dut_file], self.projectDir)
         generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
         
-        # 3. Run Vivado
-        generate_rtl_kernel(self.projectDir)
+        # 3. Generate Reader & Writer
+        generate_reader(self.dut, self.projectDir)        
+        generate_writer(self.dut, self.projectDir)
+        generate_connectivity(self.dut, self.projectDir)
+        
+        # 3. Run Vivado to create the XO
+        generate_rtl_kernel(self.projectDir, self.dutName)
+        
+        # 4. Create a script to build xclbin
+        generate_build_script(self.projectDir)
         
     def download(self):
         #self.platform.download(self.projectDir)
@@ -267,8 +276,7 @@ def createHILVitis(dut, projectDir):
     # use instance number if necessary
     dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
 
-    #hil_plt = HILPlatform(platform, projectDir, dutStructureName)
-    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  # <-- afegit
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  
     
     
     if not(os.path.exists(projectDir)):
@@ -299,8 +307,8 @@ def createHILVitis(dut, projectDir):
     num_outs = getDUTValidOuts(dut)
     
     
-    rtl_kernel_class = AbstractClass('rtl_kernel')
-    rtl_kernel = rtl_kernel_class(platform, 'rtl_kernel')
+    rtl_kernel_class = AbstractClass('rtl_kernel_example')
+    rtl_kernel = rtl_kernel_class(platform, 'rtl_kernel_example')
 
 
     fake_ins = []
@@ -310,22 +318,19 @@ def createHILVitis(dut, projectDir):
     ap_rst_n = platform.wire('ap_rst_n')
     ap_reset = platform.wire('ap_reset')
     
-    #ap_idle = platform.wire('ap_idle')
-    #ap_done = platform.wire('ap_done')
-    #ap_ready = platform.wire('ap_ready')
+    ap_idle = platform.wire('ap_idle')
+    ap_done = platform.wire('ap_done')
+    ap_ready = platform.wire('ap_ready')
     
                 
-    #reset = platform.wire('reset')
-    #rtl_kernel.addIn('ap_start', ap_start)
+    rtl_kernel.addIn('ap_start', ap_start)
     rtl_kernel.addIn('ap_rst_n', ap_rst_n)
-    #rtl_kernel.addOut('ap_idle', ap_idle)
-    #rtl_kernel.addOut('ap_done', ap_done)
-    #rtl_kernel.addOut('ap_ready', ap_ready)        
+    rtl_kernel.addOut('ap_idle', ap_idle)
+    rtl_kernel.addOut('ap_done', ap_done)
+    rtl_kernel.addOut('ap_ready', ap_ready)        
         
-    #rtl_kernel.addIn('reset', reset)
     
     py4hw.Not(rtl_kernel, 'ap_reset', ap_rst_n, ap_reset)
-    py4hw.Constant(rtl_kernel, 'c_ap_start', 1, ap_start)   # ap_start sempre a 1 (AFEGIT)
     
     stream_ins = []
         
@@ -344,18 +349,10 @@ def createHILVitis(dut, projectDir):
         loaded = rtl_kernel.wire(f'loaded{i}')
         Axi2Reg(rtl_kernel, f'axis{i:02}',  ap_start, ap_reset, stream_in, in_wire, loaded)
         
-    #    py4hw.Reg(platform, f'in{i}', d=v_in,  q=in_wire, enable=hlp.hw_and2(ena_in_list[i], set_v_in))
 
-    #resp_v = platform.wire('resp_v', 32)
-    #resp_size = platform.wire('resp_size', 8)
-    #reg_out = platform.wires('reg_out', num_outs_up, 32)
-    #size_out = platform.wires('size_out', num_outs_up, 8)
-    
-    
-    #%part que he afegit jo    
     load_outs = rtl_kernel.wire('load_outs')
     py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
-    # ^^ De moment sempre a 1; quan tingui la FSM, connectar-ho a la senyal real
+    # Always load values, @todo review this
 
     for i in range(num_outs):
         op = dut.outPorts[i]
@@ -370,7 +367,6 @@ def createHILVitis(dut, projectDir):
 
         sent = rtl_kernel.wire(f'sent{i}')
         Reg2Axi(rtl_kernel, f'reg2axi{i}', ap_start, ap_reset, load_outs, out_wire, stream_out, sent)
-    #%part que he afegit jo    
 
 
     # Black Box Placeholder
@@ -451,8 +447,6 @@ def generate_connectivity(dut, output_path):
 
 
 def generate_reader(dut, output_path):
-    
-
     stream_args = [] # This are the parameters of the stream kernel
     stream_pragmas = []
     writes = []
@@ -461,7 +455,7 @@ def generate_reader(dut, output_path):
     # La resta de streams corresponen a les entrades del DUT.
     total_out_streams = 1 + len(dut.inPorts)
 
-    link = ''
+    link = ','
 
     for stream_id in range(total_out_streams):
         
@@ -471,7 +465,7 @@ def generate_reader(dut, output_path):
             inp = dut.inPorts[stream_id -1]
             comment = inp.name
 
-        stream_args.append(f"    hls::stream<ap_uint<64>>& s_out{stream_id}{link}  // {comment}")
+        stream_args.append(f"    {link} hls::stream<ap_uint<64>>& s_out{stream_id}  // {comment}")
         
         link = ','
 
@@ -480,8 +474,7 @@ def generate_reader(dut, output_path):
 
     # in[0] es reserva per al clock.
     # in[1+i] correspon a l'entrada i del DUT.
-    #writes.append("    ap_uint<64> clk = 0;")
-    #writes.append("    clk = (ap_uint<64>)in[0].valor;")
+
     writes.append("    s_out0.write(in[0].valor);")
     
 
@@ -490,9 +483,7 @@ def generate_reader(dut, output_path):
         table_index = i + 1
         name = inp.name
 
-        #writes.append(f"    // {name}")
-        #writes.append(f"    ap_uint<64> v_{name} = 0;")
-        #writes.append(            f"    v_{name} = (ap_uint<64>)in[{table_index}].valor;"        )
+
         writes.append(f"    s_out{stream_id}.write(in[{table_index}].valor);")
         
 
@@ -512,7 +503,6 @@ extern "C" void krnl_reader(
 ) {{
 #pragma HLS INTERFACE m_axi port=in offset=slave bundle=gmem
 #pragma HLS INTERFACE s_axilite port=in bundle=control
-#pragma HLS INTERFACE s_axilite port=num bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
 {chr(10).join(stream_pragmas)}
@@ -547,11 +537,12 @@ def generate_writer(dut, output_path):
     stream_pragmas = []
     reads = []
 
-
+    slink = ''
     for i, outp in enumerate(dut.outPorts):
         # Sempre posem coma despres de cada stream, perque despres venen out i num.
-        stream_args.append(f"    hls::stream<ap_uint<64>>& s_in{i},  // {outp.name}")
+        stream_args.append(f"    {slink} hls::stream<ap_uint<64>>& s_in{i}  // {outp.name}")
         stream_pragmas.append(f"#pragma HLS INTERFACE axis port=s_in{i}")
+        slink = ','
 
     for i, outp in enumerate(dut.outPorts):
         name = outp.name
@@ -574,7 +565,7 @@ struct io_t {{
     uint64_t valor;
 }};
 
-extern "C" void krnl_writer_generic(
+extern "C" void krnl_writer(
 {chr(10).join(stream_args)}
     io_t* out,
 ) {{
@@ -582,7 +573,6 @@ extern "C" void krnl_writer_generic(
 
 #pragma HLS INTERFACE m_axi port=out offset=slave bundle=gmem
 #pragma HLS INTERFACE s_axilite port=out bundle=control
-#pragma HLS INTERFACE s_axilite port=num bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
     // Format generic de la taula de sortida:
@@ -608,29 +598,109 @@ extern "C" void krnl_writer_generic(
     print(f"File created: {output_file}")
     
     
-def generate_rtl_kernel(output_path):
+def generate_rtl_kernel(output_path, dutName):
     # Fase 1: projecte + IP wizard + example design (crea rtl_kernel_ex/imports/...)
     tcl_path = os.path.join(output_path, 'create_project.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
+    print('[RUN]', cmd)
     os.system(cmd)
     
     #afegit a partir d'aquí
     #aquí hi poso el pas de canviar el codi del kernel(.v) que ens genera d'exemple pel nostre codi del kernel(.v)
     imports_dir = os.path.join(output_path, 'rtl_kernel_ex', 'imports')
-    # esborrar els mòduls d'exemple del wizard
+    
+    # delete rtl_kernel_exemple files created by the wizard
     for f in glob.glob(os.path.join(imports_dir, 'rtl_kernel_example*')):
         os.remove(f)
-    # copiar el nostre rtl_kernel.v i el DUT.v per sobre dels que hi ha a imports/
-    for vfile in glob.glob(os.path.join(output_path, '*.v')):
-        shutil.copy(vfile, os.path.join(imports_dir, os.path.basename(vfile)))
-    #afegit fins aquí
+        
+    ## copiar el nostre rtl_kernel.v i el DUT.v per sobre dels que hi ha a imports/
+    #for vfile in glob.glob(os.path.join(output_path, '*.v')):
+    #    shutil.copy(vfile, os.path.join(imports_dir, os.path.basename(vfile)))
+    ##afegit fins aquí
+
+    shutil.copy(os.path.join(output_path, 'rtl_kernel_example.v'), os.path.join(imports_dir, 'rtl_kernel_example.v'))
+    shutil.copy(os.path.join(output_path, f'{dutName}.v'), os.path.join(imports_dir, f'{dutName}.v'))
     
     
     # Fase 2: empaquetar IP + generar el .xo (les 3 comandes del boto)
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
+    print('[RUN]', cmd)
     os.system(cmd)
     
+
+def generate_build_script(output_path):
+   
+    platform = 'xilinx_u55c_gen3x16_xdma_3_202210_1'
+    target = 'hw'
+    build_dir = 'xclbin_build'
+    logs_dir = 'xclbin_logs'
+    exports_dir = os.path.join(output_path, 'rtl_kernel_ex', 'exports')
+    
+    reader_kernel_name = 'krnl_reader'    
+    writer_kernel_name = 'krnl_writer'
+    reader_cpp_path = os.path.join(output_path, 'krnl_reader.cpp') 
+    writer_cpp_path = os.path.join(output_path, 'krnl_writer.cpp') 
+    rtl_xo_path = os.path.join(exports_dir, 'rtl_kernel.xo')
+    reader_xo_path = os.path.join(output_path, 'krnl_reader.xo') 
+    writer_xo_path = os.path.join(output_path, 'krnl_writer.xo') 
+    
+    xclbin_path = output_path
+    connectivity_path = os.path.join(output_path, 'connectivity.cfg') 
+            
+    script = f"""#!/usr/bin/env bash
+set -euo pipefail
+
+PLATFORM="${{PLATFORM:-{platform}}}"
+TARGET="${{TARGET:-{target}}}"
+
+mkdir -p {build_dir}
+mkdir -p {logs_dir}
+
+echo "======================================"
+echo " BUILD XCLBIN"
+echo " PLATFORM: $PLATFORM"
+echo " TARGET:   $TARGET"
+echo "======================================"
+
+echo "[1/3] Compilant reader..."
+v++ -c -t "$TARGET" --platform "$PLATFORM" \\
+    -k {reader_kernel_name} \\
+    -o {reader_xo_path} \\
+    {reader_cpp_path} \\
+    2>&1 | tee {os.path.join(logs_dir, "compile_reader.log")}
+
+echo "[2/3] Compilant writer..."
+v++ -c -t "$TARGET" --platform "$PLATFORM" \\
+    -k {writer_kernel_name} \\
+    -o {writer_xo_path} \\
+    {writer_cpp_path} \\
+    2>&1 | tee {os.path.join(logs_dir , "compile_writer.log")}
+
+
+
+echo "[3/3] Link final XCLBIN..."
+v++ -l -t "$TARGET" --platform "$PLATFORM" \\
+    --config {connectivity_path} \\
+    -o {xclbin_path} \\
+    {reader_xo_path} \\
+    {rtl_xo_path} \\
+    {writer_xo_path} \\
+    2>&1 | tee {os.path.join(logs_dir , "link_xclbin.log")}
+
+echo "======================================"
+echo "XCLBIN generat:"
+echo "{xclbin_path}"
+echo "======================================"
+"""
+    build_script = os.path.join(output_path, 'build_xclbin.sh')
+
+    write_text(build_script, script)
+    make_executable(build_script)
+    
+    
+    print("[OK] build_xclbin.sh generat")
+
     
      
 '''
@@ -1095,90 +1165,6 @@ from typing import Any
 # CONFIGURACI
 # ============================================================
 
-@dataclass
-class BuildConfig:
-    dut_name: str = "RGB2YCrCb"
-    rtl_kernel_name: str = "rtl_rgb2ycbcr"
-    reader_kernel_name: str = "krnl_reader"
-    writer_kernel_name: str = "krnl_writer"
-
-    platform: str = "xilinx_u55c_gen3x16_xdma_3_202210_1"
-    target: str = "hw"
-
-    generated_dir: Path = Path("/tmp/generated")
-    build_dir: Path = Path("/tmp/build_hw")
-
-    #aix ho poso pq estic treballant
-    #amb el RTL .xo del projecte que vaig crear jo
-    existing_rtl_xo: Path | None = None
-
-    @property
-    def rtl_dir(self) -> Path:
-        return self.generated_dir / "rtl"
-
-    @property
-    def hls_dir(self) -> Path:
-        return self.generated_dir / "hls"
-
-    @property
-    def cfg_dir(self) -> Path:
-        return self.generated_dir / "cfg"
-
-    @property
-    def tcl_dir(self) -> Path:
-        return self.generated_dir / "tcl"
-
-    @property
-    def scripts_dir(self) -> Path:
-        return self.generated_dir / "scripts"
-
-    @property
-    def logs_dir(self) -> Path:
-        return self.build_dir / "logs"
-
-    @property
-    def dut_verilog_path(self) -> Path:
-        return self.rtl_dir / f"{self.dut_name}.v"
-
-    @property
-    def wrapper_verilog_path(self) -> Path:
-        return self.rtl_dir / f"{self.rtl_kernel_name}.v"
-
-    @property
-    def reader_cpp_path(self) -> Path:
-        return self.hls_dir / f"{self.reader_kernel_name}_generic.cpp"
-
-    @property
-    def writer_cpp_path(self) -> Path:
-        return self.hls_dir / f"{self.writer_kernel_name}_generic.cpp"
-
-    @property
-    def connectivity_path(self) -> Path:
-        return self.cfg_dir / "connectivity.cfg"
-
-    @property
-    def package_tcl_path(self) -> Path:
-        return self.tcl_dir / "package_rtl_kernel.tcl"
-
-    @property
-    def build_script_path(self) -> Path:
-        return self.scripts_dir / "build_xclbin.sh"
-
-    @property
-    def reader_xo_path(self) -> Path:
-        return self.build_dir / f"{self.reader_kernel_name}.xo"
-
-    @property
-    def writer_xo_path(self) -> Path:
-        return self.build_dir / f"{self.writer_kernel_name}.xo"
-
-    @property
-    def rtl_xo_path(self) -> Path:
-        return self.build_dir / f"{self.rtl_kernel_name}.xo"
-
-    @property
-    def xclbin_path(self) -> Path:
-        return self.build_dir / "kernel.xclbin"
 
 
 # ============================================================
@@ -1207,7 +1193,8 @@ def write_text(output_file, content: str) -> None:
     print(f"[GEN] {output_file}")
 
 
-def make_executable(path: Path) -> None:
+def make_executable(p ) -> None:
+    path = Path(p)
     mode = path.stat().st_mode
     path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -1298,26 +1285,7 @@ def metadata_from_ports(
     return meta
 
 
-# ============================================================
-# GENERACI DEL VERILOG DEL DUT
-# ============================================================
 
-def generate_verilog(dut, output_dir) -> list:
-    """
-    Generates a list of Verilog files from the DUT.
-
-    """
-    
-    rtlgen = py4hw.VerilogGenerator(rtl_kernel)
-    
-    #structure_name = py4hw.getVerilogModuleName(dut)
-    #rtlfile = os.path.join(output_dir, f'{structure_name}.v')
-    rtlfile = os.path.join(output_dir, 'rtl_kernel.v')
-    rtl = rtlgen.getVerilogForHierarchy(dut)
-    
-    write_text(rtlfile, rtl)
-    
-    return [rtlfile]
 
 
 # ============================================================
@@ -1371,15 +1339,13 @@ def generate_create_project_tcl(dut, dut_files, output_dir):
     	tcl += f'CONFIG.AXIS{i:02d}_MODE {{read_only}} '
 
     for i in range(num_outs):
-    	tcl += f'CONFIG.AXIS{num_ins+1+i:02d}_MODE {{write_only}} '
-     #tcl += f'CONFIG.AXIS{num_ins+i:02d}_MODE {{write_only}} '
-     # a createHILVitis creeem amb num_ins+i no amb num_ins+1+i
+    	tcl += f'CONFIG.AXIS{num_ins+i:02d}_MODE {{write_only}} '
 
     tcl += f'CONFIG.NUM_AXIS {{{num_ins+num_outs}}} '
     tcl += f'       CONFIG.NUM_INPUT_ARGS {{0}} '
     tcl += f'       CONFIG.NUM_M_AXI {{0}} '
     tcl += f'       CONFIG.NUM_RESETS {{1}} '
-    tcl += f'       CONFIG.KERNEL_CTRL {{ap_ctrl_none}} '  # <-- AFEGIT AQUÍ
+    #tcl += f'       CONFIG.KERNEL_CTRL {{ap_ctrl_none}} '  # <-- AFEGIT AQUÍ
     tcl += f'       ] [get_ips {rtl_kernel_name}] \n'
     
     tcl += f'''
@@ -1644,7 +1610,7 @@ package_xo -xo_path {output_dir}/rtl_kernel_ex/exports/{rtl_kernel_name}.xo -ker
 # SCRIPT DE BUILD PER CREAR EL XCLBIN
 # ============================================================
 
-def generate_build_script(cfg: BuildConfig) -> None:
+def generate_build_script2(cfg: BuildConfig) -> None:
     if cfg.existing_rtl_xo is None:
         rtl_step = f"""echo "[3/4] Empaquetant RTL..."
 vivado -mode batch -source {p(cfg.package_tcl_path)} \\
@@ -1795,7 +1761,7 @@ def generate_files_from_dut(
         generate_rtl_wrapper(meta, cfg)
 
         print("[7/8] Generant TCL de packaging RTL...")
-        #generate_package_tcl(cfg)
+
         generate_package_tcl(dut, dut_files, output_dir)
 
     else:
