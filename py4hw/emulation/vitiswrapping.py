@@ -4,6 +4,7 @@ import py4hw
 import py4hw.logic.bus.axi as axi
 import os
 import math
+import glob
 
 class Axi2Reg(py4hw.Logic):
     
@@ -218,6 +219,16 @@ class HILPlatform:
 	
         print('Generating', verilog_file)
         
+        #afegit a partir d'aquí
+        # generar el Verilog del DUT (la definició del black box)
+        # faig lo mateix que al pas de rtl=py4hw.Verilog....
+        # però aquí ho torno a fer pq al build() faig una esborrada del projecte pq en comenci un de nou des de zero cada cop
+        dut_rtl = py4hw.VerilogGenerator(self.dut)
+        dut_code = dut_rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
+        with open(dut_file, 'w') as file:
+            file.write(dut_code)
+        #afegit fins aquí
+        
         # 2. Generate TCLs
         generate_create_project_tcl(self.dut, [verilog_file, dut_file], self.projectDir)
         generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
@@ -299,21 +310,22 @@ def createHILVitis(dut, projectDir):
     ap_rst_n = platform.wire('ap_rst_n')
     ap_reset = platform.wire('ap_reset')
     
-    ap_idle = platform.wire('ap_idle')
-    ap_done = platform.wire('ap_done')
-    ap_ready = platform.wire('ap_ready')
+    #ap_idle = platform.wire('ap_idle')
+    #ap_done = platform.wire('ap_done')
+    #ap_ready = platform.wire('ap_ready')
     
                 
     #reset = platform.wire('reset')
-    rtl_kernel.addIn('ap_start', ap_start)
+    #rtl_kernel.addIn('ap_start', ap_start)
     rtl_kernel.addIn('ap_rst_n', ap_rst_n)
-    rtl_kernel.addOut('ap_idle', ap_idle)
-    rtl_kernel.addOut('ap_done', ap_done)
-    rtl_kernel.addOut('ap_ready', ap_ready)        
+    #rtl_kernel.addOut('ap_idle', ap_idle)
+    #rtl_kernel.addOut('ap_done', ap_done)
+    #rtl_kernel.addOut('ap_ready', ap_ready)        
         
     #rtl_kernel.addIn('reset', reset)
     
     py4hw.Not(rtl_kernel, 'ap_reset', ap_rst_n, ap_reset)
+    py4hw.Constant(rtl_kernel, 'c_ap_start', 1, ap_start)   # ap_start sempre a 1 (AFEGIT)
     
     stream_ins = []
         
@@ -343,7 +355,7 @@ def createHILVitis(dut, projectDir):
     #%part que he afegit jo    
     load_outs = rtl_kernel.wire('load_outs')
     py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
-    # ^^ De moment sempre a 1; quan tinguis la FSM, connecta-ho a la senyal real
+    # ^^ De moment sempre a 1; quan tingui la FSM, connectar-ho a la senyal real
 
     for i in range(num_outs):
         op = dut.outPorts[i]
@@ -601,6 +613,18 @@ def generate_rtl_kernel(output_path):
     tcl_path = os.path.join(output_path, 'create_project.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
     os.system(cmd)
+    
+    #afegit a partir d'aquí
+    #aquí hi poso el pas de canviar el codi del kernel(.v) que ens genera d'exemple pel nostre codi del kernel(.v)
+    imports_dir = os.path.join(output_path, 'rtl_kernel_ex', 'imports')
+    # esborrar els mòduls d'exemple del wizard
+    for f in glob.glob(os.path.join(imports_dir, 'rtl_kernel_example*')):
+        os.remove(f)
+    # copiar el nostre rtl_kernel.v i el DUT.v per sobre dels que hi ha a imports/
+    for vfile in glob.glob(os.path.join(output_path, '*.v')):
+        shutil.copy(vfile, os.path.join(imports_dir, os.path.basename(vfile)))
+    #afegit fins aquí
+    
     
     # Fase 2: empaquetar IP + generar el .xo (les 3 comandes del boto)
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
@@ -1348,11 +1372,14 @@ def generate_create_project_tcl(dut, dut_files, output_dir):
 
     for i in range(num_outs):
     	tcl += f'CONFIG.AXIS{num_ins+1+i:02d}_MODE {{write_only}} '
+     #tcl += f'CONFIG.AXIS{num_ins+i:02d}_MODE {{write_only}} '
+     # a createHILVitis creeem amb num_ins+i no amb num_ins+1+i
 
     tcl += f'CONFIG.NUM_AXIS {{{num_ins+num_outs}}} '
     tcl += f'       CONFIG.NUM_INPUT_ARGS {{0}} '
     tcl += f'       CONFIG.NUM_M_AXI {{0}} '
     tcl += f'       CONFIG.NUM_RESETS {{1}} '
+    tcl += f'       CONFIG.KERNEL_CTRL {{ap_ctrl_none}} '  # <-- AFEGIT AQUÍ
     tcl += f'       ] [get_ips {rtl_kernel_name}] \n'
     
     tcl += f'''
@@ -1597,6 +1624,11 @@ proc package_project_dcp_and_xdc {{path_to_dcp path_to_xdc path_to_packaged kern
 #package_xo  -xo_path {rtl_xo_path} -kernel_name {rtl_kernel_name} -ip_directory {output_dir} -kernel_xml kernel.xml
 
 open_project {output_dir}/rtl_kernel_ex/rtl_kernel_ex.xpr
+#AFEGIT:
+add_files -norecurse [glob -nocomplain {output_dir}/rtl_kernel_ex/imports/*.v] 
+#AFEGIT:
+add_files -norecurse [file normalize "{dut_files[1]}"]
+update_compile_order -fileset sources_1                                     
 source -notrace {output_dir}/rtl_kernel_ex/imports/package_kernel.tcl
 package_project {output_dir}/rtl_kernel_ex/rtl_kernel xilinx.com kernel {rtl_kernel_name}
 file delete -force {output_dir}/rtl_kernel_ex/exports/{rtl_kernel_name}.xo
