@@ -220,29 +220,28 @@ class HILPlatform:
 	
         print('[GEN]', verilog_file)
         
-        #afegit a partir d'aquí
-        # generar el Verilog del DUT (la definició del black box)
-        # faig lo mateix que al pas de rtl=py4hw.Verilog....
-        # però aquí ho torno a fer pq al build() faig una esborrada del projecte pq en comenci un de nou des de zero cada cop
+        # 2. Generate the Verilog for the DUT.
+        # This is a separate step because the DUT is a living object
+        
         dut_rtl = py4hw.VerilogGenerator(self.dut)
         dut_code = dut_rtl.getVerilogForHierarchy(noInstanceNumberInTopEntity=False)
         with open(dut_file, 'w') as file:
             file.write(dut_code)
-        #afegit fins aquí
+
         
-        # 2. Generate TCLs
+        # 3. Generate TCLs
         generate_create_project_tcl(self.dut, [verilog_file, dut_file], self.projectDir)
         generate_package_tcl(kernel, [verilog_file, dut_file], self.projectDir)
         
-        # 3. Generate Reader & Writer
+        # 4. Generate Reader & Writer
         generate_reader(self.dut, self.projectDir)        
         generate_writer(self.dut, self.projectDir)
         generate_connectivity(self.dut, self.projectDir)
         
-        # 3. Run Vivado to create the XO
+        # 5. Run Vivado to create the XO
         generate_rtl_kernel(self.projectDir, self.dutName)
         
-        # 4. Create a script to build xclbin
+        # 6. Create a script to build xclbin
         generate_build_script(self.projectDir)
         
     def download(self):
