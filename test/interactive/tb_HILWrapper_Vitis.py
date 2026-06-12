@@ -1,5 +1,5 @@
 import py4hw
-
+import os
 import py4hw.emulation.vitiswrapping as hil
 
 #from RGB2YCrCb import RGB2YCrCb      # <-- afegit
@@ -55,8 +55,8 @@ dut = DUT(hw, 'dut', a, b, p, s)
 #canvio el dut
 #dut = RGB2YCrCb(hw, 'rgb2ycrcb', reset, enable, a, b, ctrl, alu_result, result, done)
 
-output_dir = '/tmp/vitis_hil'
-#output_dir = '/home/aoliva/py4hw1/tmp/vitis_hil'
+output_dir = f'/tmp/vitis_hil_{os.getlogin()}'
+
 
 import py4hw.emulation.vitiswrapping as hil
 
