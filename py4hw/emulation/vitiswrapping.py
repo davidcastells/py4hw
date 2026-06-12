@@ -1338,7 +1338,6 @@ def generate_create_project_tcl(dut, dut_files, output_dir):
     tcl += f'       CONFIG.NUM_INPUT_ARGS {{0}} '
     tcl += f'       CONFIG.NUM_M_AXI {{0}} '
     tcl += f'       CONFIG.NUM_RESETS {{1}} '
-    #tcl += f'       CONFIG.KERNEL_CTRL {{ap_ctrl_none}} '  # <-- AFEGIT AQUÍ
     tcl += f'       ] [get_ips {rtl_kernel_name}] \n'
     
     tcl += f'''
