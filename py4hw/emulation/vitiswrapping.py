@@ -603,25 +603,19 @@ def generate_rtl_kernel(output_path, dutName):
     cmd = f'vivado -mode batch -source {tcl_path}'
     print('[RUN]', cmd)
     os.system(cmd)
-    
-    #afegit a partir d'aquí
-    #aquí hi poso el pas de canviar el codi del kernel(.v) que ens genera d'exemple pel nostre codi del kernel(.v)
+
     imports_dir = os.path.join(output_path, 'rtl_kernel_ex', 'imports')
     
     # delete rtl_kernel_exemple files created by the wizard
     for f in glob.glob(os.path.join(imports_dir, 'rtl_kernel_example*')):
         os.remove(f)
-        
-    ## copiar el nostre rtl_kernel.v i el DUT.v per sobre dels que hi ha a imports/
-    #for vfile in glob.glob(os.path.join(output_path, '*.v')):
-    #    shutil.copy(vfile, os.path.join(imports_dir, os.path.basename(vfile)))
-    ##afegit fins aquí
 
+    # copy the generated verilog files to the final position        
     shutil.copy(os.path.join(output_path, 'rtl_kernel_example.v'), os.path.join(imports_dir, 'rtl_kernel_example.v'))
     shutil.copy(os.path.join(output_path, f'{dutName}.v'), os.path.join(imports_dir, f'{dutName}.v'))
     
     
-    # Fase 2: empaquetar IP + generar el .xo (les 3 comandes del boto)
+    # package  IP + generate  .xo 
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
     print('[RUN]', cmd)
