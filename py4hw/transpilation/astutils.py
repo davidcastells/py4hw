@@ -607,13 +607,13 @@ class CFGBuilder(ast.NodeVisitor):
         if (node in self.draw_visited.keys()):
             # draw missing exit line with a node it was already visited
             # this will happen in feedbacks
-            ret_edges += f'\draw[edge] (BB{p.id}) to[out=45, in=-0] (BB{node.id});\n'
+            ret_edges += f'\\draw[edge] (BB{p.id}) to[out=45, in=-0] (BB{node.id});\n'
                     
             return ret_nodes, ret_edges
         
         node_name = node.toString().strip()
         
-        node_name = node_name.replace('_', '\_')
+        node_name = node_name.replace('_', '\\_')
         node_name = node_name.replace('\n', ' \\\\ ')
 
         
