@@ -201,7 +201,21 @@ if os.path.exists(xclbin_path):
     # xclbin already exists -> do NOT rebuild (build() would wipe the directory).
     # Just run on the board with the values from the command line (a=5 b=3 ...).
     values = hil.parse_input_values(sys.argv[1:])
-    hil_plt.download(values)
+    #hil_plt.download(values)
+    
+    # --- NEW: HIL redirector -- the FPGA runs INSIDE the py4hw simulation ---   
+    # --- (generic -- works for any DUT) --- input wires already feeding the DUT
+    proxy_ins  = [pin.wire for pin in dut.inPorts]
+    # fresh output wires for the proxy, matching the DUT's output widths
+    proxy_outs = [hw.wire(pout.name + '_hw', pout.wire.getWidth())for pout in dut.outPorts]
+
+    hil.createHILVitisProxy(dut, hw, 'dut_hw', proxy_ins, proxy_outs, xclbin_path)
+
+    # waveform: DUT inputs + DUT outputs (simulated) + proxy outputs (real HW)
+    dut_outs = [pout.wire for pout in dut.outPorts]
+    py4hw.Waveform(hw, 'wvf', proxy_ins + dut_outs + proxy_outs)
+    py4hw.gui.Workbench(hw)
+    
 else:
     # First time: generate everything. There is no xclbin yet.
     hil_plt.build()
