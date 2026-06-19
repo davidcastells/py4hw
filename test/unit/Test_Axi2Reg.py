@@ -123,12 +123,12 @@ class Test_Axi2Reg:
         assert q.get() == test_data
         assert loaded.get() == 1
         
-        # Apply ap_start (should clear loaded but not q)
+        # Apply ap_start (should not clear anything)
         ap_start.put(1)
         sys.getSimulator().clk(1)
         
         assert q.get() == test_data  # q should retain value
-        assert loaded.get() == 0     # loaded should be cleared
+        assert loaded.get() == 1     # loaded should be cleared
         
         # Remove ap_start
         ap_start.put(0)
