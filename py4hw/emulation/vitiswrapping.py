@@ -853,7 +853,7 @@ echo "======================================"
 import sys
 import json
 import numpy as np
-#import pyxrt
+import pyxrt
 
 
 # -----------------------------------------------------------------------------
@@ -1032,6 +1032,101 @@ def print_table_outputs_dynamic(out_table, dut):
         value = int(row["valor"])   # 'valor' is the io_dtype field name
         name = names_by_index.get(index, f"out{index}")
         print(f"{index}\t{name}\t{width}\t{value}  (0x{value & ((1 << width) - 1):x})")
+
+
+# =============================================================================
+# ACTIVE: HIL redirector (proxy) -- plugs the real FPGA into a py4hw simulation.
+# Mirrors DUTProxy from HILWrapperUART.py; the transport is PCIe/XRT, not UART.
+# =============================================================================
+
+def run_inference_on_fpga(kernels, buffers, dut, values, io_dtype):
+    '''
+    Runs ONE inference on the FPGA and returns {output_port_name: value}.
+    Single source of truth for the XRT execution, shared by the proxy
+    (and optionally by HILPlatform.download(), see note below).
+    The device/kernels/buffers are created by the caller and passed in.
+    '''
+    krnl_reader, krnl_mid, krnl_writer = kernels
+    bo_in, bo_out, bo_out_map = buffers
+    n_out = len(dut.outPorts)
+
+    in_table  = build_input_table(dut, values, io_dtype)
+    out_table = build_output_table(dut, io_dtype)
+
+    # Load buffers and push them to the device
+    bo_in.write(in_table.tobytes(), 0)
+    bo_out.write(out_table.tobytes(), 0)
+    bo_in.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE,  in_table.nbytes, 0)
+    bo_out.sync(pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE, out_table.nbytes, 0)
+
+    # Launch kernels -- consumer-first ordering (prevents the output-FIFO deadlock)
+    run_writer = pyxrt.run(krnl_writer); run_writer.set_arg(n_out, bo_out)
+    run_reader = pyxrt.run(krnl_reader); run_reader.set_arg(0, bo_in)
+
+    run_writer.start()                       # consumer first
+    try:
+        pyxrt.run(krnl_mid).start()          # middle RTL kernel
+    except Exception as e:
+        print('[hil] rtl_kernel has no start() control:', e)
+    run_reader.start()                       # feeder last
+    run_reader.wait()
+    run_writer.wait()
+
+    # Read results back
+    result = copy_bo_to_array(bo_out, bo_out_map, io_dtype, len(out_table))
+    return {int(r["index"]): int(r["valor"]) for r in result}
+
+
+class DUTProxyXRT(py4hw.Logic):
+    def __init__(self, parent, name, dut, ins, outs, xclbin_path):
+        super().__init__(parent, name)
+        self.dut  = dut                      # only used to read port names/widths
+        self.inw  = ins
+        self.outw = outs
+
+        # Same port shape as the DUT, so it drops into the graph in its place
+        for i, w in enumerate(ins):
+            self.inw[i]  = self.addIn(f'in{i}', w)
+        for i, w in enumerate(outs):
+            self.outw[i] = self.addOut(f'out{i}', w)
+
+        # ---- One-time XRT setup (expensive: NOT repeated per evaluation) ----
+        self.io_dtype = make_io_dtype()
+        n_out = len(self.dut.outPorts)
+
+        self.device = pyxrt.device(0)
+        uuid = self.device.load_xclbin(xclbin_path)
+        krnl_reader = pyxrt.kernel(self.device, uuid, 'krnl_reader')
+        krnl_mid    = pyxrt.kernel(self.device, uuid, 'rtl_kernel')
+        krnl_writer = pyxrt.kernel(self.device, uuid, 'krnl_writer')
+        self.kernels = (krnl_reader, krnl_mid, krnl_writer)
+
+        # Persistent buffers, sized once from the DUT tables (reused every run)
+        in_table  = build_input_table(self.dut, {}, self.io_dtype)
+        out_table = build_output_table(self.dut, self.io_dtype)
+        bo_in  = pyxrt.bo(self.device, in_table.nbytes,  pyxrt.bo.flags.normal,
+                          krnl_reader.group_id(0))
+        bo_out = pyxrt.bo(self.device, out_table.nbytes, pyxrt.bo.flags.normal,
+                          krnl_writer.group_id(n_out))
+        self.buffers = (bo_in, bo_out, bo_out.map())
+
+    def propagate(self):
+        # 1) Read simulation inputs -> dict keyed by DUT input port name
+        values = {self.dut.inPorts[i].name: w.get() for i, w in enumerate(self.inw)}
+
+        # 2-3) Run one inference on the FPGA (shared helper)
+        by_index = run_inference_on_fpga(self.kernels, self.buffers,
+                                         self.dut, values, self.io_dtype)
+
+        # 4) Drive the simulation outputs with the results
+        for i, w in enumerate(self.outw):
+            self.outw[i].put(by_index[i])
+
+
+def createHILVitisProxy(dut, parent, name, ins, outs, xclbin_path):
+    # Factory mirroring createHILUARTProxy(): builds the redirector in 'parent'
+    return DUTProxyXRT(parent, name, dut, ins, outs, xclbin_path)
+    
 
 
 # -----------------------------------------------------------------------------
