@@ -6,11 +6,6 @@ import os
 import math
 import glob
 
-# ============================================================
-# ACTIVE (used by tb_HILWrapper_Vitis.py):
-#   createHILVitis() -> HILPlatform.build() / .download()
-#   + parse_input_values()
-# ============================================================
 
 class Axi2Reg(py4hw.Logic):
     
@@ -115,37 +110,9 @@ class Reg2Axi(py4hw.Logic):
 
         self.addOut('sent', sent)
         
-        # ----------------check this----------------------------
-        # ================= 'pending' FSM =================
-        # ORIGINAL DESIGN INTENT (kept for reference - NOT fully implemented):
-        #   pending = 1 when we have data to send but have not yet received tready.
-        #   pending_next:
-        #     - SET   when load_outs arrives (and not sent in the same cycle)
-        #     - CLEAR on handshake (tvalid & tready) => "sent"
-        #     - CLEAR on ap_start / ap_reset
-        #
-        # IMPLEMENTED BEHAVIOUR (authoritative - differs from the note above):
-        #       ---- Minimal FSM: a single 'pending' register ----
-        #   pending = 1 once load_outs latches data, until it is sent (handshake).
-        #     - SET:   pending <= 1 on load_outs (used directly as the Reg enable)
-        #     - CLEAR: pending <= 0 on ap_reset OR handshake (tvalid & tready)
-        #     - ap_start does NOT clear pending (it used to, which overwrites the
-        #       output so it was never sent and the writer blocked indefinitely;
-        #       see the reset_pending logic below).
-        #   The "not sent in the same cycle" guard is not built explicitly; it
-        #   falls out of the Reg's reset-over-enable priority.
-        # =================================================
         
-        
-        
-        
-        #remove it, not use it
+        # @todo remove it, not use it
         hlp = py4hw.LogicHelper(self)
-
-        # OLD: ap_start could clear 'pending' exactly when load_outs fired -> output never sent -> writer never completes (run.wait() never returns)
-        #rearm = self.wire('rearm')
-        #py4hw.Or(self, 'rearm_or', [ ap_start, ap_reset], rearm)
-        
 
         pending     = self.wire('pending')
         handshake   = self.wire('handshake')
@@ -154,17 +121,10 @@ class Reg2Axi(py4hw.Logic):
         # handshake = tvalid & tready  (tvalid = pending)
         py4hw.And2(self, 'and_hs',  pending, stream.tready, handshake)
 
-        # pending_set = load_outs (a new charging cycle)
-        # we use load_outs directly as a enable of Reg
-        # d is constant 1; load_outs acts as the Reg enable
         one_bit = self.wire('one', 1)
         py4hw.Constant(self, 'c1', 1, one_bit)
 
-        # Reg is set to 1 when load_outs, and is reset by rearming or handshake
         reset_pending = self.wire('reset_pending')
-        # OLD: py4hw.Or(self, 'or_rst_pending', [rearm, handshake], reset_pending)
-        # NEW: only ap_reset (or the send handshake) clears 'pending'; ap_start was overwrite it.
-        #      (schema relies on a KernelFSM -- not implemented here -- to drop ap_start before load_outs)
         py4hw.Or(self, 'or_rst_pending', [ap_reset, handshake], reset_pending)
         
         py4hw.Reg(self, 'reg_pending',
@@ -208,12 +168,6 @@ def AbstractClass(class_name):
                 )
 
 
-# ============================================================
-# Build flow inside HILPlatform.build():
-#   generate_create_project_tcl -> generate_package_tcl
-#   -> generate_reader / generate_writer / generate_connectivity
-#   -> generate_rtl_kernel (Vivado) -> generate_build_script (v++ link -> xclbin) 
-# ============================================================                      
 class HILPlatform:
     
     def __init__(self, platform, projectDir, dutName, dut):
@@ -273,11 +227,8 @@ class HILPlatform:
         generate_build_script(self.projectDir)
         
       
-    # =============HOST====================================  
     def download(self, values=None):
-        #self.platform.download(self.projectDir)
-        #print('Downloading', self.platform)
-#start added       
+        import pyxrt
         if values is None:
             values = {}
 
@@ -334,7 +285,6 @@ class HILPlatform:
         print_table_outputs_dynamic(result, self.dut)
         return {self.dut.outPorts[int(r["index"])].name: int(r["valor"]) for r in result}  # NEW
         
-#final added
         
         
         
@@ -353,9 +303,6 @@ def getDUTValidOuts(dut):
         assert(dut.outPorts[i].wire.getWidth() <= 32)
     return len(dut.outPorts)
 
-# =============================================================================
-# ACTIVE: platform construction (AXI-Stream wrapping of the DUT)
-# =============================================================================
 def createHILVitis(dut, projectDir):
     '''
     Create the platform that will be used to synthesize the FPGA version of the DUT
@@ -427,7 +374,7 @@ def createHILVitis(dut, projectDir):
     py4hw.Not(rtl_kernel, 'ap_reset', ap_rst_n, ap_reset)
     
     stream_ins = []
-    loaded_wires = []   # NEW: collect each input stream's 'loaded' flag
+    loaded_wires = [] 
         
     for i in range(num_ins):
         ip = dut.inPorts[i]
@@ -447,16 +394,10 @@ def createHILVitis(dut, projectDir):
         
 
     load_outs = rtl_kernel.wire('load_outs')
-    #py4hw.Constant(rtl_kernel, 'c_load_outs', 1, load_outs)
-    # Always load values, @todo review this
-    # OLD: load_outs hardwired to 1 -> Reg2Axi sent from cycle 0, before inputs were
-    # latched, so the writer read a stale 0 and finished.
-# NEW: send outputs only once ALL inputs have been loaded.
     if len(loaded_wires) == 1:
         py4hw.Buf(rtl_kernel, 'c_load_outs', loaded_wires[0], load_outs)
     else:
         py4hw.And(rtl_kernel, 'c_load_outs', loaded_wires, load_outs)
-#final NEW
 
     for i in range(num_outs):
         op = dut.outPorts[i]
@@ -487,13 +428,7 @@ def createHILVitis(dut, projectDir):
     return hil_plt
     
 
-# =============================================================================
-# ACTIVE: file generators used by HILPlatform.build()
-#         connectivity.cfg / krnl_reader.cpp / krnl_writer.cpp
-# =============================================================================        
 def generate_connectivity(dut, output_path):
-    
-    
     dut_kernel_name="rtl_kernel"
     reader_kernel_name="krnl_reader"
     writer_kernel_name="krnl_writer"
@@ -510,14 +445,6 @@ def generate_connectivity(dut, output_path):
     lines.append(f"nk={writer_kernel_name}:1:{writer_inst}")
     lines.append("")
 
-    # ---------------------------------------------------------------------
-    # Reader -> DUT
-    # ---------------------------------------------------------------------
-    # No clock stream: axis indices start at 0 and map 1:1 to dut.inPorts.
-    # (the old design reserved axis00 for a clk/axis2clk stream - removed):
-    # axis00 is reserved for clock / axis2clk.
-    # The rest is created from input meta["inputs"].
-    # ---------------------------------------------------------------------
 
     lines.append("# Reader -> DUT")
     #no clk stream (createHILVitis does not create one)
@@ -532,14 +459,6 @@ def generate_connectivity(dut, output_path):
 
     lines.append("")
 
-    # ---------------------------------------------------------------------
-    # DUT -> Writer
-    # ---------------------------------------------------------------------
-    # Output start after inputs:
-    #   (not now) axis00 + number of inputs of the DUT
-    # Output streams start right after the inputs: first output axis = len(dut.inPorts)
-    # ---------------------------------------------------------------------
-
     first_output_axis = len(dut.inPorts)  # before: 1 + len(dut.inPorts)
 
     lines.append("# DUT -> Writer")
@@ -550,7 +469,6 @@ def generate_connectivity(dut, output_path):
         lines.append(f"sc={dut_inst}.axis{dut_axis:02d}:{writer_inst}.s_in{i} \t # axis{dut_axis:02d} = {outp.name}")
 
     output_file = os.path.join(output_path, 'connectivity.cfg') 
-    #output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, 'w') as f:
         f.write("\n".join(lines) + "\n")
 
@@ -564,7 +482,7 @@ def generate_reader(dut, output_path):
     stream_pragmas = []
     writes = []
 
-    # s_out0 is reserved for clock / axis2clk.(not now)
+    # s_out0 will be reserved for clock / axis2clk.(not now)
     # The remaining streams correspond to the inputs of the DUT.
     total_out_streams = len(dut.inPorts)  # before: 1 + len(dut.inPorts)
 
@@ -581,7 +499,6 @@ def generate_reader(dut, output_path):
 #            comment = inp.name
 #the end of before
 
-#Now I am putting it on without the clock:
     for stream_id in range(total_out_streams):
         inp = dut.inPorts[stream_id]
         comment = inp.name
@@ -594,10 +511,9 @@ def generate_reader(dut, output_path):
     for i in range(total_out_streams):
         stream_pragmas.append(f"#pragma HLS INTERFACE axis port=s_out{i}")
 
-    # in[0] s reserved for the clock. (not now)
+    # in[0] will be reserved for the clock. (not now)
     # in[1+i] corresponds to the i input of the DUT. (not now)
     
-    # without clk: s_out0 It is no longer the clock.
     # writes.append("    s_out0.write(in[0].valor);")
     for i, inp in enumerate(dut.inPorts):
         stream_id = i      # before: i + 1
@@ -639,10 +555,8 @@ extern "C" void krnl_reader(
 {chr(10).join(writes)}
 }}
 """
-
     
     output_file = os.path.join(output_path, 'krnl_reader.cpp') 
-    #output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, 'w') as f:
         f.write(code)
 
@@ -652,16 +566,12 @@ extern "C" void krnl_reader(
 
 
 def generate_writer(dut, output_path):
-    
-
     stream_args = []
     stream_pragmas = []
     reads = []
 
     slink = ''
     for i, outp in enumerate(dut.outPorts):
-        # We always put a comma after each stream, because afterwards they come out and num.
-        #stream_args.append(f"    {slink} hls::stream<ap_uint<64>>& s_in{i}  // {outp.name}")
         stream_args.append(f"    hls::stream<ap_uint<64>>& s_in{i},  // {outp.name}")
         stream_pragmas.append(f"#pragma HLS INTERFACE axis port=s_in{i}")
         slink = ','
@@ -710,9 +620,6 @@ extern "C" void krnl_writer(
 {chr(10).join(reads)}
 }}
 """
-
-
-
     output_file = os.path.join(output_path, 'krnl_writer.cpp') 
 
     with open(output_file, 'w') as f:
@@ -720,11 +627,8 @@ extern "C" void krnl_writer(
     
     print(f"File created: {output_file}")
    
-   
     
 def strip_param_override(imports_dir):
-    # Remove the #(...) from the rtl_kernel_example instance in the wizard's top,
-    # which py4hw generates as a flat module without parameters.
     import re
     path = os.path.join(imports_dir, 'rtl_kernel.v')
     with open(path) as f:
@@ -737,15 +641,12 @@ def strip_param_override(imports_dir):
 
 
 
-# =============================================================================
-# ACTIVE: Vivado RTL kernel packaging (.xo) + xclbin build script (v++ link)
-# =============================================================================
 def generate_rtl_kernel(output_path, dutName):
     # Phase 1: project + IP wizard + example design (creates rtl_kernel_ex/imports/...)
     tcl_path = os.path.join(output_path, 'create_project.tcl')
     cmd = f'vivado -mode batch -source {tcl_path}'
     print('[RUN]', cmd)
-    os.system(cmd)    # <-- HERE Vivado (the wizard) generates rtl_kernel.v, not us
+    os.system(cmd)
 
     imports_dir = os.path.join(output_path, 'rtl_kernel_ex', 'imports')
     
@@ -757,12 +658,7 @@ def generate_rtl_kernel(output_path, dutName):
     shutil.copy(os.path.join(output_path, 'rtl_kernel_example.v'), os.path.join(imports_dir, 'rtl_kernel_example.v'))
     shutil.copy(os.path.join(output_path, f'{dutName}.v'), os.path.join(imports_dir, f'{dutName}.v'))
     
-    #added:
-    # Strip the wizard's #(...) parameter override on the rtl_kernel_example
-    # instance: py4hw emits a flat module with no parameters, so the override
-    # would fail synthesis with "parameter ... does not exist".
     strip_param_override(imports_dir)
-    
     
     # package  IP + generate  .xo 
     tcl_path = os.path.join(output_path, 'package_rtl_kernel.tcl')
@@ -847,30 +743,12 @@ echo "======================================"
     
      
 
-#!/usr/bin/env python3
-# -*- coding: latin-1 -*-
 
 import sys
 import json
 import numpy as np
-#import pyxrt
 
 
-# -----------------------------------------------------------------------------
-# Equivalent data type (hardcoded because it is part of the protocol, not the specific DUT):
-#
-# struct alignas(16) io_t {
-#     uint32_t index;
-#     uint32_t width;
-#     uint64_t valor;
-# };
-#
-# Each row occupies 16 bytes.
-# -----------------------------------------------------------------------------
-
-# =============================================================================
-# ACTIVE: host-side helpers (XRT) used by HILPlatform.download() (HOST)
-# =============================================================================
 def make_io_dtype():
     io_dtype = np.dtype(
         [
@@ -888,38 +766,6 @@ def make_io_dtype():
 
     return io_dtype
 
-
-# -----------------------------------------------------------------------------
-# Load JSON metadata file
-# -----------------------------------------------------------------------------
-# REMOVE; because we do not use it
-# ============================================================
-def load_metadata(meta_path):
-    with open(meta_path, "rb") as f:
-        raw = f.read()
-
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
-
-    meta = json.loads(text)
-
-    required_fields = [
-        "kernels",
-        "args",
-        "inputs",
-        "outputs_raw",
-    ]
-
-    for field in required_fields:
-        if field not in meta:
-            raise RuntimeError(
-                f"Required field is missing '{field}' at JSON file"
-            )
-
-    return meta
-# ============================================================
 
 # -----------------------------------------------------------------------------
 # Read values passed from the command line
@@ -989,6 +835,7 @@ def build_output_table(dut, io_dtype):
 # Copy the output XRT buffer to a numpy array.
 # -----------------------------------------------------------------------------
 def copy_bo_to_array(bo, bo_map, dtype, count):
+    import pyxrt
     size_bytes = dtype.itemsize * count
 
     bo.sync(
@@ -1034,10 +881,6 @@ def print_table_outputs_dynamic(out_table, dut):
         print(f"{index}\t{name}\t{width}\t{value}  (0x{value & ((1 << width) - 1):x})")
 
 
-# =============================================================================
-# ACTIVE: HIL redirector (proxy) -- plugs the real FPGA into a py4hw simulation.
-# Mirrors DUTProxy from HILWrapperUART.py; the transport is PCIe/XRT, not UART.
-# =============================================================================
 
 def run_inference_on_fpga(kernels, buffers, dut, values, io_dtype):
     '''
@@ -1046,6 +889,7 @@ def run_inference_on_fpga(kernels, buffers, dut, values, io_dtype):
     (and optionally by HILPlatform.download(), see note below).
     The device/kernels/buffers are created by the caller and passed in.
     '''
+    import pyxrt
     krnl_reader, krnl_mid, krnl_writer = kernels
     bo_in, bo_out, bo_out_map = buffers
     n_out = len(dut.outPorts)
@@ -1062,13 +906,32 @@ def run_inference_on_fpga(kernels, buffers, dut, values, io_dtype):
     # Launch kernels -- consumer-first ordering (prevents the output-FIFO deadlock)
     run_writer = pyxrt.run(krnl_writer); run_writer.set_arg(n_out, bo_out)
     run_reader = pyxrt.run(krnl_reader); run_reader.set_arg(0, bo_in)
+    #run_mid = pyxrt.run(krnl_mid)
 
-    run_writer.start()                       # consumer first
-    try:
-        pyxrt.run(krnl_mid).start()          # middle RTL kernel
-    except Exception as e:
-        print('[hil] rtl_kernel has no start() control:', e)
-    run_reader.start()                       # feeder last
+    run_reader.start()                       # feeder first
+    #try:
+    pyxrt.run(krnl_mid).start()       # middle RTL kernel
+    #except Exception as e:
+    # print('[hil] rtl_kernel has no start() control:', e)
+    run_writer.start()                       # consumer last
+    run_reader.wait()
+    run_writer.wait()
+    
+    run_reader.start()                       # feeder first
+    #try:
+    pyxrt.run(krnl_mid).start()       # middle RTL kernel
+    #except Exception as e:
+    # print('[hil] rtl_kernel has no start() control:', e)
+    run_writer.start()                       # consumer last
+    run_reader.wait()
+    run_writer.wait()
+    
+    run_reader.start()                       # feeder first
+    #try:
+    pyxrt.run(krnl_mid).start()       # middle RTL kernel
+    #except Exception as e:
+    # print('[hil] rtl_kernel has no start() control:', e)
+    run_writer.start()                       # consumer last
     run_reader.wait()
     run_writer.wait()
 
@@ -1080,6 +943,7 @@ def run_inference_on_fpga(kernels, buffers, dut, values, io_dtype):
 class DUTProxyXRT(py4hw.Logic):
     def __init__(self, parent, name, dut, ins, outs, xclbin_path):
         super().__init__(parent, name)
+        import pyxrt
         self.dut  = dut                      # only used to read port names/widths
         self.inw  = ins
         self.outw = outs
@@ -1120,7 +984,7 @@ class DUTProxyXRT(py4hw.Logic):
 
         # 4) Drive the simulation outputs with the results
         for i, w in enumerate(self.outw):
-            self.outw[i].put(by_index[i])
+            self.outw[i].put(by_index[i]) #---
 
 
 def createHILVitisProxy(dut, parent, name, ins, outs, xclbin_path):
@@ -1129,232 +993,10 @@ def createHILVitisProxy(dut, parent, name, ins, outs, xclbin_path):
     
 
 
-# -----------------------------------------------------------------------------
-# Main programme
-# -----------------------------------------------------------------------------
-#REMOVE - The current working host is HILPlatform.download().
-# ============================================================
-def main():
-    if len(sys.argv) < 3:
-        print(
-            f"Usage:\n"
-            f"  {sys.argv[0]} build_hw/kernel.xclbin meta.json R=135 G=206 B=235\n\n"
-            f"Example:\n"
-            f"  {sys.argv[0]} build_hw/kernel.xclbin src/meta/rgb2ycbcr_meta.json R=135 G=206 B=235",
-            file=sys.stderr,
-        )
-        return 1
-
-    xclbin_path = sys.argv[1]
-    meta_path = sys.argv[2]
-
-    # -------------------------------------------------------------------------
-    # Read metadata and input values
-    # -------------------------------------------------------------------------
-
-    meta = load_metadata(meta_path)
-    values = parse_input_values(sys.argv[3:])
-
-    io_dtype = make_io_dtype()
-
-    # -------------------------------------------------------------------------
-    # Create input and output tables
-    # -------------------------------------------------------------------------
-
-    in_table = build_input_table(meta, values, io_dtype)
-    out_table = build_output_table(meta, io_dtype)
-
-    in_size_bytes = in_table.nbytes
-    out_size_bytes = out_table.nbytes
-
-    print("\nDYNAMIC XRT HOST")
-    print(f"DUT/project: {meta.get('name', 'unnamed')}")
-    print(f"xclbin: {xclbin_path}")
-    print(f"metadata: {meta_path}")
-
-    print_table_inputs_dynamic(in_table, meta)
-
-    # -------------------------------------------------------------------------
-    # Open FPGA and load xclbin
-    # -------------------------------------------------------------------------
-
-    print(f"\nLoading xclbin: {xclbin_path}")
-
-    device = pyxrt.device(0)
-    uuid = device.load_xclbin(xclbin_path)
-
-    # -------------------------------------------------------------------------
-    # Open kernels according to the JSON
-    # -------------------------------------------------------------------------
-
-    reader_name = meta["kernels"]["reader"]
-    mid_name = meta["kernels"]["mid"]
-    writer_name = meta["kernels"]["writer"]
-
-    print("\nOpening kernels:")
-    print(f"  reader: {reader_name}")
-    print(f"  mid:    {mid_name}")
-    print(f"  writer: {writer_name}")
-
-    krnl_reader = pyxrt.kernel(device, uuid, reader_name)
-    krnl_mid = pyxrt.kernel(device, uuid, mid_name)
-    krnl_writer = pyxrt.kernel(device, uuid, writer_name)
-
-    # -------------------------------------------------------------------------
-    # Read argument indices from JSON
-    # -------------------------------------------------------------------------
-
-    reader_arg_in = int(meta["args"]["reader"]["in"])
-    reader_arg_num = int(meta["args"]["reader"]["num"])
-
-    writer_arg_out = len(self.dut.outPorts)   # streams go first, 'out' comes after them
-    writer_arg_num = int(meta["args"]["writer"]["num"])
-
-    print("\nArguments:")
-    print(f"  reader in  -> arg {reader_arg_in}")
-    print(f"  reader num -> arg {reader_arg_num}")
-    print(f"  writer out -> arg {writer_arg_out}")
-    print(f"  writer num -> arg {writer_arg_num}")
-
-    # -------------------------------------------------------------------------
-    # Create XRT buffers
-    # -------------------------------------------------------------------------
-
-    bo_in = pyxrt.bo(
-        device,
-        in_size_bytes,
-        pyxrt.bo.flags.normal,
-        krnl_reader.group_id(reader_arg_in),
-    )
-
-    bo_out = pyxrt.bo(
-        device,
-        out_table.nbytes,
-        pyxrt.bo.flags.normal,
-        krnl_writer.group_id(writer_arg_out),
-    )
-
-    # -------------------------------------------------------------------------
-    # Copy host data -> FPGA
-    # -------------------------------------------------------------------------
-
-    bo_in.write(in_table.tobytes(), 0)
-    bo_out.write(out_table.tobytes(), 0)
-
-    bo_in.sync(
-        pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE,
-        in_size_bytes,
-        0,
-    )
-
-    bo_out.sync(
-        pyxrt.xclBOSyncDirection.XCL_BO_SYNC_BO_TO_DEVICE,
-        out_size_bytes,
-        0,
-    )
-
-    # Map the output buffer to read it later
-    bo_out_map = bo_out.map()
-
-    # -------------------------------------------------------------------------
-    # Create runs
-    # -------------------------------------------------------------------------
-
-    run_reader = pyxrt.run(krnl_reader)
-    run_mid = pyxrt.run(krnl_mid)
-    run_writer = pyxrt.run(krnl_writer)
-
-    run_reader.set_arg(reader_arg_in, bo_in)
-    run_reader.set_arg(reader_arg_num, int(len(in_table)))
-
-    run_writer.set_arg(writer_arg_out, bo_out)
-    run_writer.set_arg(writer_arg_num, int(len(out_table)))
-
-    # The RTL kernel only has AXI-Stream and AXI-Lite control.  
-    # The AXI-Streams are already connected in connectivity.cfg.  
-    # Therefore we do not call set_arg() for the middle kernel.
-
-    # -------------------------------------------------------------------------
-    # Execute kernels
-    # -------------------------------------------------------------------------
-
-    print("\nExecuting writer...")
-    run_writer.start()
-
-    print("Executing RTL mid...")
-    run_mid.start()
-
-    print("Executing reader...")
-    run_reader.start()
-
-    print("\nWaiting reader...")
-    run_reader.wait()
-    print("Reader finished.")
-
-    print("Waiting RTL mid...")
-    run_mid.wait()
-    print("RTL mid finished.")
-
-    print("Waiting writer...")
-    run_writer.wait()
-    print("Writer finished.")
-
-    print("\nExecution complete.")
-
-    # -------------------------------------------------------------------------
-    # Read results FPGA -> host
-    # -------------------------------------------------------------------------
-
-    out_table_result = copy_bo_to_array(
-        bo_out,
-        bo_out_map,
-        io_dtype,
-        len(out_table),
-    )
-
-    print_table_outputs_dynamic(out_table_result, meta)
-
-    return 0    
-# ============================================================
-
-
-
-
-#---------------------------------------------------------------------------
-# Ariadna
-
-
-import argparse   #REMOVE
-import importlib  #REMOVE
 import stat
 import shutil
-from dataclasses import dataclass  #REMOVE
 from pathlib import Path
-from typing import Any  #REMOVE
 
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
-
-
-# REMOVE; because we do not use it
-# ============================================================
-
-def mkdirs(cfg: BuildConfig) -> None:
-    for directory in [
-        cfg.generated_dir,
-        cfg.rtl_dir,
-        cfg.hls_dir,
-        cfg.cfg_dir,
-        cfg.tcl_dir,
-        cfg.scripts_dir,
-        cfg.build_dir,
-        cfg.logs_dir,
-    ]:
-        directory.mkdir(parents=True, exist_ok=True)
-# ============================================================
 
 
 
@@ -1371,137 +1013,7 @@ def make_executable(p ) -> None:
     mode = path.stat().st_mode
     path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-# REMOVE; because we do not use it
-# ============================================================
-def p(path: Path) -> str:
-    return path.as_posix()
-# ============================================================
 
-# ============================================================
-# Extracting Metadata from Wires
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def get_wire_name(wire: Any) -> str:
-    """
-    Try to get the name of a wire py4hw.
-    It has been made flexible so that py4hw can store the name with different attributes.
-    """
-
-    for attr in ["name", "_name"]:
-        if hasattr(wire, attr):
-            value = getattr(wire, attr)
-            if callable(value):
-                value = value()
-            return str(value)
-
-    for method in ["getName", "get_name"]:
-        if hasattr(wire, method):
-            return str(getattr(wire, method)())
-
-    raise ValueError(f"I can not get the name of the wire: {wire}")
-# ============================================================
-
-# REMOVE; because we do not use it
-# ============================================================
-def get_wire_width(wire: Any) -> int:
-    """
-    Try to obtain the width of a wire py4hw. 
-    If it does not find a width, assume 1 bit.
-    """
-
-    for attr in ["width", "_width", "bits", "size"]:
-        if hasattr(wire, attr):
-            value = getattr(wire, attr)
-            if callable(value):
-                value = value()
-            return int(value)
-
-    for method in ["getWidth", "get_width", "getBits"]:
-        if hasattr(wire, method):
-            return int(getattr(wire, method)())
-
-    return 1
-# ============================================================
-
-
-# REMOVE; because we do not use it
-# ============================================================
-def metadata_from_ports(
-    dut: Any,
-    inputs: list[Any],
-    outputs: list[Any],
-    dut_name: str,
-) -> dict[str, Any]:
-    """
-    Generates internal metadata from the wire objects.
-
-    This metadata is automatically calculated from:
-        - list of input wires
-        - list of output wires
-    """
-
-    meta = {
-        "name": dut_name,
-        "instance_name": getattr(dut, "name", "dut"),
-        "inputs": [],
-        "outputs": [],
-    }
-
-    for index, wire in enumerate(inputs):
-        meta["inputs"].append({
-            "index": index,
-            "name": get_wire_name(wire),
-            "width": get_wire_width(wire),
-        })
-
-    for index, wire in enumerate(outputs):
-        meta["outputs"].append({
-            "index": index,
-            "name": get_wire_name(wire),
-            "width": get_wire_width(wire),
-        })
-
-    return meta
-# ============================================================
-
-
-
-
-# ============================================================
-# Calls to existing generators
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-#def generate_rtl_wrapper(meta: dict[str, Any], cfg: BuildConfig) -> None:
-
-#    raise Exception('not implemented')
-    
-# ============================================================
-
-
-# ============================================================
-# TCL for packaging the RTL as .xo
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def collect_rtl_files(cfg: BuildConfig) -> list[Path]:
-    files = []
-    files.extend(sorted(cfg.rtl_dir.glob("*.v")))
-    files.extend(sorted(cfg.rtl_dir.glob("*.sv")))
-
-    if not files:
-        raise FileNotFoundError(f"There are no RTL files in {cfg.rtl_dir}")
-
-    return files
-# ============================================================
-
-
-# =============================================================================
-# ACTIVE: TCL generators called by
-#         HILPlatform.build(). 
-#         write_text() / make_executable() above are also used by the active flow.
-# =============================================================================
 def generate_create_project_tcl(dut, dut_files, output_dir):
 
     num_ins = getDUTValidIns(dut)
@@ -1540,8 +1052,6 @@ def generate_create_project_tcl(dut, dut_files, output_dir):
     print("[OK] create_project.tcl generated")
 
 def generate_package_tcl(dut, dut_files, output_dir) -> None:
-
-
     rtl_kernel_name = 'rtl_kernel'
     rtl_xo_path = os.path.join(output_dir, rtl_kernel_name + '.xo')
 
@@ -1789,294 +1299,3 @@ package_xo -xo_path {output_dir}/rtl_kernel_ex/exports/{rtl_kernel_name}.xo -ker
     write_text(os.path.join(output_dir, 'package_rtl_kernel.tcl'), tcl)
     print("[OK] package_rtl_kernel.tcl generated")
 
-# ============================================================
-# Build script to create the xclbin
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def generate_build_script2(cfg: BuildConfig) -> None:
-    if cfg.existing_rtl_xo is None:
-        rtl_step = f"""echo "[3/4] Packing RTL..."
-vivado -mode batch -source {p(cfg.package_tcl_path)} \\
-    2>&1 | tee {p(cfg.logs_dir / "package_rtl.log")}
-"""
-    else:
-        rtl_step = f"""echo "[3/4] Skipping packaging RTL..."
-echo "An existing .xo RTL is used: {p(cfg.rtl_xo_path)}"
-
-if [ ! -f "{p(cfg.rtl_xo_path)}" ]; then
-    echo "ERROR: The expected RTL XO file does not exist: {p(cfg.rtl_xo_path)}"
-    exit 1
-fi
-"""
-
-    script = f"""#!/usr/bin/env bash
-set -euo pipefail
-
-PLATFORM="${{PLATFORM:-{cfg.platform}}}"
-TARGET="${{TARGET:-{cfg.target}}}"
-
-mkdir -p {p(cfg.build_dir)}
-mkdir -p {p(cfg.logs_dir)}
-
-echo "======================================"
-echo " BUILD XCLBIN"
-echo " PLATFORM: $PLATFORM"
-echo " TARGET:   $TARGET"
-echo "======================================"
-
-echo "[1/4] Compiling reader..."
-v++ -c -t "$TARGET" --platform "$PLATFORM" \\
-    -k {cfg.reader_kernel_name} \\
-    -o {p(cfg.reader_xo_path)} \\
-    {p(cfg.reader_cpp_path)} \\
-    2>&1 | tee {p(cfg.logs_dir / "compile_reader.log")}
-
-echo "[2/4] Compiling writer..."
-v++ -c -t "$TARGET" --platform "$PLATFORM" \\
-    -k {cfg.writer_kernel_name} \\
-    -o {p(cfg.writer_xo_path)} \\
-    {p(cfg.writer_cpp_path)} \\
-    2>&1 | tee {p(cfg.logs_dir / "compile_writer.log")}
-
-{rtl_step}
-
-echo "[4/4] Linking final XCLBIN..."
-v++ -l -t "$TARGET" --platform "$PLATFORM" \\
-    --config {p(cfg.connectivity_path)} \\
-    -o {p(cfg.xclbin_path)} \\
-    {p(cfg.reader_xo_path)} \\
-    {p(cfg.rtl_xo_path)} \\
-    {p(cfg.writer_xo_path)} \\
-    2>&1 | tee {p(cfg.logs_dir / "link_xclbin.log")}
-
-echo "======================================"
-echo "XCLBIN generated:"
-echo "{p(cfg.xclbin_path)}"
-echo "======================================"
-"""
-
-    write_text(cfg.build_script_path, script)
-    make_executable(cfg.build_script_path)
-    print("[OK] build_xclbin.sh generated")
-# ============================================================
-
-
-# ============================================================
-# output README summary
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def generate_readme(cfg: BuildConfig, meta: dict[str, Any]) -> None:
-    lines = []
-
-    lines.append("# Automatically Generated Project\n")
-    lines.append(f"- DUT: `{cfg.dut_name}`")
-    lines.append(f"- Kernel RTL: `{cfg.rtl_kernel_name}`")
-    lines.append(f"- Reader: `{cfg.reader_kernel_name}`")
-    lines.append(f"- Writer: `{cfg.writer_kernel_name}`")
-    lines.append("")
-
-    lines.append("## Detected Inputs\n")
-    for port in meta["inputs"]:
-        lines.append(f"- `{port['name']}`: {port['width']} bits")
-
-    lines.append("\n## Detected Outputs\n")
-    for port in meta["outputs"]:
-        lines.append(f"- `{port['name']}`: {port['width']} bits")
-
-    lines.append("\n## Main files\n")
-    lines.append(f"- `{cfg.dut_verilog_path}`")
-    lines.append(f"- `{cfg.wrapper_verilog_path}`")
-    lines.append(f"- `{cfg.reader_cpp_path}`")
-    lines.append(f"- `{cfg.writer_cpp_path}`")
-    lines.append(f"- `{cfg.connectivity_path}`")
-    lines.append(f"- `{cfg.package_tcl_path}`")
-    lines.append(f"- `{cfg.build_script_path}`")
-
-    lines.append("\n## How to compile\n")
-    lines.append("```bash")
-    lines.append(f"./{cfg.build_script_path}")
-    lines.append("```")
-
-    write_text(cfg.generated_dir / "README_generated.md", "\n".join(lines))
-# ============================================================
-
-# ============================================================
-# MAIN FLOW
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def generate_files_from_dut(
-    hw: Any,
-    dut: Any,
-    inputs: list[Any],
-    outputs: list[Any],
-    cfg: BuildConfig,
-) -> None:
-    """
-    Main flow:
-        DUT received
-        -> metadata extracted from wires
-        -> Verilog
-        -> wrapper
-        -> reader/writer
-        -> connectivity
-        -> TCL
-        -> build script
-    """
-
-    print("\n====================================")
-    print(" GENERATING FILES FOR XCLBIN")
-    print("====================================\n")
-
-    mkdirs(cfg)
-
-    print("[1/8] Extracting DUT metadata...")
-    meta = metadata_from_ports(
-        dut=dut,
-        inputs=inputs,
-        outputs=outputs,
-        dut_name=cfg.dut_name,
-    )
-
-    if cfg.existing_rtl_xo is None:
-        print("[2/8] Generating DUT Verilog...")
-        generate_dut_verilog(hw, dut, cfg)
-
-        print("[3/8] Generating RTL wrapper...")
-        generate_rtl_wrapper(meta, cfg)
-
-        print("[7/8] Generating RTL packaging TCL...")
-
-        generate_package_tcl(dut, dut_files, output_dir)
-
-    else:
-        print("[2/8] Skipping DUT Verilog generation...")
-        print("[3/8] Using existing RTL .xo...")
-
-        cfg.build_dir.mkdir(parents=True, exist_ok=True)
-
-        if not cfg.existing_rtl_xo.exists():
-            raise FileNotFoundError(
-                f"Specified RTL .xo does not exist: {cfg.existing_rtl_xo}\n"
-                "Check the path with: find . -name '*.xo'"
-            )
-
-        shutil.copy2(cfg.existing_rtl_xo, cfg.rtl_xo_path)
-
-        print(f"[OK] RTL .xo copied to {cfg.rtl_xo_path}")
-
-
-    print("[4/8] Generating reader.cpp...")
-    generate_reader(meta, cfg)
-
-    print("[5/8] Generating writer.cpp...")
-    generate_writer(meta, cfg)
-
-    print("[6/8] Generating connectivity.cfg...")
-    generate_connectivity(meta, cfg)
-
-    print("[8/8] Generating build script...")
-    generate_build_script(cfg)
-    generate_readme(cfg, meta)
-
-    print("\n====================================")
-    print(" FILES GENERATED SUCCESSFULLY")
-    print("====================================")
-    print(f"Generated directory: {cfg.generated_dir}")
-    print(f"To compile:")
-    print(f"  ./{cfg.build_script_path}")
-# ============================================================
-
-
-# ============================================================
-# TERMINAL EXECUTION
-# ============================================================
-# REMOVE; because we do not use it
-# ============================================================
-def load_factory(factory_path: str):
-    """
-    Load a function with format:
-        module.submodule:function
-
-    Example:
-        duts.dut_object:create_rgb2ycrcb_dut
-    """
-
-    if ":" not in factory_path:
-        raise ValueError(
-            "Invalid format. Use: module.submodule:function"
-        )
-
-    module_name, function_name = factory_path.split(":", 1)
-    module = importlib.import_module(module_name)
-    return getattr(module, function_name)
-# ============================================================
-
-
-# REMOVE; because we do not use it
-# ============================================================
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--dut-factory",
-        default="duts.dut_object:create_rgb2ycrcb_dut",
-        help="Function that returns hw, dut, inputs, outputs",
-    )
-
-    parser.add_argument("--dut-name", default="RGB2YCrCb")
-    parser.add_argument("--rtl-kernel-name", default="rtl_rgb2ycbcr")
-    parser.add_argument("--reader-kernel-name", default="krnl_reader")
-    parser.add_argument("--writer-kernel-name", default="krnl_writer")
-    parser.add_argument("--platform", default="xilinx_u55c_gen3x16_xdma_3_202210_1")
-    parser.add_argument("--target", default="hw", choices=["hw", "hw_emu", "sw_emu"])
-    parser.add_argument("--generated-dir", default="generated")
-    parser.add_argument("--build-dir", default="build_hw")
-    parser.add_argument(
-        "--existing-rtl-xo",
-        default=None,
-        help="Path to an existing RTL .xo file to reuse instead of generating it with Vivado",
-    )
-
-    return parser.parse_args()
-# ============================================================
-
-# REMOVE; because we do not use it
-# ============================================================
-def main_ariadna() -> None:
-    args = parse_args()
-
-
-    cfg = BuildConfig(
-        dut_name=args.dut_name,
-        rtl_kernel_name=args.rtl_kernel_name,
-        reader_kernel_name=args.reader_kernel_name,
-        writer_kernel_name=args.writer_kernel_name,
-        platform=args.platform,
-        target=args.target,
-        generated_dir=Path(args.generated_dir),
-        build_dir=Path(args.build_dir),
-        existing_rtl_xo=Path(args.existing_rtl_xo) if args.existing_rtl_xo else None,
-    )
-
-    factory = load_factory(args.dut_factory)
-    result = factory()
-
-    if not isinstance(result, tuple) or len(result) != 4:
-        raise ValueError(
-            "The DUT function must return exactly: "
-            "hw, dut, inputs, outputs"
-        )
-
-    hw, dut, inputs, outputs = result
-
-    generate_files_from_dut(
-        hw=hw,
-        dut=dut,
-        inputs=inputs,
-        outputs=outputs,
-        cfg=cfg,
-    )
-# ============================================================
