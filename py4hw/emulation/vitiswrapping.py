@@ -152,6 +152,7 @@ class Reg2Axi(py4hw.Logic):
         py4hw.Buf(self, 'sent_buf',   handshake, sent)
 
 
+
 def AbstractClassInit(self, parent:py4hw.Logic, name:str):
     super(self.__class__, self).__init__(parent, name)
 
@@ -739,6 +740,10 @@ echo "======================================"
     
     
     print("[OK] build_xclbin.sh generated")
+
+    os.system(build_script)
+
+    print('[OK] script executed')
 
     
      
