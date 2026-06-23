@@ -9,36 +9,6 @@ from .relational import *
 from deprecated import deprecated
 import math
 
-
-class And2(Logic):
-
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
-        """
-        Create an And2 logic gate between two wires.
-        
-        Parameters
-        ----------
-        parent : Logic
-            The parent component that contains this And2 gate.
-        name : str
-            The unique name identifier for this And2 gate instance.
-        a : Wire
-            The first input wire for the AND operation.
-        b : Wire
-            The second input wire for the AND operation.
-        r : Wire
-            The output wire that will receive the result of (a AND b).
-        
-        """
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
-
-    def propagate(self):
-        self.r.put(self.a.get() & self.b.get())
-        
-        
 class And(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
         '''
@@ -98,7 +68,59 @@ class And(Logic):
             else:
                 auxout = self.wire('and{}'.format(i+1), w)
                 
-                        
+
+class And2(Logic):
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire):
+        """
+        Create an And2 logic gate between two wires.
+        
+        Parameters
+        ----------
+        parent : Logic
+            The parent component that contains this And2 gate.
+        name : str
+            The unique name identifier for this And2 gate instance.
+        a : Wire
+            The first input wire for the AND operation.
+        b : Wire
+            The second input wire for the AND operation.
+        r : Wire
+            The output wire that will receive the result of (a AND b).
+        
+        """
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+
+    def propagate(self):
+        self.r.put(self.a.get() & self.b.get())
+        
+class AndBits(Logic):
+    def __init__(self, parent, name:str, a: Wire, r: Wire):
+        """
+        Implements an AND gate that ANDs all bits of a single input wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            The parent component containing this AND gate.
+        name : str
+            Unique identifier for this gate instance.
+        a : Wire
+            Input wire whose bits are to be ANDed.
+        r : Wire
+            Output wire that will receive the result of ANDing all bits of the input wire.
+        """
+        super().__init__(parent, name)
+        
+        self.addIn('a', a)
+        self.addOut('r', r)
+        
+        ab = self.wires('ab', a.getWidth(), 1)
+        BitsLSBF(self, 'bits', a, ab)
+        And(self, 'and', ab, r)                        
                 
 class Bit(Logic):    
     def __init__(self, parent: Logic, name: str, a: Wire, bit: int, r: Wire):
