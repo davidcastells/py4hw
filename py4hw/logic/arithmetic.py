@@ -112,6 +112,12 @@ class SignedAdd(Logic):
         
         assert(rw >= aw)
         assert(rw >= bw)
+
+        if not(ci is None):
+            self.addIn('ci', ci)
+
+        if not(co is None):
+            self.addOut('co', co)
         
         if (rw > aw): 
             sa = self.wire('sa', rw)
@@ -127,14 +133,6 @@ class SignedAdd(Logic):
             
         Add(self, 'add', sa, sb, r, ci, co, width_check=False)
         
-    # def propagate(self):
-    #     from ..helper import IntegerHelper    
-        
-    #     sa = IntegerHelper.c2_to_signed(self.a.get(), self.a.getWidth())
-    #     sb = IntegerHelper.c2_to_signed(self.b.get(), self.b.getWidth())
-    #     mask = (1 << self.r.getWidth()) - 1
-    #     newValue = (sa + sb) & mask
-    #     self.r.put(newValue)
         
 class AddCarryIn(Logic):
 
