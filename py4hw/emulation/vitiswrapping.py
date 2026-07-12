@@ -9,11 +9,11 @@ import glob
 
 class Axi2Reg(py4hw.Logic):
     
-    def __init__(self, parent, name, ap_start, ap_reset, stream:axi.AXI4StreamInterface, q, loaded):
+    def __init__(self, parent, name, ap_start, ap_reset, ap_done, stream:axi.AXI4StreamInterface, q, loaded, active):
         '''
         Captures the first 64 bits of an AXI4-Stream word into a register.
         Translates the Verilog axi2reg module.
-        Remember that in a kernel ap_start always comes before the inputs are pushed to the AXI streams.
+        We should allow AXI stream transactions when the kernel has been started.
 
         Parameters
         ----------
@@ -26,6 +26,8 @@ class Axi2Reg(py4hw.Logic):
             Kernel start signal.
         ap_reset : Wire
             Kernel reset signal.
+        ap_done : Wire
+            Kernel done signal.
         stream : axi.AXI4StreamInterface
             AXI streaming interface that we will acquire.
         q : Wire
@@ -44,40 +46,159 @@ class Axi2Reg(py4hw.Logic):
 
         self.addIn("ap_start", ap_start)
         self.addIn("ap_reset", ap_reset)
+        self.addIn("ap_done", ap_done)
         
         self.addInterfaceSink('', stream)
         
         self.addOut("q", q)
         self.addOut("loaded", loaded)
-
-        py4hw.Constant(self, "tready", 1, stream.tready)
+        self.addOut("active", active)
         
         # 3. Handshake Logic (valid && ready)
-        handshake = py4hw.Wire(self, "handshake", 1)
-        py4hw.And2(self, "and_handshake", stream.tvalid, stream.tready, handshake)
+        handshake = self.wire("handshake")
+        active_handshake = self.wire('active_handshake')
+        inactive = self.wire('inactive')
+        ap_start_inactive = self.wire('ap_start_inactive')
+        
+        
+        py4hw.Not(self, 'inactive', active, inactive)
+        py4hw.And2(self, "handshake", stream.tvalid, stream.tready, handshake)
+        py4hw.And2(self, 'ap_start_inactive', inactive, ap_start, ap_start_inactive)
+        py4hw.And2(self, 'active_handshake', active, handshake, active_handshake)
 
-        # 4. Extract first 64 bits of tdata
-        tdata_64 = py4hw.Wire(self, "tdata_64", 64)
-        py4hw.Range(self, "range_data", stream.tdata, 63, 0, tdata_64)
+        # 4. Extract relevant bits from tdata
+        tdata = py4hw.Wire(self, "tdata", q.getWidth())
+        py4hw.Range(self, "range_data", stream.tdata, q.getWidth()-1, 0, tdata)
 
-        # 5. Register for reg_out
-        # In Verilog: if (handshake) reg_out <= data; else if (areset) reg_out <= 0;
-        # py4hw.Reg(parent, name, d, q, enable, reset, reset_value)
-        py4hw.Reg(self, "reg_data", d=tdata_64, q=q, enable=handshake, reset=ap_reset)
-
+        
         # 6. Logic for 'loaded'
         # 'loaded' goes to 1 on the handshake (ready & valid) and stays set 
-        # It is cleared only by a real reset (ap_reset), not by ap_start
-       
+        # It is cleared only by a real reset (ap_reset), and by ap_start
+        reset_loaded = self.wire('reset_loaded')
+        py4hw.Or(self, 'reset_loaded', [ap_reset, ap_start_inactive, ap_done], reset_loaded)
         
-        py4hw.Reg(self, "loaded", d=handshake, q=loaded, enable=handshake, reset=ap_reset)
+        py4hw.Reg(self, "reg_data", d=tdata, q=q, enable=active_handshake, reset=reset_loaded)
+        py4hw.Reg(self, "loaded", d=active_handshake, q=loaded, enable=active_handshake, reset=reset_loaded)
+
+        # We will set the module to active (and ready in the AXI stream) if the ap_start
+        # was asserted, it will return to inactive on ap_done
+        
+        reset_active = self.wire('reset_active')
+        py4hw.Or2(self, 'reset_active', ap_reset, ap_done, reset_active)
+        py4hw.Reg(self, 'active', d=ap_start, enable=ap_start, reset=reset_active, q=active)
+        py4hw.Buf(self, 'tready', active, stream.tready)
 
 
-  
+class Axi2ClkFSM(py4hw.Logic):
+    def __init__(self, parent, name, active_handshake, clk_target, reset_clk_count, clk_count, clk_out, load_outs):
+        super().__init__(parent, name)
+        
+        self.active_handshake = self.addIn('active_handshake', active_handshake)
+        self.clk_target = self.addIn('clk_target', clk_target)
+        self.reset_clk_count = self.addIn('reset_clk_count', reset_clk_count)
+        self.clk_count = self.addOut('clk_count', clk_count)
+        self.clk_out = self.addOut('clk_out', clk_out)
+        self.load_outs = self.addOut('load_outs', load_outs)
+        
+        self.state = 0 # 0 = IDLE
+        self.target = 0
+        
+    def clock(self):
+        if (self.state == 0): # IDLE
+            self.load_outs.prepare(0)
+            if (self.active_handshake.get()):
+                self.state = 1 # RUNNING_LOW
+                self.target = self.clk_target.get() 
+            else:
+                self.clk_count.prepare(0)
+                self.clk_out.prepare(0)
+        elif (self.state == 1): # RUNNING_LOW
+            self.state = 2 # RUNNIN_HIGH
+            self.clk_count.prepare(self.clk_count.get() + 1)
+            self.clk_out.prepare(1)
+        elif (self.state == 2): # RUNNING_HIGH
+            self.clk_out.prepare(0)
+            if (self.clk_count.get() == self.target):
+                self.state = 3 # END
+            else:
+                self.state = 1 # RUNNING LOW
+                
+        elif (self.state == 3): # END
+            self.load_outs.prepare(1)
+            self.state = 0
+          
+              
+            
+        
+class Axi2Clk(py4hw.Logic):
+    def __init__(self, parent, name, ap_start, ap_reset, ap_done, stream:axi.AXI4StreamInterface, clk_out, load_outs, active):
+        '''
+        SUMMARY.
+
+        Parameters
+        ----------
+        parent : TYPE
+            DESCRIPTION.
+        name : TYPE
+            DESCRIPTION.
+        ap_start : TYPE
+            DESCRIPTION.
+        ap_reset : TYPE
+            DESCRIPTION.
+        ap_done : TYPE
+            DESCRIPTION.
+        stream : axi.AXI4StreamInterface
+            DESCRIPTION.
+        clk_out : TYPE
+            DESCRIPTION.
+        load_outs : TYPE
+            DESCRIPTION.
+        active : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None
+        '''
+        super().__init__(parent, name)
+
+        # Add Ports
+
+        self.addIn("ap_start", ap_start)
+        self.addIn("ap_reset", ap_reset)
+        self.addIn("ap_done", ap_done)
+        
+        self.addInterfaceSink('', stream)
+        
+        self.addOut("clk_out", clk_out)
+        self.addOut("load_outs", load_outs)
+        self.addOut("active", active)
+        
+        handshake = self.wire("handshake")
+        active_handshake = self.wire('active_handshake')
+        inactive = self.wire('inactive')
+        ap_start_inactive = self.wire('ap_start_inactive')
+        
+        py4hw.Not(self, 'inactive', active, inactive)
+        py4hw.And2(self, "handshake", stream.tvalid, stream.tready, handshake)
+        py4hw.And2(self, 'ap_start_inactive', inactive, ap_start, ap_start_inactive)
+        py4hw.And2(self, 'active_handshake', active, handshake, active_handshake)
+        
+        reset_clk_count = self.wire('reset_clk_count')
+        clk_count = self.wire('clk_count', 64)
+        py4hw.Or(self, 'reset_clk_count', [ap_reset, ap_done, ap_start], reset_clk_count)
+        
+        Axi2ClkFSM(self, 'clk_count', active_handshake, stream.tdata, reset_clk_count, clk_count, clk_out, load_outs)
+        
+        reset_active = self.wire('reset_active')
+        py4hw.Or2(self, 'reset_active', ap_reset, ap_done, reset_active)
+        py4hw.Reg(self, 'active', d=ap_start, enable=ap_start, reset=reset_active, q=active)
+        py4hw.Buf(self, 'tready', active, stream.tready)
+        
 class Reg2Axi(py4hw.Logic):
 
-    def __init__(self, parent, name, ap_start, ap_reset, load_outs,
-                 reg_in, stream: axi.AXI4StreamInterface, sent):
+    def __init__(self, parent, name, ap_start, ap_reset, ap_done, load_outs,
+                 reg_in, stream: axi.AXI4StreamInterface, sent, active):
         '''
         Sends a register value out through an AXI4-Stream interface.
         Translates the Verilog reg2axi module.
@@ -89,6 +210,7 @@ class Reg2Axi(py4hw.Logic):
         reset : Wire        -- areset
         ap_start : Wire     -- ap_start (rearm)
         ap_reset : Wire     -- ap_reset (rearm)
+        ap_done : Wire     -- ap_done (rearm)
         load_outs : Wire    -- pulse that means "load the outputs"
         reg_in : Wire       -- value to send (W bits)
         stream : AXI4StreamInterface  -- output AXI-Stream (master)
@@ -97,61 +219,114 @@ class Reg2Axi(py4hw.Logic):
         super().__init__(parent, name)
 
         W = reg_in.getWidth()
-        AXIS_W = stream.tdata.getWidth()
-
+        
         # Ports
 
         self.addIn('ap_start',  ap_start)
         self.addIn('ap_reset',  ap_reset)
+        self.addIn('ap_done',  ap_done)
         self.addIn('load_outs', load_outs)
         self.addIn('reg_in',    reg_in)
 
         self.addInterfaceSource('', stream)   # master: we generate tvalid
 
         self.addOut('sent', sent)
+        self.addOut('active', active)
         
+        handshake = self.wire("handshake")
+        active_handshake = self.wire('active_handshake')
+        inactive = self.wire('inactive')
+        ap_start_inactive = self.wire('ap_start_inactive')
         
-        # @todo remove it, not use it
-        hlp = py4hw.LogicHelper(self)
 
-        pending     = self.wire('pending')
-        handshake   = self.wire('handshake')
-        pending_set = self.wire('pending_set')   # load_outs & ~handshake; not use it
+        py4hw.Not(self, 'inactive', active, inactive)
+        py4hw.And2(self, "handshake", stream.tvalid, stream.tready, handshake)
+        py4hw.And2(self, 'ap_start_inactive', inactive, ap_start, ap_start_inactive)
+        py4hw.And2(self, 'active_handshake', active, handshake, active_handshake)
 
-        # handshake = tvalid & tready  (tvalid = pending)
-        py4hw.And2(self, 'and_hs',  pending, stream.tready, handshake)
 
         one_bit = self.wire('one', 1)
         py4hw.Constant(self, 'c1', 1, one_bit)
 
-        reset_pending = self.wire('reset_pending')
-        py4hw.Or(self, 'or_rst_pending', [ap_reset, handshake], reset_pending)
+        reset_tvalid = self.wire('reset_tvalid')
+        py4hw.Or(self, 'reset_tvalid', [ap_reset, active_handshake], reset_tvalid)
         
-        py4hw.Reg(self, 'reg_pending',
-                  d=one_bit, q=pending,
-                  enable=load_outs,
-                  reset=reset_pending)
+        set_tvalid = self.wire('set_tvalid')
+        py4hw.And2(self, 'set_tvalid', load_outs, active, set_tvalid)
+        py4hw.Reg(self, 'tvalid', d=set_tvalid, q=stream.tvalid, enable=set_tvalid, reset=reset_tvalid)
 
-        # tvalid = pending
-        py4hw.Buf(self, 'tvalid_buf', pending, stream.tvalid)
-
+        
         # tdata: reg_in in the lower bits, zeros to the rest
-        py4hw.ZeroExtend(self, 'tdata_ext', reg_in, stream.tdata)
+        py4hw.Reg(self, 'tdata_ext', d=reg_in, enable=set_tvalid,  q=stream.tdata)
 
         # tkeep: ceil(W/8) valid bytes to the lower bits
         #import math (#REMOVE, it is already on top)
         n_bytes_valid = math.ceil(W / 8)
-        n_bytes_total = AXIS_W // 8    #not use it
         tkeep_val = (1 << n_bytes_valid) - 1   # e.g. W=32 -> 0xF, W=8 -> 0x1
         py4hw.Constant(self, 'tkeep_const', tkeep_val, stream.tkeep)
 
         # tlast = tvalid (single-beat package)
-        py4hw.Buf(self, 'tlast_buf',  pending, stream.tlast)
+        py4hw.Buf(self, 'tlast_buf',  stream.tvalid, stream.tlast)
 
         # sent = handshake
-        py4hw.Buf(self, 'sent_buf',   handshake, sent)
+        reset_sent = self.wire('reset_sent')
+        py4hw.Or(self, 'reset_sent', [ap_reset, ap_start_inactive, ap_done], reset_sent)
+        py4hw.Reg(self, 'sent',  d=active_handshake,  enable=active_handshake, reset=reset_sent, q=sent)
+
+        
+        reset_active = self.wire('reset_active')
+        py4hw.Or2(self, 'reset_active', ap_reset, ap_done, reset_active)
+        py4hw.Reg(self, 'active', d=ap_start, enable=ap_start, reset=reset_active, q=active)
 
 
+
+class VitisKernelFSM(py4hw.Logic):
+    # the sequence to activate ap_done should be
+    # IDLE -> ap_start -> load_outs -> all (sent) -> ap_done -> IDLE
+
+    def __init__(self, parent, name, ap_start, ap_reset, ap_done, ap_idle, ap_ready, load_outs, all_sent):
+        super().__init__(parent, name)
+        
+        self.ap_start = self.addIn('ap_start', ap_start)
+        self.ap_reset = self.addIn('ap_reset', ap_reset)
+        self.ap_done = self.addOut('ap_done', ap_done)
+        self.ap_idle = self.addOut('ap_idle', ap_idle)
+        self.ap_ready = self.addOut('ap_ready', ap_ready)
+        self.load_outs = self.addIn('load_outs', load_outs)
+        self.all_sent= self.addIn('all_sent', all_sent)
+            
+        self.state = 0
+            
+    def clock(self):
+        if (self.state == 0): # IDLE
+            if (self.ap_start.get()):
+                self.state = 1
+                self.ap_idle.prepare(0)
+                self.ap_ready.prepare(1)
+                self.ap_done.prepare(0)
+            else:
+                self.ap_idle.prepare(1)
+                self.ap_ready.prepare(1)
+                self.ap_done.prepare(0)
+                
+        elif (self.state == 1): # STARTED
+            if (self.load_outs.get()):
+                self.ap_ready.prepare(0)
+                self.state = 2
+                
+        elif (self.state == 2): # OUTPUTS LOADED
+            if (self.all_sent.get()):
+                self.ap_done.prepare(1)
+                self.state = 3 # DONE
+                
+        elif (self.state == 3): # DONE
+            self.ap_done.prepare(0)
+            self.state = 0
+        else:
+            print('Invalid state')
+            self.state = 0
+            
+    
 
 def AbstractClassInit(self, parent:py4hw.Logic, name:str):
     super(self.__class__, self).__init__(parent, name)
@@ -168,6 +343,13 @@ def AbstractClass(class_name):
                 }
                 )
 
+
+class VitisRTLKernel(py4hw.HWSystem):
+    
+    def __init__(self):
+        super().__init__()
+        clk_wire = self.wire('ap_clk')
+        self.clockDriver =  py4hw.ClockDriver('ap_clk', freq=50E6, phaseOffset=0, wire=clk_wire)
 
 class HILPlatform:
     
@@ -309,8 +491,12 @@ def createHILVitis(dut, projectDir):
     Create the platform that will be used to synthesize the FPGA version of the DUT
     
     '''
-    platform = py4hw.HWSystem()
-    platform.clockDriver =  py4hw.ClockDriver('ap_clk', 50E6, 0, wire=platform.wire('ap_clk'))
+    platform = VitisRTLKernel()
+    
+    
+    # We can have two strategies to create the HIL platform regarding the DUT.
+    # 1.- We can generate the Verilog file for the DUT and create a fake black box wrapper
+    # 2. -We could duplicate the DUT under the new platform hierarchy
     
     dutStructureNameWithoutInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=True)
     dutStructureNameWithInstanceNumber = py4hw.getVerilogModuleName(dut, noInstanceNumber=False)
@@ -318,9 +504,6 @@ def createHILVitis(dut, projectDir):
     # use instance number if necessary
     dutStructureName = dutStructureNameWithoutInstanceNumber if (dutStructureNameWithoutInstanceNumber == dutStructureNameWithInstanceNumber) else dutStructureNameWithInstanceNumber
 
-    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  
-    
-    
     if not(os.path.exists(projectDir)):
         print('Creating the directory', projectDir)
         os.makedirs(projectDir)
@@ -336,15 +519,8 @@ def createHILVitis(dut, projectDir):
         file.write(rtl_code)
             
     # Create the wrapping elements -----------------------------------------------------
+    hil_plt = HILPlatform(platform, projectDir, dutStructureName, dut)  
     
-    ready_req = platform.wire('ready_req')
-    valid_req = platform.wire('valid_req')
-    c_req = platform.wire('c_req', 8)
-    
-    ser_ready = platform.wire('ser_ready')
-    ser_valid = platform.wire('ser_valid')
-    ser_v = platform.wire('ser_v', 8)
-
     num_ins = getDUTValidIns(dut)
     num_outs = getDUTValidOuts(dut)
     
@@ -390,8 +566,9 @@ def createHILVitis(dut, projectDir):
         stream_in = rtl_kernel.addInterfaceSink(f'axis{i:02}', stream_in)
 	
         loaded = rtl_kernel.wire(f'loaded{i}')
+        active = rtl_kernel.wire(f'axi2reg_active{i}')
         loaded_wires.append(loaded)   # NEW
-        Axi2Reg(rtl_kernel, f'axis{i:02}',  ap_start, ap_reset, stream_in, in_wire, loaded)
+        Axi2Reg(rtl_kernel, f'axis{i:02}',  ap_start, ap_reset, ap_done, stream_in, in_wire, loaded, active)
         
 
     load_outs = rtl_kernel.wire('load_outs')
@@ -412,8 +589,9 @@ def createHILVitis(dut, projectDir):
         stream_out = rtl_kernel.addInterfaceSource(f'axis{num_ins + i:02}', stream_out)
 
         sent = rtl_kernel.wire(f'sent{i}')
-        Reg2Axi(rtl_kernel, f'reg2axi{i}', ap_start, ap_reset, load_outs, out_wire, stream_out, sent)
-
+        active = rtl_kernel.wire(f'reg2axi_active{i}')
+        Reg2Axi(rtl_kernel, f'reg2axi{i}', ap_start, ap_reset, ap_done, load_outs, out_wire, stream_out, sent, active)
+        
 
     # Black Box Placeholder
     abstract_class = AbstractClass(dutStructureName)
