@@ -12,7 +12,7 @@ from deprecated import deprecated
 
 class Add(Logic):
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=False):
         """
         Initialize the Add logic circuit.
 
@@ -27,7 +27,8 @@ class Add(Logic):
         b : Wire
             Second input wire.
         r : Wire
-            Output wire.
+            Output wire. If width_check is True its width must be at least equal
+            or bigger than the maximum width of a and b
         ci : Wire, optional
             Carry-in wire. Defaults to None.
         co : Wire, optional
@@ -53,7 +54,7 @@ class Add(Logic):
         rw = r.getWidth()
         
         if (co is None):
-            if (width_check): assert((rw  - max(aw,bw)) in [0,1])
+            if (width_check): assert((rw  - max(aw,bw)) >= 0)
             AddCarryIn(self, "add", a, b, r, ci)
             self.co = None
         else:
