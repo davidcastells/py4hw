@@ -181,6 +181,21 @@ class Test_RtlGeneration:
         rtlgen = py4hw.VerilogGenerator(sys)
         print(rtlgen.getVerilogForHierarchy(dut))
         
+    def test_behavioral_Axi2ClkFSM(self):
+        from py4hw.emulation.vitiswrapping import Axi2ClkFSM
+        hw = py4hw.HWSystem()
+        
+        active_handshake = hw.wire('active_handshake')
+        clk_target = hw.wire('clk_target', 64)
+        reset_clk_count = hw.wire('reset_clk_count')
+        clk_count = hw.wire('clk_count', 64)
+        clk_out = hw.wire('clk_out')
+        load_outs = hw.wire('load_outs')
+        
+        dut = Axi2ClkFSM(hw, 'fsm', active_handshake, clk_target, reset_clk_count, clk_count, clk_out, load_outs)
+                  
+        rtlgen = py4hw.VerilogGenerator(hw)
+        print(rtlgen.getVerilogForHierarchy(dut))
     
         
 if __name__ == '__main__':
