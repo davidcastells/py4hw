@@ -667,17 +667,35 @@ class ExtractInitializers(ast.NodeTransformer):
             self.top.wires.wires.append(w)
             return None
         
-        elif (isinstance(node.value, ast.Num)):
+        # Change ast.Num to ast.Constant and check if the value is an int or float
+        elif isinstance(node.value, ast.Constant):
             vname = node.targets[0].attr
-            var = VerilogVariable(vname, type(node.value.n))
+            
+            assert isinstance(node.value.value, int), 'Value should be integer'
+            
+            # Change node.value.n to node.value.value
+            var = VerilogVariable(vname, type(node.value.value))
             self.top.wires.variables.append(var)
             node = VerilogVariableAssignment(var, node.value)
             node = ast.NodeTransformer.generic_visit(self, node)
             self.top.init.body.append(node)
-
+        
             # save variable
             self.variables[vname] = VerilogVariableDeclaration(vname, 'integer')
             return None
+
+        # ast.Num was deprecated after Python 3.8
+        # elif (isinstance(node.value, ast.Num)):
+        #     vname = node.targets[0].attr
+        #     var = VerilogVariable(vname, type(node.value.n))
+        #     self.top.wires.variables.append(var)
+        #     node = VerilogVariableAssignment(var, node.value)
+        #     node = ast.NodeTransformer.generic_visit(self, node)
+        #     self.top.init.body.append(node)
+
+        #     # save variable
+        #     self.variables[vname] = VerilogVariableDeclaration(vname, 'integer')
+        #     return None
         
         elif (isinstance(node.value, ast.Name)):
             #return VerilogConstant(getattr(self.obj, node.value.id))
