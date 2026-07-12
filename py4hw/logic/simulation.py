@@ -634,21 +634,23 @@ class Scope(Logic):
 
 
 class Sequence(Logic):
-    """
-    A sequence of value
-    """
-
-    def __init__(self, parent: Logic, name: str, values: list(), r: Wire):
+    def __init__(self, parent: Logic, name: str, values: list(), r: Wire, once=False):
         super().__init__(parent, name)
         self.r = self.addOut("r", r)
 
         self.values = values
         self.n = len(values)
         self.i = 0
+        self.once = once
         
     def clock(self):
         self.r.prepare(self.values[self.i])
-        self.i = ( self.i +1 ) % self.n
+        
+        if (self.once):
+            if (self.i < (self.n - 1)):
+                self.i += 1
+        else:
+            self.i = ( self.i +1 ) % self.n
 
 
 class RandomValue(Logic):
