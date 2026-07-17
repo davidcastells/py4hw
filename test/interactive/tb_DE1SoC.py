@@ -138,5 +138,5 @@ vga_pattern.clockDriver = py4hw.ClockDriver('clk25', 25E6, wire=vga_clk)
 py4hw.gui.Workbench(sys)
 
 dir = '/tmp/testDE1SoC'
-#sys.build(dir)
+sys.build(dir)
 sys.download(dir)
