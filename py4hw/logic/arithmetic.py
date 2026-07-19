@@ -1010,6 +1010,66 @@ class RotateLeft(Logic):
             
         Buf(self, 'r', prer, r)
 
+
+class StepUpCounter(Logic):
+    def __init__(self, parent, name: str, reset: Wire, inc: Wire, step:Wire, q: Wire):
+        """
+        Initialize the StepUpCounter logic circuit.
+
+        This circuit counts up in steps. If we overflow, it adds to the reminder.
+        The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        reset : Wire
+            Input wire to reset the counter to zero.
+        inc : Wire
+            Input wire to increment the counter.
+        step : Wire
+            Input wire to increment the counter.            
+        q : Wire
+            Output wire containing the current count value.
+        """
+        super().__init__(parent, name)
+        
+        from .bitwise import Constant
+        from .bitwise import Or2
+        from .bitwise import Mux2
+        from .storage import Reg
+        
+        if not(reset is None):
+            reset = self.addIn('reset', reset)
+        if not(inc is None):
+            inc = self.addIn('inc', inc)
+        
+        step = self.addIn('step', step)
+        q = self.addOut('q', q)
+    
+        zero = self.wire('zero', q.getWidth())
+        add = self.wire('add', q.getWidth())
+        d = self.wire('d', q.getWidth())
+        d1 = self.wire('d1', q.getWidth())
+        e_add = self.wire('e_add', 1)
+        
+        Constant(self, 'zero', 0, zero)
+        
+        if (inc is None):
+            inc = one
+        if (reset is None):
+            reset = zero
+            
+        Mux2(self, 'muxinc', inc, q, add, d1)
+        Mux2(self, 'muxreset', reset, d1, zero, d)
+
+        #py4hw.Select(self, 'select', [reset, inc], [zero, add], d)
+        Or2(self, 'e_add', reset, inc, e_add)
+        #py4hw.Mux(self, 'mux', )
+        Add(self, 'add', q, step, add)
+        Reg(self, 'reg', d, q, e_add)
         
 class BinaryToBCD(Logic):
     
