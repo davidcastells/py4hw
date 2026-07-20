@@ -1,6 +1,32 @@
 import py4hw
 from py4hw.emulation.verilatorwrapping import *
 
+
+import os
+import sys
+import subprocess
+
+try:
+    import pybind11
+except ImportError:
+    print(
+        "ERROR: pybind11 is not installed.\n"
+        "Please install it using: pip install pybind11\n"
+        "If you're using a virtual environment, make sure it's activated."
+    )
+    sys.exit(1)
+
+# Check if the pybind11 headers are available
+try:
+    import pybind11.get_include
+    include_dir = pybind11.get_include()
+    print(f"pybind11 headers found at: {include_dir}")
+except Exception as e:
+    print(f"Warning: Could not find pybind11 headers: {e}")
+    print("Make sure pybind11 is properly installed.")
+
+
+
 hw = py4hw.HWSystem()
 
 rst_n = hw.wire('rst_n')
