@@ -30,9 +30,25 @@ py4hw.Constant(hw, 'step', FTW, step)
 py4hw.Constant(hw, 'inc', 1, inc)
 
 sc = py4hw.StreamCaptureSigned(hw, 'sin', sin_out)
+an = py4hw.StreamCapture(hw, 'angle', angle_in)
 
-py4hw.gui.Workbench(hw)
+#py4hw.gui.Workbench(hw)
+hw.getSimulator().clk(300)
 
 import matplotlib.pyplot as plt
-plt.plot(sc.data)
+
+# Create a figure with 2 rows and 1 column
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+# Plot on the first subplot
+ax1.plot(sc.data, label='sin wave', color='blue')
+ax1.legend()
+ax1.grid(True)
+
+# Plot on the second subplot
+ax2.plot(an.data, label='angle', color='orange')
+ax2.legend()
+ax2.grid(True)
+
+plt.tight_layout()
 plt.show()
