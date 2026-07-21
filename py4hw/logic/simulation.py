@@ -652,7 +652,33 @@ class Sequence(Logic):
         else:
             self.i = ( self.i +1 ) % self.n
 
+class StreamCapture(Logic):
+    def __init__(self, parent, name, x):
+        super().__init__(parent, name)
+        self.x = self.addIn('x', x)
+        
+        self.data = []
+        
+    def clock(self):
+        self.data.append(self.x.get())
 
+    def clear(self):
+        self.data = []
+
+class StreamCaptureSigned(Logic):
+    def __init__(self, parent, name, x):
+        super().__init__(parent, name)
+        self.x = self.addIn('x', x)
+        
+        self.data = []
+        
+    def clock(self):
+        import py4hw
+        self.data.append(py4hw.IntegerHelper.c2_to_signed(self.x.get(), self.x.getWidth()))
+
+    def clear(self):
+        self.data = []   
+        
 class RandomValue(Logic):
     def __init__(self, parent, name, r, mean, stddev):
         super().__init__(parent, name)
