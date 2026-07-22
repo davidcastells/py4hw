@@ -26,6 +26,9 @@ def strip(line):
 
     return line
 
+class TranspilationException(Exception):
+    pass
+
 def createVerilogBody(node, slist=''):
     # the Module node contains a body, that contains a list, containting
     # a function definition with a body
@@ -63,6 +66,7 @@ class Python2VerilogTranspiler:
         
         module = self.getMethodAST('__init__')
         node = createVerilogBody(module.body)
+        
         
         
         initExtracter = ExtractInitializers(self.obj)
@@ -125,6 +129,7 @@ class Python2VerilogTranspiler:
         node = createVerilogBody(module.body)
         
         initExtracter = ExtractInitializers(self.obj)
+        
         init = initExtracter.visit(node)
         
         if hasattr(self.obj, 'initial'):
@@ -325,6 +330,11 @@ class PropagateConstants(ast.NodeTransformer):
     
 class ReplaceIf(ast.NodeTransformer):
     # Transforms Python If into Verilog If
+    
+    def __init__(self):
+        super().__init__()
+        self.inCall = False
+        
     def visit_If(self, node):
         condition = self.visit(node.test)
         
@@ -336,7 +346,16 @@ class ReplaceIf(ast.NodeTransformer):
         #node2 = ast.NodeTransformer.generic_visit(self, node2)
         return node2
         
+    def visit_Call(self, node):
+        self.inCall = True
+        transformed_node = self.generic_visit(node)
+        self.inCall = False
+        return transformed_node
+    
     def visit_IfExp(self, node):
+        if (self.inCall):
+            raise TranspilationException('Ternary "if" inside a call not supported')
+            
         """Transforms Python ternary if-expressions into VerilogIf"""
         condition = self.visit(node.test)
         positive = [self.visit(node.body)]  # Wrap in list to match VerilogIf structure
@@ -577,9 +596,16 @@ class ReplaceWiresAndVariables(ast.NodeTransformer):
         self.variables[name] = VerilogVariableDeclaration(name, 'integer')
         return VerilogVariable(name, 'integer')
     
+
 class ReplaceConstant(ast.NodeTransformer):
-    # Replace Python Constant by a Verilog Constant
+    def __init__(self):
+        super().__init__()
+
     def visit_Constant(self, node):
+        if isinstance(node.value, bool):
+            #raise TranspilationException("Boolean constants not supported! Use integers.")
+            return VerilogConstant(int(node.value))
+        
         return VerilogConstant(node.value)
     
     def visit_Num(self, node):
@@ -624,6 +650,18 @@ class ExtractInitializers(ast.NodeTransformer):
     # we get variables from  simple assignments like self.state = 0 in the constructor
     
     # we get arguments from simple assignments like self.n = n
+    '''
+    The goal of this class is to collect information from the constructor of the class.
+    We want to know variable declarations and initializations.
+    
+    things like 
+    - self.state = 0
+    - self.add = add (where add is a parameter of the constructor)
+    
+    What we will collect are
+    - existing variables
+    - existing class arguments
+    '''
     
     ports = {}
     variables = {}
@@ -646,7 +684,10 @@ class ExtractInitializers(ast.NodeTransformer):
     def visit_Assign(self, node):
         from py4hw.rtl_generation import getAstName
 
+        
+        
         if (isinstance(node.value, ast.Call)):
+            # We record wires that are used in addIn, addOut calls...
             fname = getAstName(node.value.func)
             pname = ''
             
@@ -670,13 +711,22 @@ class ExtractInitializers(ast.NodeTransformer):
         # Change ast.Num to ast.Constant and check if the value is an int or float
         elif isinstance(node.value, ast.Constant):
             vname = node.targets[0].attr
+            vvalue = node.value.value
+            nvalue = node.value
             
-            assert isinstance(node.value.value, int), 'Value should be integer'
+            
+            if (isinstance(vvalue, bool)):
+                # Convert boolean values to integers
+                vvalue = int(vvalue)
+                nvalue = VerilogConstant(vvalue)
+                
+            if not(isinstance(vvalue, int)):
+                raise TranspilationException(f'Value should be integer {ast.unparse(node)}')
             
             # Change node.value.n to node.value.value
-            var = VerilogVariable(vname, type(node.value.value))
+            var = VerilogVariable(vname, type(vvalue))
             self.top.wires.variables.append(var)
-            node = VerilogVariableAssignment(var, node.value)
+            node = VerilogVariableAssignment(var, nvalue)
             node = ast.NodeTransformer.generic_visit(self, node)
             self.top.init.body.append(node)
         
@@ -700,8 +750,10 @@ class ExtractInitializers(ast.NodeTransformer):
         elif (isinstance(node.value, ast.Name)):
             #return VerilogConstant(getattr(self.obj, node.value.id))
             vname = node.targets[0].attr
+            print('Assign ', vname , '=', node.value)
             self.arguments[vname] = VerilogConstant(getattr(self.obj, node.value.id))
             return None
+        
         else:
             raise Exception(f'Assign not handled: {ast.unparse(node)} type:', type(node.value) )
         
