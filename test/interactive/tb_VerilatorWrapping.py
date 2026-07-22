@@ -1,6 +1,32 @@
 import py4hw
 from py4hw.emulation.verilatorwrapping import *
 
+
+import os
+import sys
+import subprocess
+
+try:
+    import pybind11
+except ImportError:
+    print(
+        "ERROR: pybind11 is not installed.\n"
+        "Please install it using: pip install pybind11\n"
+        "If you're using a virtual environment, make sure it's activated."
+    )
+    sys.exit(1)
+
+# Check if the pybind11 headers are available
+try:
+    import pybind11.get_include
+    include_dir = pybind11.get_include()
+    print(f"pybind11 headers found at: {include_dir}")
+except Exception as e:
+    print(f"Warning: Could not find pybind11 headers: {e}")
+    print("Make sure pybind11 is properly installed.")
+
+
+
 hw = py4hw.HWSystem()
 
 rst_n = hw.wire('rst_n')
@@ -30,9 +56,25 @@ py4hw.Constant(hw, 'step', FTW, step)
 py4hw.Constant(hw, 'inc', 1, inc)
 
 sc = py4hw.StreamCaptureSigned(hw, 'sin', sin_out)
+an = py4hw.StreamCapture(hw, 'angle', angle_in)
 
-py4hw.gui.Workbench(hw)
+#py4hw.gui.Workbench(hw)
+hw.getSimulator().clk(300)
 
 import matplotlib.pyplot as plt
-plt.plot(sc.data)
+
+# Create a figure with 2 rows and 1 column
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+# Plot on the first subplot
+ax1.plot(sc.data, label='sin wave', color='blue')
+ax1.legend()
+ax1.grid(True)
+
+# Plot on the second subplot
+ax2.plot(an.data, label='angle', color='orange')
+ax2.legend()
+ax2.grid(True)
+
+plt.tight_layout()
 plt.show()
