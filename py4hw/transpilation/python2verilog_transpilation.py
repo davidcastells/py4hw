@@ -97,6 +97,7 @@ class Python2VerilogTranspiler:
         node = ReplaceConstant().visit(node)
         node = ReplaceAssign().visit(node)
  
+        node.wires.variables = wiresAndVars.variables.values();
         # node = FlattenOperators().visit(node)
 
         return node
