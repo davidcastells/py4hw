@@ -322,6 +322,12 @@ class Wire:
     
     # this is the list of prepared wires, 
     prepared = []
+    # PATCHED (see patch_py4hw_incremental_propagate.py): wires whose
+    # value actually changed since the last full propagateAll() pass --
+    # populated by the patched put()/settle() below, consumed by the
+    # patched Simulator.propagateAll() to decide what needs
+    # re-evaluating.
+    dirty = set()
     
     def __init__(self, parent, name : str, width: int = 1 ):
         # the following should not be necessary if python checks types
@@ -343,8 +349,19 @@ class Wire:
         return self.width
     
     def put(self, val:int):
+        """
+        PATCHED (see patch_py4hw_incremental_propagate.py): records this
+        wire into Wire.dirty when the committed value actually changes,
+        so Simulator.propagateAll() can tell which leaves need
+        re-evaluation without re-evaluating everything.
+        """
         mask = (1<<self.width) -1
-        self.value = val & mask
+        v = val & mask
+        if v != self.value:
+            self.value = v
+            Wire.dirty.add(self)
+        else:
+            self.value = v
 
     def prepare(self, val:int):
         if (self in Wire.prepared):
@@ -355,7 +372,16 @@ class Wire:
         Wire.prepared.append(self)
         
     def settle(self):
-        self.value = self.next
+        """
+        PATCHED (see patch_py4hw_incremental_propagate.py): same dirty-
+        tracking as put() above, for values committed via prepare()/
+        settle() (used by clock()-based / sequential component outputs).
+        """
+        if self.next != self.value:
+            self.value = self.next
+            Wire.dirty.add(self)
+        else:
+            self.value = self.next
         
     def get(self) -> int:
         return self.value
