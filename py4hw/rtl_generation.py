@@ -595,7 +595,9 @@ class VerilogGenerator:
         
         if (obj is None):
             obj = self.obj
-            
+        
+        assert isinstance(obj, Logic), f'obj {obj} is not a Logic circuit'
+        
         # check if structure was already generated
         
         if not(forceName is None):
@@ -683,6 +685,8 @@ class VerilogGenerator:
         # Created the Module Header containing inputs, ouputs and parameters
         
         str = "module " + structureName 
+        
+        assert isinstance(obj, Logic), f'obj {obj} is not a Logic circuit'
         
         # Add parameters
         paramNames = obj.getParameterNames()
