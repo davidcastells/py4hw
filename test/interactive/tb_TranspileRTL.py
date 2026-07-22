@@ -127,6 +127,21 @@ class VGATestPattern(py4hw.Logic):
             if (self.y >= 520):
                 self.y = 0
 
+class LatchedFlag(py4hw.Logic):
+    def __init__(self, parent, name, set_in, out):
+        super().__init__(parent, name)
+        
+        self.set_in = self.addIn('set_in', set_in)
+        self.out = self.addOut('out', out)
+        
+        self._flag = False   # bare Python bool constant
+
+    def clock(self):
+        if self.set_in.get() == 1:
+            self._flag = True
+            
+        self.out.prepare(1 if self._flag else 0)
+        
 if (False):
     # Test circuit
     hw = py4hw.HWSystem()
@@ -137,7 +152,7 @@ if (False):
     dut = TestCircuit(hw, 'test', a, r)
     #dut = FSM(hw, 'test', a, r)
 
-if (True):
+if (False):
     # Test circuit
     hw = py4hw.HWSystem()
     a = hw.wire('a', 8)
@@ -174,6 +189,15 @@ if (False):
     py4hw.Sequence(hw, 'y', [0,0,1,1], y)
     py4hw.Sequence(hw, 'ci', [0,0,0,0,1,1,1,1], ci)
     dut = FullAdder(hw, 'test', x, y, ci, s, co)
+
+if (True):
+    # Test circuit
+    hw = py4hw.HWSystem()
+    a = hw.wire('a')
+    r = hw.wire('r')
+    
+    dut = LatchedFlag(hw, 'latched', a, r)
+
     
 if (False):
     module = py2v.getMethod(dut, '__init__')
