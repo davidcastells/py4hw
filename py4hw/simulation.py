@@ -111,7 +111,18 @@ class Simulator:
         keeps state across calls (detected once via source inspection,
         see _incremental_propagate_is_impure below) are always fully
         re-evaluated, matching the original behavior for them exactly.
+
+        PATCHED FURTHER (see patch_py4hw_propagateall_heap.py): the
+        "processed in topological order" part above used to be a full
+        scan of self.propagatables (every leaf in the design) with an
+        `if obj not in needs_eval: continue` skip -- O(n) per call
+        regardless of how few objects actually need re-evaluating. Now
+        walks only the needed objects via a min-heap keyed by each
+        object's precomputed topological index (self._topo_index),
+        popped in ascending order -- same processing order as before,
+        O(k log k) for k needed objects instead of O(n).
         """
+        import heapq
         from .base import Wire
 
         if not getattr(self, '_incremental_ready', False):
@@ -122,6 +133,7 @@ class Simulator:
             self._propagatable_set = set(self.propagatables)
             self._always_eval = {obj for obj in self.propagatables
                                   if _incremental_propagate_is_impure(type(obj))}
+            self._topo_index = {obj: i for i, obj in enumerate(self.propagatables)}
             return
 
         dirty = Wire.dirty
@@ -130,6 +142,7 @@ class Simulator:
         Wire.dirty = set()
 
         prop_set = self._propagatable_set
+        topo_index = self._topo_index
         needs_eval = set(self._always_eval)
         for w in dirty:
             for sink_port in w.sinks:
@@ -137,17 +150,20 @@ class Simulator:
                 if comp in prop_set:
                     needs_eval.add(comp)
 
-        for obj in self.propagatables:
-            if obj not in needs_eval:
-                continue
+        heap = [(topo_index[obj], obj) for obj in needs_eval]
+        heapq.heapify(heap)
+        visited = set(needs_eval)
+        while heap:
+            idx, obj = heapq.heappop(heap)
             obj.propagate()
             for port in obj.outPorts:
                 w = port.wire
                 if w is not None and w in Wire.dirty:
                     for sink_port in w.sinks:
                         comp2 = sink_port.parent
-                        if comp2 in prop_set:
-                            needs_eval.add(comp2)
+                        if comp2 in prop_set and comp2 not in visited:
+                            visited.add(comp2)
+                            heapq.heappush(heap, (topo_index[comp2], comp2))
 
     def __new__(cls, sys:HWSystem):
         if sys.simulator != None:
