@@ -11,3 +11,5 @@ pyproject.toml
 build/
 dist/
 riscv/
+architecture.html
+architecture.mmd
