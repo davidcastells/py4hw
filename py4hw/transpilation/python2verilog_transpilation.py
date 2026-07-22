@@ -663,12 +663,13 @@ class ExtractInitializers(ast.NodeTransformer):
     - existing class arguments
     '''
     
-    ports = {}
-    variables = {}
-    arguments = {}
+    
     
     def __init__(self, obj):
         self.obj = obj
+        self.ports = {}
+        self.variables = {}
+        self.arguments = {}
         
     # Extracts initializers from class constructor
     def visit_Constant(self, node):
