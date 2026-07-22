@@ -672,7 +672,42 @@ class SignedSub(Logic):
     #     mask = (1 << self.r.getWidth()) - 1
     #     newValue = (sa - sb) & mask
     #     self.r.put(newValue)
+
+
+class SubBorrowIn(Logic):
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, bi: Wire):
+        """
+        Initialize the AddCarryIn logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        bi : Wire
+            Borrow-in wire.
+        """
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
         
+        assert(r.getWidth() >= a.getWidth() )
+        self.bi = self.addIn('bi', bi)
+        
+
+    def propagate(self):
+        self.r.put(self.a.get() - self.b.get() - self.ci.get())   
+
+
 class Counter(Logic):
     def __init__(self, parent, name: str, reset: Wire, inc: Wire, q: Wire):
         """
