@@ -322,6 +322,12 @@ class Wire:
     
     # this is the list of prepared wires, 
     prepared = []
+    # PATCHED (see patch_py4hw_prepare_dedup.py): O(1) duplicate-
+    # prepare lookup, kept in lockstep with `prepared` (populated in
+    # prepare(), cleared in settleAll()), replacing the O(n) `self in
+    # Wire.prepared` linear scan that used to run on every prepare()
+    # call.
+    _prepared_lookup = set()
     # PATCHED (see patch_py4hw_incremental_propagate.py): wires whose
     # value actually changed since the last full propagateAll() pass --
     # populated by the patched put()/settle() below, consumed by the
@@ -364,12 +370,23 @@ class Wire:
             self.value = v
 
     def prepare(self, val:int):
-        if (self in Wire.prepared):
+        """
+        PATCHED (see patch_py4hw_prepare_dedup.py): the duplicate-
+        prepare check below used to be `self in Wire.prepared`, an
+        O(n) linear scan of a plain list re-run on every prepare()
+        call within a cycle (O(k^2) for k prepares/cycle).
+        Wire._prepared_lookup is a set kept in lockstep with
+        Wire.prepared (same membership, same lifetime -- populated
+        here, cleared in settleAll() below), giving the same
+        duplicate-prepare warning with an O(1) check.
+        """
+        if (self in Wire._prepared_lookup):
             print('WARNING! wire {} already prepared'.format(self.getFullPath()))
             
         mask = (1<<self.width) -1
         self.next = val & mask
         Wire.prepared.append(self)
+        Wire._prepared_lookup.add(self)
         
     def settle(self):
         """
@@ -451,6 +468,9 @@ class Wire:
             
         # empty list
         Wire.prepared = []
+        # PATCHED (see patch_py4hw_prepare_dedup.py): keep the O(1)
+        # duplicate-prepare lookup in lockstep with the list above.
+        Wire._prepared_lookup = set()
     
     def rename(self, newname):
         del self.parent._wires[self.name]
@@ -571,6 +591,9 @@ class BidirWire(Wire):
             
         # empty list
         Wire.prepared = []
+        # PATCHED (see patch_py4hw_prepare_dedup.py): keep the O(1)
+        # duplicate-prepare lookup in lockstep with the list above.
+        Wire._prepared_lookup = set()
     
     def rename(self, newname):
         del self.parent._wires[self.name]
