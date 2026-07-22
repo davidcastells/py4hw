@@ -247,12 +247,28 @@ class Logic:
         """
         Gets the full of a hierarchy element
 
+        PATCHED (see patch_py4hw_getfullpath_cache.py): memoized per
+        instance. self.parent/self.name are set once in __init__ and
+        never reassigned elsewhere for Logic objects (unlike Wire,
+        which has explicit rename()/reparent() -- not touched by this
+        cache), so the computed path is a true invariant, safe to
+        cache for the object's whole lifetime.
+
         Returns
         -------
         str
             DESCRIPTION.
 
         """
+        cache = self.__dict__.get('_full_path_cache')
+        if cache is not None:
+            cached = cache.get(withselfnames)
+            if cached is not None:
+                return cached
+        else:
+            cache = {}
+            self._full_path_cache = cache
+
         str = ''
         
         if (self.parent != None):
@@ -262,6 +278,7 @@ class Logic:
         if (withselfnames):
             str += '[' + self.name + ']' 
         
+        cache[withselfnames] = str
         return str
 
     
