@@ -5,6 +5,51 @@ from .base import ClockDriver
 from .base import getObjectClockDriver
 from .logic.simulation import Waveform
 
+# =============================================================================
+# PATCHED (see patch_py4hw_incremental_propagate.py): detects propagate()
+# methods that keep state across calls (e.g. for edge detection), which
+# violates the "pure function of current inputs" assumption incremental
+# propagation depends on. Instances of such classes are always fully
+# re-evaluated by the patched Simulator.propagateAll() above, regardless
+# of dirty-wire tracking.
+# =============================================================================
+import ast as _incremental_ast
+import inspect as _incremental_inspect
+
+_incremental_impure_class_cache = {}
+
+
+def _incremental_propagate_is_impure(cls):
+    if cls in _incremental_impure_class_cache:
+        return _incremental_impure_class_cache[cls]
+
+    impure = False
+    try:
+        src = _incremental_inspect.getsource(cls.propagate)
+        src = 'if True:\n' + src
+        tree = _incremental_ast.parse(src)
+        for node in _incremental_ast.walk(tree):
+            if isinstance(node, _incremental_ast.Assign):
+                for target in node.targets:
+                    if (isinstance(target, _incremental_ast.Attribute)
+                            and isinstance(target.value, _incremental_ast.Name)
+                            and target.value.id == 'self'):
+                        impure = True
+                        break
+            elif isinstance(node, _incremental_ast.AugAssign):
+                if (isinstance(node.target, _incremental_ast.Attribute)
+                        and isinstance(node.target.value, _incremental_ast.Name)
+                        and node.target.value.id == 'self'):
+                    impure = True
+            if impure:
+                break
+    except (OSError, TypeError):
+        impure = True
+
+    _incremental_impure_class_cache[cls] = impure
+    return impure
+
+
 class ClockDriverSimulator:
     """
     The simulation is organized by clock drivers
@@ -53,8 +98,72 @@ class Simulator:
         self.propagateAll()
     
     def propagateAll(self):
-        for obj in self.propagatables:
-            obj.propagate();
+        """
+        PATCHED (see patch_py4hw_incremental_propagate.py): event-driven
+        ("dirty wire") propagation instead of an unconditional full scan.
+        The first call (from __init__) still does one full pass, to
+        establish correct initial values -- every call after that only
+        re-.propagate()s leaves transitively downstream of a wire in
+        Wire.dirty, processed in self.propagatables' existing
+        topological order (so a single forward pass is sufficient: newly
+        -dirtied output wires found partway through always belong to
+        leaves later in that same order). Classes whose propagate()
+        keeps state across calls (detected once via source inspection,
+        see _incremental_propagate_is_impure below) are always fully
+        re-evaluated, matching the original behavior for them exactly.
+
+        PATCHED FURTHER (see patch_py4hw_propagateall_heap.py): the
+        "processed in topological order" part above used to be a full
+        scan of self.propagatables (every leaf in the design) with an
+        `if obj not in needs_eval: continue` skip -- O(n) per call
+        regardless of how few objects actually need re-evaluating. Now
+        walks only the needed objects via a min-heap keyed by each
+        object's precomputed topological index (self._topo_index),
+        popped in ascending order -- same processing order as before,
+        O(k log k) for k needed objects instead of O(n).
+        """
+        import heapq
+        from .base import Wire
+
+        if not getattr(self, '_incremental_ready', False):
+            for obj in self.propagatables:
+                obj.propagate()
+            Wire.dirty.clear()
+            self._incremental_ready = True
+            self._propagatable_set = set(self.propagatables)
+            self._always_eval = {obj for obj in self.propagatables
+                                  if _incremental_propagate_is_impure(type(obj))}
+            self._topo_index = {obj: i for i, obj in enumerate(self.propagatables)}
+            return
+
+        dirty = Wire.dirty
+        if not dirty and not self._always_eval:
+            return
+        Wire.dirty = set()
+
+        prop_set = self._propagatable_set
+        topo_index = self._topo_index
+        needs_eval = set(self._always_eval)
+        for w in dirty:
+            for sink_port in w.sinks:
+                comp = sink_port.parent
+                if comp in prop_set:
+                    needs_eval.add(comp)
+
+        heap = [(topo_index[obj], obj) for obj in needs_eval]
+        heapq.heapify(heap)
+        visited = set(needs_eval)
+        while heap:
+            idx, obj = heapq.heappop(heap)
+            obj.propagate()
+            for port in obj.outPorts:
+                w = port.wire
+                if w is not None and w in Wire.dirty:
+                    for sink_port in w.sinks:
+                        comp2 = sink_port.parent
+                        if comp2 in prop_set and comp2 not in visited:
+                            visited.add(comp2)
+                            heapq.heappush(heap, (topo_index[comp2], comp2))
 
     def __new__(cls, sys:HWSystem):
         if sys.simulator != None:
@@ -215,9 +324,14 @@ class Simulator:
             self.clockDrivers[drv].clockAll()
             
         Wire.settleAll()
-                
-        for obj in self.propagatables:
-            obj.propagate();
+
+        # PATCHED (see patch_py4hw_incremental_propagate.py): was an
+        # unconditional `for obj in self.propagatables: obj.propagate()`
+        # here, duplicating (and bypassing) the incremental logic in
+        # propagateAll() above. Routing through self.propagateAll()
+        # instead means both call sites in clk() (the explicit one at
+        # its top and this one) get the same dirty-wire-only benefit.
+        self.propagateAll()
             
         self._notifyListeners()
         self.total_clks += 1
