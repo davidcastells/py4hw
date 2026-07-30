@@ -141,6 +141,19 @@ class LatchedFlag(py4hw.Logic):
             self._flag = True
             
         self.out.prepare(1 if self._flag else 0)
+
+class CombinationalDoubler(py4hw.Logic):
+    def __init__(self, parent, name, a, r):
+        super().__init__(parent, name)
+        
+        self.a = self.addIn('a', a)
+        self.r = self.addOut('r', r)
+        
+    def propagate(self):
+        val = self.a.get()
+        doubled = val + val      # local variable
+        self.r.put(doubled)
+
         
 if (False):
     # Test circuit
@@ -190,13 +203,21 @@ if (False):
     py4hw.Sequence(hw, 'ci', [0,0,0,0,1,1,1,1], ci)
     dut = FullAdder(hw, 'test', x, y, ci, s, co)
 
-if (True):
+if (False):
     # Test circuit
     hw = py4hw.HWSystem()
     a = hw.wire('a')
     r = hw.wire('r')
     
     dut = LatchedFlag(hw, 'latched', a, r)
+
+if (True):
+    # Test circuit
+    hw = py4hw.HWSystem()
+    a = hw.wire('a', 2)
+    r = hw.wire('r', 2)
+    
+    dut = CombinationalDoubler(hw, 'latched', a, r)
 
     
 if (False):
