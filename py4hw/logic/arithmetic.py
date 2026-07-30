@@ -1158,6 +1158,132 @@ class BinaryToBCD(Logic):
         ConcatenateLSBF(self, 'r', ret, r)
         
 
+class UpCounter(Logic):
+    def __init__(self, parent, name: str, reset: Wire, inc: Wire, q: Wire):
+        """
+        Initialize the Counter logic circuit.
+
+        This circuit counts up to the value specified by the width of the output wire `q` and returns to zero.
+        The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        reset : Wire
+            Input wire to reset the counter to zero.
+        inc : Wire
+            Input wire to increment the counter.
+        q : Wire
+            Output wire containing the current count value.
+        """
+        super().__init__(parent, name)
+        
+        from .bitwise import Constant
+        from .bitwise import Or2
+        from .bitwise import Mux2
+        from .storage import Reg
+        
+        if not(reset is None):
+            reset = self.addIn('reset', reset)
+        if not(inc is None):
+            inc = self.addIn('inc', inc)
+        
+        q = self.addOut('q', q)
+    
+        one = self.wire('one', q.getWidth())
+        zero = self.wire('zero', q.getWidth())
+        add = self.wire('add', q.getWidth())
+        d = self.wire('d', q.getWidth())
+        d1 = self.wire('d1', q.getWidth())
+        e_add = self.wire('e_add', 1)
+        
+        Constant(self, 'one', 1, one)
+        Constant(self, 'zero', 0, zero)
+        
+        if (inc is None):
+            inc = one
+        if (reset is None):
+            reset = zero
+            
+        Mux2(self, 'muxinc', inc, q, add, d1)
+        Mux2(self, 'muxreset', reset, d1, zero, d)
+
+        #py4hw.Select(self, 'select', [reset, inc], [zero, add], d)
+        Or2(self, 'e_add', reset, inc, e_add)
+        #py4hw.Mux(self, 'mux', )
+        Add(self, 'add', q, one, add)
+        Reg(self, 'reg', d, q, e_add)
+
+class UpLoadCounter(Logic):
+    def __init__(self, parent, name: str, reset: Wire, inc: Wire, d:Wire, load:Wire, q: Wire):
+        """
+        Initialize the Counter logic circuit.
+
+        This circuit counts up to the value specified by the width of the output wire `q` and returns to zero.
+        The counting can be incremented by a signal on the `inc` wire and reset to zero by a signal on the `reset` wire.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        reset : Wire
+            Input wire to reset the counter to zero.
+        inc : Wire
+            Input wire to increment the counter.
+        d : Wire
+            Value to load when load is asserted
+        load: Wire
+            When asserted loads the d value into the counter
+        q : Wire
+            Output wire containing the current count value.
+        """
+        super().__init__(parent, name)
+        
+        from .bitwise import Constant
+        from .bitwise import Or
+        from .bitwise import Mux2
+        from .storage import Reg
+        
+        if not(reset is None):
+            reset = self.addIn('reset', reset)
+        if not(inc is None):
+            inc = self.addIn('inc', inc)
+        
+        d = self.addIn('d', d)
+        load = self.addIn('load', load)
+        q = self.addOut('q', q)
+    
+        one = self.wire('one', q.getWidth())
+        zero = self.wire('zero', q.getWidth())
+        add = self.wire('add', q.getWidth())
+        
+        d1 = self.wire('d1', q.getWidth())
+        d2 = self.wire('d2', q.getWidth())
+        
+        e_add = self.wire('e_add', 1)
+        
+        Constant(self, 'one', 1, one)
+        
+        if (inc is None):
+            d1 = add
+            e_add = load
+        else:
+            Or(self, 'e_add', [inc, load], e_add)
+            Mux2(self, 'muxinc', inc, q, add, d1)
+
+        Mux2(self, 'muxload', load, d1, d, d2)
+            
+        #py4hw.Select(self, 'select', [reset, inc], [zero, add], d)
+        
+        #py4hw.Mux(self, 'mux', )
+        Add(self, 'add', q, one, add)
+        Reg(self, 'reg', d2, q, e_add, reset=reset)        
+        
 class _FFunction(Logic):
     """
     F function described in the paper DOI: 10.1109/TVLSI.2008.2000458
