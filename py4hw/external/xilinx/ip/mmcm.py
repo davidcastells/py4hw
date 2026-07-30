@@ -17,7 +17,7 @@ def test(in_clk_freq, out_clk_freq):
     vco_min_factor = vco_min / in_clk_freq 
     vco_max_factor = vco_max / in_clk_freq 
     
-    error = math.inf
+    min_error = math.inf
     
     for mult8 in range(int(vco_min_factor*8), int(vco_max_factor*8)+1):
         mult = mult8/8
@@ -33,7 +33,11 @@ def test(in_clk_freq, out_clk_freq):
             
             freq = vco / div
             error = abs(freq - out_clk_freq)
-            print(f'{mult}/{div} vco: {vco} freq: {freq} -> error {error:f}')
+            
+            if (error < min_error):
+                rel_error = error * 100 / out_clk_freq
+                print(f'{mult}/{div} vco: {vco} freq: {freq} -> error {rel_error:f}')
+                min_error = error
             
 class xilinx_mmcm(py4hw.Logic):
     
