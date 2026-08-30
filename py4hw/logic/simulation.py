@@ -124,7 +124,7 @@ class Waveform(Logic):
             self.data[key] = []
         
         
-    def clock(self):
+    def monitor(self):
         # Data is indexed by wire (or field inspector) to avoid repeats
         # For ports, the value used for x will be its wire
         for x in self.uniqueWires:
@@ -226,7 +226,7 @@ class Waveform(Logic):
                 ww = w.getWidth()
                 
             fmt = self.format[idx]
-            wavedata = 'x'
+            wavedata = ''
             wavedatadata = []
             
             data = self.data[w]
@@ -244,8 +244,6 @@ class Waveform(Logic):
                     wavedata += '.'
                 last = v
                     
-            wavedata += 'x'
-            
             if (shortNames):
                 name = obj.name
             else:
@@ -253,10 +251,10 @@ class Waveform(Logic):
                 
             signals.append({'name': name, 'wave':wavedata, 'data':wavedatadata})
 
-        wavedata = 'P'
-        for i in range(numclks):
+        wavedata = '0P'
+        for i in range(numclks-2):
             wavedata += '.'
-        wavedata += 'x'
+        
 
         signals[0]['wave'] = wavedata
         
@@ -394,6 +392,11 @@ class WaveformWindow:
         #self.hierarchyPane.pack(fill=BOTH, expand=YES)
         tv.pack(side=LEFT, fill=BOTH, expand=YES)
         
+        # @todo we should take the clock name from the clock driver of self.waveform
+        
+        # First row: the clock
+        tv.insert("", tkinter.END, text="clk", open=True)
+        
         #wd = self.waveform.getDict()
         wires = self.waveform.wires
         
@@ -438,14 +441,53 @@ class WaveformWindow:
         vspace = 21
         wd = self.waveform.getDict()
 
-        self.setColor('blue')
         
         hclock = self.hclock # this is the width of the clock (in pixels ?)
         vsig = 15
         vtext = 7
         htrans = 3
         
+        numclocks = self.getNumClocks()
+        numrows = len(self.waveform.wires) + 1  # +1 for the clock row
+
+        # --- Background: thin vertical tick lines at each clock edge ---
+        y_top = off - vsig - 5
+        y_bottom = off + (numrows - 1) * vspace + 5
+        
+        self.setColor('#cccccc')
+        for clk in range(numclocks + 1):
+            x = clk * hclock
+            self.canvas.create_line(x, y_top, x, y_bottom, fill=self.foreground, dash=(2, 2))
+        
+        self.setColor('blue')
+
+        # Draw clock signal
+        y_high = off - vsig
+        y_low = off
+        
+        # first line shows rest state (no clock)
+        self.drawLine(0, y_low, hclock, y_low)
+        
+        for clk in range(1, numclocks):
+            x0 = clk * hclock
+            xmid = clk * hclock + hclock / 2
+            x1 = (clk + 1) * hclock
+    
+            # rising edge at the start of the cycle
+            self.drawLine(x0, y_low, x0, y_high)
+            self.drawArrow(x0, y_high)
+            # high half (positive pulse)
+            self.drawLine(x0, y_high, xmid, y_high)
+            # falling edge at mid-cycle
+            self.drawLine(xmid, y_high, xmid, y_low)
+            # low half
+            self.drawLine(xmid, y_low, x1, y_low)
+            
+        self.setColor('blue')            
+            
         for idx, obj in enumerate(self.waveform.wires):
+            row = idx + 1
+            
             if (isinstance(obj, FieldInspector)):
                 w = obj
                 ww = -1
@@ -456,7 +498,7 @@ class WaveformWindow:
             data = wd[w]
             fmt = self.waveform.format[idx]
 
-            print('drawing wire', idx, w.getFullPath())            
+            #print('drawing wire', idx, w.getFullPath())            
             if (ww == 1):
                 lastval = None
             else:
@@ -466,33 +508,33 @@ class WaveformWindow:
                 val = data[clk]
                 if (ww == 1):
                     # binary wires
-                    self.drawLine(clk*hclock, off + idx*vspace - val*vsig, 
-                                  (clk+1)*hclock, off + idx*vspace - val*vsig)     
+                    self.drawLine(clk*hclock, off + row*vspace - val*vsig, 
+                                  (clk+1)*hclock, off + row*vspace - val*vsig)     
                     if not(lastval is None):
                         # draw the transition at the beginning
-                        self.drawLine(clk*hclock, off + idx*vspace - lastval*vsig, 
-                                  clk*hclock, off + idx*vspace - val*vsig)     
+                        self.drawLine(clk*hclock, off + row*vspace - lastval*vsig, 
+                                  clk*hclock, off + row*vspace - val*vsig)     
                     lastval = val 
                 else:
                     # non binary wires
 
                     if not(lastval is None) and (lastval != val):
                         # draw the transition at the beginning
-                        self.drawLine(clk*hclock - htrans, off + idx*vspace - vsig, 
-                                  clk*hclock + htrans, off + idx*vspace )     
-                        self.drawLine(clk*hclock - htrans, off + idx*vspace , 
-                                  clk*hclock + htrans, off + idx*vspace - vsig)     
-                        self.drawLine(clk*hclock + htrans, off + idx*vspace - vsig, 
-                                  (clk+1)*hclock - htrans, off + idx*vspace - vsig)     
-                        self.drawLine(clk*hclock + htrans, off + idx*vspace , 
-                                  (clk+1)*hclock - htrans, off + idx*vspace )     
+                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig, 
+                                  clk*hclock + htrans, off + row*vspace )     
+                        self.drawLine(clk*hclock - htrans, off + row*vspace , 
+                                  clk*hclock + htrans, off + row*vspace - vsig)     
+                        self.drawLine(clk*hclock + htrans, off + row*vspace - vsig, 
+                                  (clk+1)*hclock - htrans, off + row*vspace - vsig)     
+                        self.drawLine(clk*hclock + htrans, off + row*vspace , 
+                                  (clk+1)*hclock - htrans, off + row*vspace )     
 
-                        self.drawText(clk*hclock + htrans, off + idx*vspace - vtext, fmt.format(val), 'w')
+                        self.drawText(clk*hclock + htrans, off + row*vspace - vtext, fmt.format(val), 'w')
                     else:
-                        self.drawLine(clk*hclock - htrans, off + idx*vspace - vsig, 
-                                  (clk+1)*hclock - htrans, off + idx*vspace - vsig)     
-                        self.drawLine(clk*hclock - htrans, off + idx*vspace , 
-                                  (clk+1)*hclock - htrans, off + idx*vspace )
+                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig, 
+                                  (clk+1)*hclock - htrans, off + row*vspace - vsig)     
+                        self.drawLine(clk*hclock - htrans, off + row*vspace , 
+                                  (clk+1)*hclock - htrans, off + row*vspace )
                     lastval = val 
         
     def setColor(self, color):
@@ -500,6 +542,17 @@ class WaveformWindow:
         
     def drawLine(self, x0, y0, x1, y1):
         self.canvas.create_line(x0, y0, x1, y1, fill=self.foreground)
+        
+    def drawArrow(self, x, y, size=3):
+        """
+        Draws a small downward-pointing triangle whose tip sits at (x, y).
+        Used to mark positive (rising) clock edges.
+        """
+        self.canvas.create_polygon(
+            x - size, y + size * 1.5,
+            x + size, y + size * 1.5,
+            x, y,
+            fill=self.foreground, outline=self.foreground)        
 
     def drawText(self, x, y, text, anchor):
         if (anchor == 'w'):
@@ -635,6 +688,26 @@ class Scope(Logic):
 
 class Sequence(Logic):
     def __init__(self, parent: Logic, name: str, values: list(), r: Wire, once=False):
+        '''
+        Creates a sequence object. It outputs a list of values after every clock cycle.
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        values : list
+            DESCRIPTION.
+        r : Wire
+            DESCRIPTION.
+        once : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        None
+        '''
         super().__init__(parent, name)
         self.r = self.addOut("r", r)
 
