@@ -459,6 +459,64 @@ class Schematic:
             
             self.symbol_matrix = new_matrix
 
+    def _countTotalCrossings(self):
+        total = 0
+        nr, nc = self.symbol_matrix.shape
+        for c in range(nc - 1):
+            _, _, am = self.getAdjacencyMatrixOfColumns(c)
+            total += countCrossings(am)
+        return total
+
+    def _boundaryCrossings(self, col):
+        """Crossing count between column `col` and `col+1`. Out-of-range -> 0."""
+        nr, nc = self.symbol_matrix.shape
+        if col < 0 or col >= nc - 1:
+            return 0
+        _, _, am = self.getAdjacencyMatrixOfColumns(col)
+        return countCrossings(am)
+    
+    def _moveSymbolInColumn(self, sym, target_row):
+        """
+        Move sym to target_row within its own column, shifting every other
+        symbol strictly between the old and new row by one position (like
+        list.insert after list.pop). This preserves the relative row order
+        of everyone else in the column, so it cannot by itself introduce
+        new crossings among them -- only the moved symbol's own connections
+        need to be re-checked by the caller.
+        """
+        col = sym.c
+        current_row = sym.r
+        if current_row == target_row:
+            return False
+    
+        nr, nc = self.symbol_matrix.shape
+        if target_row >= nr:
+            self._expand_symbol_matrix(target_row + 1, nc)
+            nr, nc = self.symbol_matrix.shape
+    
+        column = self.symbol_matrix[:, col].copy()
+    
+        if target_row > current_row:
+            for r in range(current_row, target_row):
+                column[r] = column[r + 1]
+            column[target_row] = sym
+        else:
+            for r in range(current_row, target_row, -1):
+                column[r] = column[r - 1]
+            column[target_row] = sym
+    
+        self.symbol_matrix[:, col] = column
+    
+        # Refresh row references for everyone in this column, since several
+        # of them just shifted by one position.
+        for r in range(nr):
+            s = self.symbol_matrix[r, col]
+            if s is not None:
+                s.r = r
+                s.c = col
+    
+        return True
+
     def placeAndRoute(self, debug=False):
         import traceback
         self.placeInputPorts()
@@ -474,6 +532,7 @@ class Schematic:
         
         try:
             self.insertMissingConnectionSymbols(debug=debug)
+            self.insertUnusedConnectionSymbols(debug=debug)
             self.createNets(debug=debug) 
         except Exception as e:
             
@@ -486,13 +545,30 @@ class Schematic:
         except Exception as e:
             print('WARNING: error in passthrough')
             traceback.print_exc()
+            
         self.replaceAsColRow()
         self.replaceAsColRow()
         self.removeArrowsSpecialCases()
         self.replaceAsColRow(debug=debug)
 
         #self.rowAssignment()
+        try:
+            self.reduceCrossings(debug=debug)
+        except Exception as e:
+            print('WARNING: error in reduceCrossings')
+            traceback.print_exc()
+        self.replaceAsColRow()
         
+        try:
+            self.reduceLadderedNets(debug=debug)
+        except Exception as e:
+            print('WARNING: error in reduceLadderedNets')
+            traceback.print_exc()
+        self.replaceAsColRow()
+
+        self.trackAssignment()
+        self.replaceAsColRow()
+
 
         self.trackAssignment()
         self.replaceAsColRow()
@@ -506,7 +582,153 @@ class Schematic:
         
 
         self.routeNets()
+
+    def reduceLadderedNets(self, max_iterations=3, debug=False):
+        """
+        Straighten 'laddered' nets: a source connected to exactly one sink
+        in the next column (and vice versa) is a candidate for sharing a
+        row, turning a dogleg into a straight horizontal line. The move is
+        only kept if it doesn't increase the crossing count on the column
+        boundaries it touches -- feedback symbols are skipped since their
+        row placement is already tied to feedback-specific routing.
+        """
+        nr, nc = self.symbol_matrix.shape
     
+        for iteration in range(max_iterations):
+            changed = False
+            nets = self.getNets()
+    
+            for c in range(nc - 1):
+                out_count, in_count = {}, {}
+                boundary_nets = [n for n in nets if n.source.c == c and n.sink.c == c + 1]
+                for n in boundary_nets:
+                    out_count[n.source] = out_count.get(n.source, 0) + 1
+                    in_count[n.sink] = in_count.get(n.sink, 0) + 1
+    
+                candidates = [
+                    n for n in boundary_nets
+                    if out_count[n.source] == 1 and in_count[n.sink] == 1
+                    and n.source.r != n.sink.r
+                    and not isinstance(n.source, (FeedbackStartSymbol, FeedbackStopSymbol))
+                    and not isinstance(n.sink, (FeedbackStartSymbol, FeedbackStopSymbol))
+                ]
+                candidates.sort(key=lambda n: n.source.r)
+    
+                for net in candidates:
+                    source, sink = net.source, net.sink
+                    if source.r == sink.r:
+                        continue  # already fixed by an earlier move this pass
+    
+                    before = (self._boundaryCrossings(c - 1)
+                              + self._boundaryCrossings(c)
+                              + self._boundaryCrossings(c + 1))
+    
+                    # Try moving the sink onto the source's row first.
+                    saved = self.symbol_matrix.copy()
+                    if self._moveSymbolInColumn(sink, source.r):
+                        after = (self._boundaryCrossings(c - 1)
+                                 + self._boundaryCrossings(c)
+                                 + self._boundaryCrossings(c + 1))
+                        if after <= before:
+                            changed = True
+                            if debug:
+                                print(f'aligned {source.name} -> {sink.name} '
+                                      f'row={source.r} crossings {before}->{after}')
+                            continue
+                        self.symbol_matrix = saved
+                        self.replaceAsColRow()  # restores sym.r/.c from saved positions
+    
+                    # Fall back: move the source onto the sink's row instead.
+                    saved = self.symbol_matrix.copy()
+                    if self._moveSymbolInColumn(source, sink.r):
+                        after = (self._boundaryCrossings(c - 1)
+                                 + self._boundaryCrossings(c)
+                                 + self._boundaryCrossings(c + 1))
+                        if after <= before:
+                            changed = True
+                            if debug:
+                                print(f'aligned {sink.name} -> {source.name} '
+                                      f'row={sink.r} crossings {before}->{after}')
+                            continue
+                        self.symbol_matrix = saved
+                        self.replaceAsColRow()
+    
+            if debug:
+                print(f'reduceLadderedNets iter {iteration}: changed={changed}')
+            if not changed:
+                break
+    
+        
+    
+    def reduceCrossings(self, max_iterations=4, debug=False):
+        """
+        Barycenter-style crossing reduction. Sweeps left->right and
+        right->left across columns, reordering the rows *within* each
+        column based on the average row of the neighbors it connects to
+        in the adjacent column. Keeps the best matrix seen, since the
+        heuristic isn't guaranteed to improve monotonically.
+        """
+        nr, nc = self.symbol_matrix.shape
+        nets = self.getNets()
+    
+        def neighbor_rows(sym, side):
+            rows = []
+            for net in nets:
+                if side == 'prev' and net.sink == sym and net.source.c == sym.c - 1:
+                    rows.append(net.source.r)
+                elif side == 'next' and net.source == sym and net.sink.c == sym.c + 1:
+                    rows.append(net.sink.r)
+            return rows
+    
+        def barycenter_sweep(col, side):
+            occupied_rows = [r for r in range(nr) if self.symbol_matrix[r, col] is not None]
+            syms = [self.symbol_matrix[r, col] for r in occupied_rows]
+            if not syms:
+                return False
+    
+            keyed = []
+            for s in syms:
+                nb = neighbor_rows(s, side)
+                key = (sum(nb) / len(nb)) if nb else s.r  # no neighbors -> keep in place
+                keyed.append((key, s))
+            keyed.sort(key=lambda t: t[0])
+            new_order = [s for _, s in keyed]
+    
+            if new_order == syms:
+                return False
+    
+            for r in occupied_rows:
+                self.symbol_matrix[r, col] = None
+            for r, s in zip(occupied_rows, new_order):
+                self.symbol_matrix[r, col] = s
+                s.r = r
+            return True
+    
+        best_matrix = self.symbol_matrix.copy()
+        best_crossings = self._countTotalCrossings()
+    
+        for it in range(max_iterations):
+            changed = False
+            for c in range(nc):
+                changed |= barycenter_sweep(c, 'prev' if c > 0 else 'next')
+            for c in reversed(range(nc)):
+                changed |= barycenter_sweep(c, 'next' if c < nc - 1 else 'prev')
+    
+            self.replaceAsColRow()
+            total = self._countTotalCrossings()
+            if debug:
+                print(f'reduceCrossings iter {it}: crossings={total}')
+    
+            if total < best_crossings:
+                best_crossings = total
+                best_matrix = self.symbol_matrix.copy()
+            if not changed:
+                break
+    
+        self.symbol_matrix = best_matrix
+        self.replaceAsColRow()
+        if debug:
+            print(f'reduceCrossings: final crossings={best_crossings}')    
         
     def draw(self):
         self.drawAll()
@@ -632,72 +854,66 @@ class Schematic:
                 if (net.wire == net.sink.obj.inPorts[0].wire):
                     net.arrow = False
         
-    def trackAssignment(self):
+    def trackAssignment(self, debug=False):
         """
-        Track assignment with horizontal overlap awareness.
+        Assign horizontal routing tracks per column.
     
-        Key improvement: Assign tracks considering cross-over patterns.
-        - Nets going DOWN get lower track indices (left side)
-        - Nets going UP get higher track indices (right side)
-        - This prevents horizontal overlap of routing segments
-    
-        Returns
-        -------
-        None.
+        Within each direction group, nets are sorted by destination
+        (sink) row ascending — for up-going nets this means the net
+        landing highest gets the lowest track; for down-going nets the
+        net landing shallowest gets the lowest track. Track numbers are
+        never reused across different wires — each wire gets exactly one
+        track number in a given column, whether it's going up, down, or
+        flat. Only true fanout (multiple sinks on the SAME wire) shares
+        a track, since it's the same net.
         """
         nets = self.getNets()
         nr, nc = self.symbol_matrix.shape
-        self.channels = [] 
+        self.channels = []
     
         for c in range(nc):
-            # ===== FORWARD TRACKS =====
-            track = 0
             netsInCol = [n for n in nets if n.source.c == c]
-            channeltracks = {}
     
-            # Separate forward and feedback nets
-            forward_nets = [n for n in netsInCol]
-    
-            # Analyze net directions to minimize overlaps
-            net_directions = []
-            for net in forward_nets:
-                src_row = net.source.r
-                sink_row = net.sink.r
-    
-                if src_row is not None and sink_row is not None:
-                    if sink_row > src_row:
-                        direction = 'down'
-                        magnitude = sink_row - src_row
-                    elif sink_row < src_row:
-                        direction = 'up'
-                        magnitude = src_row - sink_row
-                    else:
-                        direction = 'flat'
-                        magnitude = 0
-    
-                    net_directions.append((direction, magnitude, net))
-    
-            # Sort by direction (down first, then up) to separate horizontally
-            # Nets going DOWN use lower tracks (left side of routing area)
-            # Nets going UP use higher tracks (right side of routing area)
-            net_directions.sort(key=lambda x: (x[0] == 'up', x[1]))
-    
-            # Assign tracks respecting direction-based ordering
-            for direction, magnitude, net in net_directions:
-                if net.wire not in channeltracks:
-                    net.track = track
-                    track += 1
-                    channeltracks[net.wire] = {'num': net.track, 'nets': [net]}
+            up_nets, down_nets, flat_nets = [], [], []
+            for net in netsInCol:
+                src_row, sink_row = net.source.r, net.sink.r
+                if src_row is None or sink_row is None:
+                    continue
+                if sink_row < src_row:
+                    up_nets.append(net)
+                elif sink_row > src_row:
+                    down_nets.append(net)
                 else:
-                    net.track = channeltracks[net.wire]['num']
-                    channeltracks[net.wire]['nets'].append(net)
+                    flat_nets.append(net)
     
+            up_nets.sort(key=lambda n: n.sink.r)
+            down_nets.sort(key=lambda n: n.sink.r)
+            flat_nets.sort(key=lambda n: n.sink.r)
             
+            down_nets.reverse()
     
-            # Store both forward and feedback track info
+            channeltracks = {}
+            track = 0
+    
+            for net in up_nets + down_nets + flat_nets:
+                wire = net.wire
+                if wire in channeltracks:
+                    # true fanout: same wire, different sink -> shares the track
+                    net.track = channeltracks[wire]['num']
+                    channeltracks[wire]['nets'].append(net)
+                else:
+                    net.track = track
+                    channeltracks[wire] = {'num': track, 'nets': [net]}
+                    track += 1
+    
+            if debug:
+                for net in up_nets + down_nets + flat_nets:
+                    print(f'col {c}: {net.wire.getFullPath()} '
+                          f'src.r={net.source.r} sink.r={net.sink.r} track={net.track}')
+    
             self.channels.append({
-                'tracks': track,              # Forward tracks
-                'track': channeltracks,       # Forward track details
+                'tracks': track,
+                'track': channeltracks,
             })    
         
     def moveToRightColumn(self, debug=False):
@@ -996,6 +1212,8 @@ class Schematic:
                 if (isinstance(obj, FeedbackStopSymbol)):
                     continue
                 if (isinstance(obj, MissingConnectionSymbol)):
+                    continue
+                if (isinstance(obj, UnusedConnectionSymbol)):
                     continue
                 
                 print('object in', r, c, obj.__class__)
@@ -1717,6 +1935,65 @@ class Schematic:
                 'x': ms.getWidth(),
                 'y': ms.getHeight() // 2,
                 'port': port,          # same port object — wire identity is shared
+            })
+
+    def insertUnusedConnectionSymbols(self, debug=False):
+        """
+        Pre-pass before createNets: identify every source whose wire has no
+        driven sink and insert an UnusedConnectionSymbol in the column
+        immediately to the right of the source.
+    
+        This keeps createNets clean — by the time it runs, every source
+        wire that was undriven-out now has a synthetic sink registered in
+        self.sinks, so it won't be silently dropped.
+        """
+        from .schematic_symbols import UnusedConnectionSymbol
+    
+        for source in list(self.sources):
+            wire = source['port'].wire
+            source_sym = source['symbol']
+            port = source['port']
+    
+            if wire is None:
+                label = port.name
+            else:
+                # is there any sink anywhere that consumes this wire?
+                sink = next(
+                    (s for s in self.sinks if s['port'].wire == wire),
+                    None
+                )
+                if sink is not None:
+                    continue  # wire is properly consumed — nothing to do
+    
+                label = wire.getFullPath()
+    
+            print(f'WARNING: no sink for source {source_sym.name}.{port.name} '
+                  f'("{label}") — inserting UnusedConnectionSymbol')
+    
+            us = UnusedConnectionSymbol(label)
+            us.name = f'unused_{label}'
+    
+            # Place in the column immediately right of the source
+            r, c = source_sym.r, source_sym.c
+            target_col = c + 1
+    
+            self._expand_symbol_matrix(r + 1, target_col + 1)
+    
+            free_row = self._findFreeRowInColumn(target_col, r)
+            if free_row is None:
+                nr, _ = self.symbol_matrix.shape
+                self._expand_symbol_matrix(nr + 1, self.symbol_matrix.shape[1])
+                free_row = nr
+    
+            self.objs.append(us)
+            self.symbol_matrix[free_row, target_col] = us
+    
+            # Register as a sink so createNets can find it normally
+            self.sinks.append({
+                'symbol': us,
+                'x': 0,
+                'y': us.getHeight() // 2,
+                'port': port,   # same port object — wire identity is shared
             })
             
     def createNets(self, debug=False):
