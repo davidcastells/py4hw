@@ -223,6 +223,9 @@ class Logic:
     def isClockable(self):
         return has_method(self, "clock")
     
+    def isMonitor(self):
+        return has_method(self, "monitor")
+    
     def isRunnable(self):
         return has_method(self, "run")
     
