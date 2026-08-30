@@ -84,6 +84,7 @@ class Simulator:
 
         self.propagatables = []
         self.clockDrivers = {}
+        self.monitors = []
         
         leaves = self.sys.allLeaves()
         
@@ -96,6 +97,9 @@ class Simulator:
 
             if (leaf.isPropagatable()):
                 self.propagatables.append(leaf)
+                
+            if (leaf.isMonitor()):
+                self.monitors.append(leaf)
                 
         # Now sort the propagatables list
         anyChange = True 
@@ -207,6 +211,9 @@ class Simulator:
         None.
 
         """
+        for obj in self.monitors:
+            obj.monitor();
+            
         for drv in self.clockDrivers:
             if (not(drv.enable is None)):
                 if (drv.enable.get() == 0):
