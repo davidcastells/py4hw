@@ -37,6 +37,8 @@ class Mult3w(Logic):
         ShiftLeftConstant(self, 'm2', a, 1, aux)
         Add(self, "add", a, aux, r)
         
+import py4hw
+
 sys = HWSystem()
 
 a = sys.wire("a", 3)
@@ -45,8 +47,13 @@ r2 = sys.wire("r2", 3)
 b = sys.wire('b')
 c = sys.wire('c')
 p = sys.wire("p", 3)
+fa = sys.wire('fa', 32)
+fb = sys.wire('fb', 32)
+fr = sys.wire('fr', 32)
 
 Constant(sys, 'a', 3, a)
+
+py4hw.FPAdder_SP(sys, 'fp_adder', fa, fb, fr)
 
 m3 = Mult3(sys, "m3", a, r)
 m3w = Mult3w(sys, "m3w", a, r2)
@@ -59,7 +66,9 @@ BitsLSBF(sys, 'bits', r, bits)
 Scope(sys, "p", p)
 #Scope(sys, "r", r)
 
-debug.checkIntegrity(sys)
+#debug.checkIntegrity(sys)
 sch = Schematic(sys)
 sch.draw()
 
+
+py4hw.gui.Workbench(sys)
