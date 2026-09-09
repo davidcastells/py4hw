@@ -2,6 +2,10 @@
 """
 Created for py4hw circuit diagrams export to Draw.io format (.drawio / .xml)
 Supports child instances, wires, and top-level circuit I/O pins.
+
+Mux2 instances are rendered as a trapezoid shape with dedicated port sub-cells
+for each connection point (sel0, sel1, sel, r). This gives a clean mux symbol
+with proper draw.io connection points that wires can snap to.
 """
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from typing import Any, Dict, List, Optional, Tuple
 
+import py4hw
 
 # ---------------------------------------------------------------------------
 # Geometry constants (Pixels)
@@ -24,10 +29,20 @@ IO_PIN_WIDTH = 90
 IO_PIN_HEIGHT = 32
 IO_PIN_GAP = 15
 
+# Mux2 shape geometry
+MUX2_WIDTH = 30
+MUX2_HEIGHT = 70
+
+MUX_HEIGHT = 20
+
+# Anchor (x, y) fractions used by edges that connect to a cell with no
+# separate port sub-cells (e.g. the Mux2 shape). None means "use the
+# generic default" (source -> (1, 0.5), target -> (0, 0.5)), which
+# matches the fixed points already baked into the normal port sub-cells.
+PortRef = Tuple[str, Optional[Tuple[float, float]]]
+
 
 class _PortResolver:
-    
-    
 
     @classmethod
     def wire_endpoints(
@@ -71,6 +86,21 @@ class DrawIoDiagramGenerator:
         self._id_counter += 1
         return idx
 
+    @staticmethod
+    def _unpack_port(ref: Any) -> Tuple[str, Optional[Tuple[float, float]]]:
+        """Normalizes a layout port reference to (cell_id, anchor).
+
+        Most ports are stored as a plain cell id (their own connection
+        point is already fixed via the port sub-cell's own geometry and
+        style). Ports on shapes without sub-cells are stored as a
+        (cell_id, (x, y)) tuple carrying an explicit anchor.
+        """
+        if isinstance(ref, tuple):
+            return ref
+        return ref, None
+
+    
+
     def generate(self, circuit: py4hw.Logic, output_path: str) -> None:
         work_path = (output_path
             if output_path.endswith(".drawio") or output_path.endswith(".xml")
@@ -102,19 +132,17 @@ class DrawIoDiagramGenerator:
         ET.SubElement(root, "mxCell", {"id": "1", "parent": "0"})
 
         instances = circuit.children
-        
+
         wires = circuit._wires
-        top_in_ports = [port.name for port in circuit.inPorts]            
+        top_in_ports = [port.name for port in circuit.inPorts]
         top_out_ports = [port.name for port in circuit.outPorts]
-        
+
         for port in circuit.inPorts:
             wires[f'TOP_{port.name}'] = port.wire
         for port in circuit.outPorts:
             wires[f'TOP_{port.name}'] = port.wire
-        
-        layers = self._layer_instances(instances, wires)
 
-        
+        layers = self._layer_instances(instances, wires)
 
         # Layout 1st level: key = instance name, value = another dictionary
         #        2nd level: key = "box_id", "in" or "out", value = an id for box_id, another dictionary for port directions
@@ -141,7 +169,15 @@ class DrawIoDiagramGenerator:
 
             for inst_name in layer:
                 inst = instances[inst_name]
-                box_id, port_ids, height = self._create_block(root, inst, inst_name, target_x, target_y)
+
+                if isinstance(inst, py4hw.Mux2):
+                    box_id, port_ids, height = self._create_mux2_block(root, inst, inst_name, target_x, target_y)
+                elif (isinstance(inst, py4hw.Mux)):
+                    box_id, port_ids, height = self._create_mux_block(root, inst, inst_name, target_x, target_y)                    
+                elif isinstance(inst, py4hw.Reg):
+                    box_id, port_ids, height = self._create_block(root, inst, inst_name, target_x, target_y, fillColor='#FFD0C0')
+                else:
+                    box_id, port_ids, height = self._create_block(root, inst, inst_name, target_x, target_y)
 
                 layout[inst_name] = {"box_id": box_id, "in": port_ids["in"], "out": port_ids["out"]}
                 target_y += height + ROW_GAP
@@ -159,31 +195,31 @@ class DrawIoDiagramGenerator:
         # 4. Generate Wires
         for wire_name, wire in wires.items():
             print(f'wire: {wire_name}', end=' ')
-            
+
             source, sinks = _PortResolver.wire_endpoints(circuit, wire, instances)
-            
+
             print(source, end=' -> ')
             print(sinks)
-            
+
             if (source is None):
                 print('no source')
                 continue
-                
+
             src_inst, src_port = source
-            from_port_id = layout[src_inst]["out"][src_port]
-            
-            
-            
+            from_id, from_anchor = self._unpack_port(layout[src_inst]["out"][src_port])
 
             for sink_inst, sink_port in sinks:
-                to_port_id = layout[sink_inst]["in"][sink_port]
-                
-                print('   ', f'{from_port_id} -> {to_port_id}')
-                
-                self._create_edge(root, from_port_id, to_port_id, label=wire_name)
+                to_id, to_anchor = self._unpack_port(layout[sink_inst]["in"][sink_port])
+
+                print('   ', f'{from_id} -> {to_id}')
+
+                self._create_edge(
+                    root, from_id, to_id, label=wire_name,
+                    exit_anchor=from_anchor, entry_anchor=to_anchor,
+                )
 
             print()
-            
+
         # 5. Output XML File
         raw_xml = ET.tostring(mxfile, encoding="utf-8")
         pretty_xml = minidom.parseString(raw_xml).toprettyxml(indent="  ")
@@ -203,12 +239,12 @@ class DrawIoDiagramGenerator:
             f"rounded=1;whiteSpace=wrap;html=1;{color_style}fontStyle=1;fontSize=11;"
             f"align=center;verticalAlign=middle;points={anchor};"
         )
-        label = f"{pin_name}" 
+        label = f"{pin_name}"
         cell = ET.SubElement(root, "mxCell",{"id": pin_id,"value": label,"style": style,"vertex": "1","parent": "1",})
         ET.SubElement(cell, "mxGeometry", {"x": str(x), "y": str(y), "width": str(IO_PIN_WIDTH), "height": str(IO_PIN_HEIGHT), "as": "geometry"})
         return pin_id
 
-    def _create_block(self, root: ET.Element, inst: Any, inst_name: str, x: float, y: float) -> Tuple[str, Dict[str, Dict[str, str]], float]:
+    def _create_block(self, root: ET.Element, inst: Any, inst_name: str, x: float, y: float, fillColor='#f8f9fa') -> Tuple[str, Dict[str, Dict[str, str]], float]:
         in_ports = [port.name for port in inst.inPorts]
         out_ports = [port.name for port in inst.outPorts]
 
@@ -216,8 +252,8 @@ class DrawIoDiagramGenerator:
 
         box_id = self._next_id()
         box_style = (
-            "rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;"
-            "spacingTop=6;fillColor=#f8f9fa;strokeColor=#333333;fontStyle=1;fontSize=12;"
+            f"rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;"
+            f"spacingTop=6;fillColor={fillColor};strokeColor=#333333;fontStyle=1;fontSize=12;"
         )
         box_cell = ET.SubElement(root, "mxCell", { "id": box_id, "value": inst_name, "style": box_style, "vertex": "1","parent": "1",})
         ET.SubElement(box_cell,"mxGeometry",{"x": str(x),"y": str(y),"width": str(BOX_WIDTH),"height": str(height),"as": "geometry",})
@@ -253,13 +289,171 @@ class DrawIoDiagramGenerator:
 
         return box_id, port_ids, height
 
-    def _create_edge(self, root: ET.Element, source_id: str, target_id: str, label: str = "") -> None:
+    def _create_mux2_block(self, root: ET.Element, inst: Any, inst_name: str, x: float, y: float) -> Tuple[str, Dict[str, Dict[str, PortRef]], float]:
+        """Renders a Mux2 instance as a trapezoid with proper port sub-cells.
+
+        Uses ``shape=trapezoid;direction=east`` so the shape is wider on the
+        left (inputs) and narrower on the right (output), giving a classic
+        multiplexer symbol.  Small invisible port sub-cells are placed at the
+        edges so draw.io wires snap to real connection points instead of being
+        anchored by fractional coordinates on the main shape.
+
+        Expected py4hw Mux2 port names:
+            * ``sel0``, ``sel1`` – data inputs (left side)
+            * ``sel`` (also ``select`` / ``s``) – select line (bottom)
+            * ``r`` – output (right side)
+        """
+        in_ports = [port.name for port in inst.inPorts]
+        out_ports = [port.name for port in inst.outPorts]
+
+        width = MUX2_WIDTH
+        height = MUX2_HEIGHT
+
+        box_id = self._next_id()
+        # direction=east → wide on left, narrow on right (points right)
+        box_style = (
+            "shape=trapezoid;direction=south;whiteSpace=wrap;html=1;"
+            "fillColor=#FFFFFF;strokeColor=#000000;fontStyle=1;fontSize=11;"
+            "align=center;verticalAlign=middle;"
+        )
+        box_cell = ET.SubElement(
+            root, "mxCell",
+            {"id": box_id, "value": inst_name, "style": box_style, "vertex": "1", "parent": "1"},
+        )
+        ET.SubElement(
+            box_cell, "mxGeometry",
+            {"x": str(x), "y": str(y), "width": str(width), "height": str(height), "as": "geometry"},
+        )
+
+        port_ids: Dict[str, Dict[str, PortRef]] = {"in": {}, "out": {}}
+
+        def _make_port(name: str, px: float, py: float, points: str, label: str = "") -> str:
+            """Create a tiny invisible port sub-cell at the given relative coords."""
+            pid = self._next_id()
+            port_style = (
+                f"text;html=1;align=center;verticalAlign=middle;resizable=0;"
+                f"points={points};autosize=0;strokeColor=none;fillColor=none;"
+                f"fontSize=8;fontColor=#888888;"
+            )
+            p_cell = ET.SubElement( root, "mxCell", {"id": pid, "value": label, "style": port_style, "vertex": "1", "parent": box_id})
+            ET.SubElement( p_cell, "mxGeometry", {"x": str(px), "y": str(py), "width": "6", "height": "6", "as": "geometry"})
+            return pid
+
+        # Map each expected port to its position on the trapezoid.
+        # Coordinates are relative to the 50×70 parent shape.
+        for p_name in in_ports:
+            p_lower = p_name.lower()
+            if p_lower == "sel0":
+                pid = _make_port(p_name, 0, 12, "[[0,0.5,0,0,0]]", "0")
+                port_ids["in"][p_name] = (pid, None)
+            elif p_lower == "sel1":
+                pid = _make_port(p_name, 0, 52, "[[0,0.5,0,0,0]]", "1")
+                port_ids["in"][p_name] = (pid, None)
+            elif p_lower == "sel":
+                # Select line enters from the bottom centre.
+                # We return an explicit anchor so the edge is routed to the
+                # bottom of the port cell.
+                pid = _make_port(p_name, MUX2_WIDTH//2, MUX2_HEIGHT - 15, "[[0.5,1,0,0,0]]", "S")
+                port_ids["in"][p_name] = (pid, (0.5, 1.0))
+            else:
+                # Fallback for any unexpected input port – place on the left.
+                pid = _make_port(p_name, 0, height / 2 - 3, "[[0,0.5,0,0,0]]")
+                port_ids["in"][p_name] = (pid, None)
+
+        for p_name in out_ports:
+            p_lower = p_name.lower()
+            pid = _make_port(p_name, MUX2_WIDTH - 6, 32, "[[1,0.5,0,0,0]]")
+            port_ids["out"][p_name] = (pid, None)
+
+        return box_id, port_ids, height
+
+    def _create_mux_block(self, root: ET.Element, inst: Any, inst_name: str, x: float, y: float) -> Tuple[str, Dict[str, Dict[str, PortRef]], float]:
+        """Renders a Mux2 instance as a trapezoid with proper port sub-cells.
+    
+        Uses ``shape=trapezoid;direction=east`` so the shape is wider on the
+        left (inputs) and narrower on the right (output), giving a classic
+        multiplexer symbol.  Small invisible port sub-cells are placed at the
+        edges so draw.io wires snap to real connection points instead of being
+        anchored by fractional coordinates on the main shape.
+    
+        Expected py4hw Mux2 port names:
+            * ``sel0``, ``sel1`` – data inputs (left side)
+            * ``sel`` (also ``select`` / ``s``) – select line (bottom)
+            * ``r`` – output (right side)
+        """
+        in_ports = [port.name for port in inst.inPorts]
+        out_ports = [port.name for port in inst.outPorts]
+    
+        width = MUX2_WIDTH
+        height = MUX_HEIGHT + 12 * (len(in_ports) - 1)
+    
+        box_id = self._next_id()
+        # direction=east → wide on left, narrow on right (points right)
+        box_style = (
+            "shape=trapezoid;direction=south;whiteSpace=wrap;html=1;"
+            "fillColor=#FFFFFF;strokeColor=#000000;fontStyle=1;fontSize=11;"
+            "align=center;verticalAlign=middle;"
+        )
+        box_cell = ET.SubElement( root, "mxCell", {"id": box_id, "value": inst_name, "style": box_style, "vertex": "1", "parent": "1"},)
+        ET.SubElement(box_cell, "mxGeometry", {"x": str(x), "y": str(y), "width": str(width), "height": str(height), "as": "geometry"}, )
+    
+        port_ids: Dict[str, Dict[str, PortRef]] = {"in": {}, "out": {}}
+    
+        def _make_port(name: str, px: float, py: float, points: str, label: str = "") -> str:
+            """Create a tiny invisible port sub-cell at the given relative coords."""
+            pid = self._next_id()
+            port_style = (
+                f"text;html=1;align=center;verticalAlign=middle;resizable=0;"
+                f"points={points};autosize=0;strokeColor=none;fillColor=none;"
+                f"fontSize=8;fontColor=#888888;"
+            )
+            p_cell = ET.SubElement( root, "mxCell", {"id": pid, "value": label, "style": port_style, "vertex": "1", "parent": box_id})
+            ET.SubElement( p_cell, "mxGeometry", {"x": str(px), "y": str(py), "width": "6", "height": "6", "as": "geometry"})
+            return pid
+    
+        # Map each expected port to its position on the trapezoid.
+        # Coordinates are relative to the 50×70 parent shape.
+        for p_name in in_ports:
+            p_lower = p_name.lower()
+            if p_lower.startswith('in'):
+                idx = int(p_lower[2:])
+                pid = _make_port(p_name, 0, MUX_HEIGHT//2 + 3 + idx*12, "[[0,0.5,0,0,0]]", f"{idx}")
+                port_ids["in"][p_name] = (pid, None)
+            elif p_lower == "sel":
+                # Select line enters from the bottom centre.
+                # We return an explicit anchor so the edge is routed to the
+                # bottom of the port cell.
+                pid = _make_port(p_name, MUX2_WIDTH//2, MUX_HEIGHT + (len(in_ports) - 1)*12 - 15, "[[0.5,1,0,0,0]]", "S")
+                port_ids["in"][p_name] = (pid, (0.5, 1.0))
+            else:
+                # Fallback for any unexpected input port – place on the left.
+                pid = _make_port(p_name, 0, height / 2 - 3, "[[0,0.5,0,0,0]]")
+                port_ids["in"][p_name] = (pid, None)
+    
+        for p_name in out_ports:
+            p_lower = p_name.lower()
+            pid = _make_port(p_name, MUX2_WIDTH - 6, 32, "[[1,0.5,0,0,0]]")
+            port_ids["out"][p_name] = (pid, None)
+    
+        return box_id, port_ids, height
+
+    def _create_edge(
+        self,
+        root: ET.Element,
+        source_id: str,
+        target_id: str,
+        label: str = "",
+        exit_anchor: Optional[Tuple[float, float]] = None,
+        entry_anchor: Optional[Tuple[float, float]] = None,
+    ) -> None:
         edge_id = self._next_id()
+        ex, ey = exit_anchor if exit_anchor is not None else (1, 0.5)
+        enx, eny = entry_anchor if entry_anchor is not None else (0, 0.5)
         edge_style = (
             "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;"
             "jettySize=auto;html=1;strokeColor=#0055BB;strokeWidth=1.5;"
-            "exitX=1;exitY=0.5;exitDx=0;exitDy=0;"
-            "entryX=0;entryY=0.5;entryDx=0;entryDy=0;"
+            f"exitX={ex};exitY={ey};exitDx=0;exitDy=0;"
+            f"entryX={enx};entryY={eny};entryDx=0;entryDy=0;"
         )
         edge_cell = ET.SubElement(
             root,
