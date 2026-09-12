@@ -1216,7 +1216,8 @@ class Schematic:
                 if (isinstance(obj, UnusedConnectionSymbol)):
                     continue
                 
-                print('object in', r, c, obj.__class__)
+                if (debug):
+                    print('object in', r, c, obj.__class__)
                 
                 sinks = self.getAllInstanceSinks(obj)
                 
