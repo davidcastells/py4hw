@@ -7,3 +7,4 @@ edalize
 setuptools
 astunparse
 lxml
+scipy
