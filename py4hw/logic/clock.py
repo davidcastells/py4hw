@@ -54,14 +54,73 @@ class ClockDivider(Logic):
         else:
             reset = self.addIn('reset', reset)
             
-        dut = ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=t)
+        ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=t)
     
         TReg(self, 'clkout', t, enable=inc, q=clkout, reset=reset)
 
+class ClockEnableGenerator(Logic):
+    def __init__(self, parent, name, freq_in, freq_out, enable_out, reset=None):
+        from py4hw.helper import LogicHelper
+        from py4hw.logic.arithmetic import ModuloCounter
+        import math
         
+        super().__init__(parent, name)
+            
+        req_freq_out = freq_out
+        hlp = LogicHelper(self)
+        
+        # Define output port
+        self.addOut('enable_out', enable_out)
+        
+        # Calculate full period count: n = freq_in / freq_out
+        n = freq_in / freq_out
+        
+        qw = int(math.log2(n)) + 1
+        n = int(n)
+        
+        freq_out = freq_in / n
+        
+        if (freq_out != req_freq_out):
+            print('WARNING: Real Output Strobe Frequency:', freq_out, 'required:', req_freq_out)
+        
+        assert(qw > 0)
+        q = self.wire('q', qw)
+        inc = hlp.hw_constant(1, 1)
+        
+        if (reset is None):
+            reset = hlp.hw_constant(1, 0)
+        else:
+            reset = self.addIn('reset', reset)
+            
+        ModuloCounter(self, 'count', mod=n, inc=inc, reset=reset, q=q, carryout=enable_out)        
         
 class EdgeDetector(Logic):
     def __init__(self, parent, name, a, r, direction):
+        '''
+        Edge dectector.
+
+        Parameters
+        ----------
+        parent : Logic
+            parent circuit.
+        name : str
+            instance name.
+        a : Wire
+            intput wire.
+        r : Wire
+            output wire, active when edge is detected.
+        direction : str
+            possible values: pos, neg, both.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            DESCRIPTION.
+        '''
         from py4hw.logic.storage import Reg
         from py4hw.logic.bitwise import Not
         from py4hw.logic.bitwise import And2
