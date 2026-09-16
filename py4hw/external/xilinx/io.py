@@ -1,6 +1,28 @@
 import py4hw
 
+class TristateBuffer(py4hw.Logic):
+    def __init__(self, parent, name, i, t, o, io):
+        super().__init__(parent, name)
+        
+        assert(i.getWidth() == 1)
+        assert(t.getWidth() == 1)
+        assert(o.getWidth() == 1)
+        assert(io.getWidth() == 1)
 
+        self.addIn('i', i)
+        self.addIn('t', t)
+        self.addOut('o', o)
+        self.addInOut('io', io)
+        
+    def propagate(self):
+        pass
+
+    def structureName(self):
+        return 'TristateBuffer'
+                
+    def verilogBody(self):
+        return 'IOBUF iobuf_inst (.I(i), .T(t), .O(o), .IO(io) );'
+    
 class OuputBufferDifferential(py4hw.Logic):
     def __init__(self, parent, name, a, p, n):
         super().__init__(parent, name)
