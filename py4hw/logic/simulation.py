@@ -31,7 +31,17 @@ class FieldInspector:
     
 # This is a class to provide custom visualization of values
 class ValueFormatter:
-    pass
+    def __init__(self, x, fmt):
+        self.x = x
+        self.fmt = fmt
+
+    def getFullPath(self):
+        return self.x.getFullPath()
+        
+    def get(self):
+        x = self.x.get()
+        result = eval(f"f'{self.fmt}'")
+        return result
         
 class Waveform(Logic):
     def __init__(self, parent, name, wires):
@@ -363,11 +373,14 @@ class WaveformWindow:
         self.redraw()
     
     def sync_scrolls(self, *args):
+        print('sync_scolls args:', args)
         self.hierarchyTree.yview(*args)
         self.v_scroll.set(*args)
         self.canvas.yview_moveto(args[0])
     
     def yview(self, *args):
+        print('yview args:', args)
+        
         print(*args)
         self.hierarchyTree.yview(*args)
         self.canvas.yview(*args)
@@ -751,6 +764,22 @@ class StreamCaptureSigned(Logic):
 
     def clear(self):
         self.data = []   
+
+class RandomUniform(Logic):
+    def __init__(self, parent, name, r):
+        super().__init__(parent, name)
+        
+        self.r = self.addOut('r', r)
+                
+        
+    def clock(self):
+        import numpy as np
+        # low is inclusive, high is inclusive (+1 for randint/uniform range)
+        # Automatically determine range based on bit-width
+
+        v = int(np.random.randint(0, 1 << self.r.getWidth()))
+        self.r.prepare(v)
+        
         
 class RandomValue(Logic):
     def __init__(self, parent, name, r, mean, stddev):
