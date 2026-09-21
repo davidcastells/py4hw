@@ -1608,3 +1608,17 @@ class CircuitAnalysis:
             ret.append(p.wire)
             
         return ret
+    
+    
+class Sound:
+
+    @staticmethod
+    def beep(frequency=440, duration=0.3, volume=0.5, sample_rate=44100):
+        import numpy as np
+        import sounddevice as sd
+        t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+        wave = np.sin(2 * np.pi * frequency * t)
+        envelope = np.minimum(1, np.minimum(t * 100, (duration - t) * 100))
+        wave = (wave * envelope * volume).astype(np.float32)
+        sd.play(wave, sample_rate)
+        sd.wait()  # omit to play asynchronously
