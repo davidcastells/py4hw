@@ -197,6 +197,20 @@ class Test_RtlGeneration:
         rtlgen = py4hw.VerilogGenerator(hw)
         print(rtlgen.getVerilogForHierarchy(dut))
     
+    def test_behavioral_RotateLeftConstant(self):
+        hw = py4hw.HWSystem()
+        
+        a = hw.wire('a', 8)
+        r = hw.wire('b', 8)
+        
+        dut = py4hw.RotateLeftConstant(hw, 'dut', a, 3, r)
+        
+        rtlgen = py4hw.VerilogGenerator(hw)
+        
+        rtl = rtlgen.getVerilogForHierarchy(dut)
+        
+        assert('w=8;' in rtl or '(8-3)' in rtl)
+        assert not('a<=a' in rtl)
         
 if __name__ == '__main__':
     pytest.main(args=['-s', '-q', 'Test_RtlGeneration.py'])
