@@ -6,6 +6,7 @@ Created on Wed Jan 19 12:53:47 2022
 """
 from .. import *
 from .bitwise import *
+from .storage import Reg
 
 from deprecated import deprecated
 
@@ -76,67 +77,9 @@ class Add(Logic):
         if not(self.co is None):
             s += '_co'
         return s
-        
-class SignedAdd(Logic):
 
-    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
-        """
-        Initialize the SignedAdd logic circuit.
 
-        Parameters
-        ----------
-        parent : Logic
-            Parent circuit.
-        name : str
-            Name of the instance.
-        a : Wire
-            First input wire.
-        b : Wire
-            Second input wire.
-        r : Wire
-            Output wire.
-        ci : Wire, optional
-            Carry-in wire. Defaults to None.
-        co : Wire, optional
-            Carry-out wire. Defaults to None.
-        width_check : bool, optional
-            Whether to perform width checks. Defaults to True.
-        """
-        super().__init__(parent, name)
-        self.a = self.addIn("a", a)
-        self.b = self.addIn("b", b)
-        self.r = self.addOut("r", r)
-        
-        aw = a.getWidth()
-        bw = b.getWidth()
-        rw = r.getWidth()
-        
-        assert(rw >= aw)
-        assert(rw >= bw)
-
-        if not(ci is None):
-            self.addIn('ci', ci)
-
-        if not(co is None):
-            self.addOut('co', co)
-        
-        if (rw > aw): 
-            sa = self.wire('sa', rw)
-            SignExtend(self, 'sa', a, sa)
-        else:
-            sa = a
-            
-        if (rw > bw):
-            sb = self.wire('sb', rw)
-            SignExtend(self, 'sb', b, sb)
-        else:
-            sb = b
-            
-        Add(self, 'add', sa, sb, r, ci, co, width_check=False)
-        
-        
 class AddCarryIn(Logic):
-
     def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci: Wire):
         """
         Initialize the AddCarryIn logic circuit.
@@ -167,6 +110,62 @@ class AddCarryIn(Logic):
 
     def propagate(self):
         self.r.put(self.a.get() + self.b.get() + self.ci.get())        
+
+
+class BinaryToBCD(Logic):
+    
+    def __init__(self, parent, name : str, a: Wire, r:Wire):
+        """
+        Initialize the BinaryToBCD logic circuit.
+
+        This circuit converts a binary number represented by the input wire `a` into Binary-Coded Decimal (BCD) format.
+        The result is stored in the output wire `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire containing the binary number to be converted.
+        r : Wire
+            Output wire containing the BCD representation of the input number.
+        """
+        from ..helper import LogicHelper    
+
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        r = self.addOut('r', r)
+    
+        hlp = LogicHelper(self)
+        
+        w = a.getWidth()
+        assert(r.getWidth() % 4 == 0)
+        digits = r.getWidth() // 4 # int(math.ceil(math.log10((2**w)-1)))
+        print('Number of BCD digits:', digits)
+        print('r width:', r.getWidth())
+        
+        assert(r.getWidth() >= (digits*4))
+        
+        ret = []
+        v = a
+        k10 = hlp.hw_constant(4, 10)
+        
+        for i in range(digits):
+            rem = self.wire('mod{}'.format(i), 4)
+            div = self.wire('div{}'.format(i), w)
+            Mod(self, 'mod{}'.format(i), v, k10, rem)
+            Div(self, 'div{}'.format(i), v, k10, div)
+            ret.append(rem)
+            v = div
+            
+        ConcatenateLSBF(self, 'r', ret, r)
+
+        
+        
+        
 
 
 class Abs(Logic):
@@ -952,6 +951,91 @@ class ShiftLeft(Logic):
             
         Buf(self, 'r', prer, r)
 
+
+class RingCounter(Logic):
+    '''
+    Structural one-hot ring counter built from RotateLeftConstant.
+
+    Self-priming: on power-up (before any reset has ever been asserted),
+    the register defaults to 0, which is not a valid one-hot state. To
+    avoid depending on an external reset pulse ever occurring, this
+    circuit keeps an internal 'primed' bit -- a registered copy of
+    ~reset -- that starts at 0 (its own power-on default) and becomes 1
+    after the first clock edge with reset=0. While primed=0 (i.e. before
+    the very first clock edge, or for one cycle after any reset pulse),
+    the main register is force-loaded with init_const every cycle. Once
+    primed, the main register's own 'enable' pin (not an extra mux)
+    decides whether it holds or rotates -- so enable pulses are never
+    absorbed or delayed by the priming logic.
+
+    q is purely registered: q only changes on a clock edge, never
+    combinationally.
+
+    Parameters
+    ----------
+    parent : Logic
+    name : str
+    reset : Wire (1 bit)
+        Synchronous reset. Forces q back to init_value and re-arms the
+        self-priming logic. Optional to ever assert -- the circuit
+        self-primes to init_value on the very first clock edge anyway.
+    enable : Wire (1 bit)
+        When 1 (and the circuit is primed and not resetting), rotate
+        left by 1 on the next edge. When 0, hold.
+    q : Wire (n bits, n >= 2)
+        One-hot output. Width determines the ring size.
+    init : int, optional
+        Bit position (0 = LSB) set to 1 after reset / on first power-up.
+        Default 0.
+
+    Returns
+    -------
+    None
+    '''
+    def __init__(self, parent, name, reset, enable, q, init=0):
+        super().__init__(parent, name)
+
+        self.addIn('reset', reset)
+        self.addIn('enable', enable)
+        self.addOut('q', q)
+
+        n = q.getWidth()
+        assert n >= 2, 'RingCounter needs at least 2 bits'
+        assert 0 <= init < n
+
+        init_value = 1 << init
+
+        # --- 'primed' bit: registered copy of ~reset, starts at 0 ---
+        nreset = self.wire('nreset')
+        primed = self.wire('primed')
+        nprimed = self.wire('nprimed')
+
+        Not(self, 'nreset', reset, nreset)
+        Reg(self, 'primed_reg', d=nreset, q=primed)   # always enabled
+        Not(self, 'nprimed', primed, nprimed)
+
+        # load = force init_const this cycle (not yet primed, or resetting now)
+        load = self.wire('load')
+        Or2(self, 'load', nprimed, reset, load)
+
+        # --- main ring register ---
+        init_const = self.wire('init_const', n)
+        rotated = self.wire('rotated', n)
+        d_q = self.wire('d_q', n)
+        reg_enable = self.wire('reg_enable')
+
+        Constant(self, 'init_const', init_value, init_const)
+        RotateLeftConstant(self, 'rotate', q, 1, rotated)
+
+        # d_q = load ? init_const : rotated
+        Mux2(self, 'd_mux', load, rotated, init_const, d_q)
+
+        # reg_enable = load | enable   -- Reg only ever writes when needed;
+        # when load=0 and enable=0, Reg holds q regardless of d_q
+        Or2(self, 'reg_enable', load, enable, reg_enable)
+
+        Reg(self, 'reg', d=d_q, q=q, enable=reg_enable)
+        
 class RotateRight(Logic):
     def __init__(self, parent: Logic, name: str, a: Wire, b: Wire, r: Wire):
         """
@@ -1046,6 +1130,63 @@ class RotateLeft(Logic):
         Buf(self, 'r', prer, r)
 
 
+class SignedAdd(Logic):
+
+    def __init__(self, parent, name: str, a: Wire, b: Wire, r: Wire, ci=None, co=None, width_check=True):
+        """
+        Initialize the SignedAdd logic circuit.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            First input wire.
+        b : Wire
+            Second input wire.
+        r : Wire
+            Output wire.
+        ci : Wire, optional
+            Carry-in wire. Defaults to None.
+        co : Wire, optional
+            Carry-out wire. Defaults to None.
+        width_check : bool, optional
+            Whether to perform width checks. Defaults to True.
+        """
+        super().__init__(parent, name)
+        self.a = self.addIn("a", a)
+        self.b = self.addIn("b", b)
+        self.r = self.addOut("r", r)
+        
+        aw = a.getWidth()
+        bw = b.getWidth()
+        rw = r.getWidth()
+        
+        assert(rw >= aw)
+        assert(rw >= bw)
+
+        if not(ci is None):
+            self.addIn('ci', ci)
+
+        if not(co is None):
+            self.addOut('co', co)
+        
+        if (rw > aw): 
+            sa = self.wire('sa', rw)
+            SignExtend(self, 'sa', a, sa)
+        else:
+            sa = a
+            
+        if (rw > bw):
+            sb = self.wire('sb', rw)
+            SignExtend(self, 'sb', b, sb)
+        else:
+            sb = b
+            
+        Add(self, 'add', sa, sb, r, ci, co, width_check=False)
+
 class StepUpCounter(Logic):
     def __init__(self, parent, name: str, reset: Wire, inc: Wire, step:Wire, q: Wire):
         """
@@ -1106,56 +1247,6 @@ class StepUpCounter(Logic):
         Add(self, 'add', q, step, add)
         Reg(self, 'reg', d, q, e_add)
         
-class BinaryToBCD(Logic):
-    
-    def __init__(self, parent, name : str, a: Wire, r:Wire):
-        """
-        Initialize the BinaryToBCD logic circuit.
-
-        This circuit converts a binary number represented by the input wire `a` into Binary-Coded Decimal (BCD) format.
-        The result is stored in the output wire `r`.
-
-        Parameters
-        ----------
-        parent : Logic
-            Parent circuit.
-        name : str
-            Name of the instance.
-        a : Wire
-            Input wire containing the binary number to be converted.
-        r : Wire
-            Output wire containing the BCD representation of the input number.
-        """
-        from ..helper import LogicHelper    
-
-        super().__init__(parent, name)
-        
-        a = self.addIn('a', a)
-        r = self.addOut('r', r)
-    
-        hlp = LogicHelper(self)
-        
-        w = a.getWidth()
-        assert(r.getWidth() % 4 == 0)
-        digits = r.getWidth() // 4 # int(math.ceil(math.log10((2**w)-1)))
-        print('Number of BCD digits:', digits)
-        print('r width:', r.getWidth())
-        
-        assert(r.getWidth() >= (digits*4))
-        
-        ret = []
-        v = a
-        k10 = hlp.hw_constant(4, 10)
-        
-        for i in range(digits):
-            rem = self.wire('mod{}'.format(i), 4)
-            div = self.wire('div{}'.format(i), w)
-            Mod(self, 'mod{}'.format(i), v, k10, rem)
-            Div(self, 'div{}'.format(i), v, k10, div)
-            ret.append(rem)
-            v = div
-            
-        ConcatenateLSBF(self, 'r', ret, r)
         
 
 class UpCounter(Logic):
