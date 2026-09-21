@@ -18,5 +18,6 @@ setup(
     install_requires=open('requires.txt').readlines(),
     tests_require=open('requires.txt').readlines(),
     packages=find_packages(),
-    package_data={'': ['*.png']}
+    package_data={'': ['*.png']},
+    python_requires='>=3.10',
 )
