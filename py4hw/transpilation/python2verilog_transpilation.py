@@ -10,6 +10,7 @@ from deprecated import deprecated
 
 import ast
 from .astutils import * 
+import inspect
 
 def startsWith(line, sub):
     if (line[0:len(sub)] == sub):
@@ -29,10 +30,70 @@ def strip(line):
 class TranspilationException(Exception):
     pass
 
+
+def safeUnparse(node, maxlen=120):
+    try:
+        s = ast.unparse(node)
+    except Exception:
+        s = f'<{type(node).__name__}>'
+    return s if len(s) <= maxlen else s[:maxlen] + '...'
+
+def addErrorNote(e, text):
+    """Attach context to an exception. Works on Python 3.10+."""
+    try:
+        if hasattr(e, 'add_note'):                 # Python >= 3.11
+            e.add_note(text)
+        else:                                      # Python 3.10
+            msg = ' '.join(str(a) for a in e.args)
+            e.args = (msg + '\n' + text,)
+    except Exception:
+        pass    # never hide the original error because annotating failed
+
+def tagSource(stmts):
+    """Remember the source text/line of every Python statement."""
+    for s in stmts:
+        for n in ast.walk(s):
+            if isinstance(n, ast.stmt):
+                first = ast.unparse(n).splitlines()[0]   # 'if x:' for compound statements
+                n._py_src = first
+                n._py_line = getattr(n, 'lineno', '?')
+
+def warn(msg, node=None):
+    where = ''
+    if node is not None:
+        where = f' [python line {getattr(node, "lineno", "?")}: {safeUnparse(node)}]'
+    print('WARNING: ' + msg + where)
+
+class TracedTransformer(ast.NodeTransformer):
+    """Base class for all passes: adds the offending Python statement to errors."""
+    def visit(self, node):
+        try:
+            result = super().visit(node)
+        except Exception as e:
+            src = getattr(node, '_py_src', None)
+            if src is not None and not getattr(e, '_py_located', False):
+                try:
+                    e._py_located = True
+                except Exception:
+                    pass
+                addErrorNote(e, f'  -> in pass {type(self).__name__}, '
+                                f'python line {getattr(node, "_py_line", "?")}:\n'
+                                f'       {src}')
+            raise
+
+        # Verilog* replacement nodes inherit the tag of the node they replace
+        src = getattr(node, '_py_src', None)
+        if (src is not None and isinstance(result, ast.AST) and result is not node
+                and getattr(result, '_py_src', None) is None):
+            result._py_src = src
+            result._py_line = getattr(node, '_py_line', None)
+        return result
+    
 def createVerilogBody(node, slist=''):
     # the Module node contains a body, that contains a list, containting
     # a function definition with a body
     assert(isinstance(node, list))
+    tagSource(node)
     
     # AST visitors can not deal directly with list, we wrap them in 
     # a dummy verilog body object
@@ -53,7 +114,29 @@ class Python2VerilogTranspiler:
         return ' ' * (self.indent * 4)
 
 
+    _last_src = None     # last python statement seen while generating verilog
+
     def transpileCombinational(self):
+        return self._guarded(self._transpileCombinational)
+
+    def transpileSequential(self):
+        return self._guarded(self._transpileSequential)
+
+    def _guarded(self, fn):
+        Python2VerilogTranspiler._last_src = None
+        try:
+            return fn()
+        except Exception as e:
+            cls = type(self.obj)
+            try:
+                fname = inspect.getsourcefile(cls)
+            except Exception:
+                fname = '?'
+            addErrorNote(e, f'  -> while transpiling {self.obj.getFullPath()} '
+                            f'(class {cls.__name__}, file {fname})')
+            raise
+            
+    def _transpileCombinational(self):
         '''
         Transpile RTL style behavioural descriptions
 
@@ -66,8 +149,6 @@ class Python2VerilogTranspiler:
         
         module = self.getMethodAST('__init__')
         node = createVerilogBody(module.body)
-        
-        
         
         initExtracter = ExtractInitializers(self.obj)
         init = initExtracter.visit(node)
@@ -83,6 +164,8 @@ class Python2VerilogTranspiler:
         
         node = RemovePrints().visit(node)
         node = RemoveAssert().visit(node)
+        node = InlineWireAliases(self.obj).visit(node)  
+        node = ReplaceWidthCalls(self.obj).visit(node)            
         
         node = ReplaceIf().visit(node)
         node = ReplaceParameterCalls().visit(node)
@@ -113,7 +196,7 @@ class Python2VerilogTranspiler:
         
         return tree
         
-    def transpileSequential(self):
+    def _transpileSequential(self):
         '''
         Transpile RTL style behavioural descriptions
 
@@ -158,10 +241,10 @@ class Python2VerilogTranspiler:
         assert(isinstance(node, ast.AST))
         
         
-        
         node = RemovePrints().visit(node)
         node = RemoveAssert().visit(node)
-        
+        node = InlineWireAliases(self.obj).visit(node)  # NEW, before ReplaceWireCalls
+        node = ReplaceWidthCalls(self.obj).visit(node)                    
         # node = IfTreeToCaseTransformer().visit(node)
         
         node = ReplaceMatch().visit(node)
@@ -284,7 +367,7 @@ class Python2VerilogTranspiler:
     
     
     
-class PropagateConstants(ast.NodeTransformer):
+class PropagateConstants(TracedTransformer):
     # Propagate constants.
     # Meaning that operations between constants are collapsed, and calls to functions
     # with constant arguments are evaluated
@@ -300,10 +383,17 @@ class PropagateConstants(ast.NodeTransformer):
     
     def has_constant_args(self, call_node):
         """Checks if an ast.Call node has all constant arguments."""
-        constant_nodes = (ast.Num, ast.Str, ast.Bytes)
+
+        # Determine supported constant node types based on Python version
+        if hasattr(ast, "Constant"):
+            constant_nodes = (ast.Constant,)
+        else:
+            constant_nodes = (ast.Num, ast.Str, ast.Bytes, ast.NameConstant)
+        
         for arg in call_node.args:
             if not isinstance(arg, constant_nodes):
                 return False
+            
         for keyword in call_node.keywords:
             if not isinstance(keyword.value, constant_nodes):
                 return False
@@ -329,7 +419,7 @@ class PropagateConstants(ast.NodeTransformer):
         
         return node 
     
-class ReplaceIf(ast.NodeTransformer):
+class ReplaceIf(TracedTransformer):
     # Transforms Python If into Verilog If
     
     def __init__(self):
@@ -363,7 +453,7 @@ class ReplaceIf(ast.NodeTransformer):
         negative = [self.visit(node.orelse)]
         return VerilogIf(condition, positive, negative)
 
-class ReplaceMatch(ast.NodeTransformer):
+class ReplaceMatch(TracedTransformer):
     """Transforms Python match/case into VerilogCase."""
 
     def visit_Match(self, node):
@@ -398,7 +488,109 @@ class ReplaceMatch(ast.NodeTransformer):
 
         return VerilogCase(subject, cases, default_body)
 
-class RemovePrints(ast.NodeTransformer):
+
+class _SubstituteAliases(TracedTransformer):
+    def __init__(self, aliases):
+        self.aliases = aliases
+
+    def visit_Name(self, node):
+        import copy
+        if isinstance(node.ctx, ast.Load) and node.id in self.aliases:
+            return copy.deepcopy(self.aliases[node.id])
+        return node
+
+
+class InlineWireAliases(TracedTransformer):
+    """
+    Removes temporaries such as
+        a = self.a.get()
+        n = self.n
+        w = self.a.getWidth()
+    and substitutes their value where they are used. Only names assigned
+    exactly once are inlined.
+    """
+    def __init__(self, obj):
+        self.obj = obj
+
+
+    def visit_VerilogProcess(self, node):
+        node.body = self.process(node.body)
+        return node
+
+    def process(self, stmts):
+        stored_names = {}
+        self.stored_attrs = set()
+
+        for s in stmts:
+            for n in ast.walk(s):
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                    stored_names[n.id] = stored_names.get(n.id, 0) + 1
+                elif isinstance(n, ast.Attribute) and isinstance(n.ctx, ast.Store):
+                    self.stored_attrs.add(n.attr)
+
+        aliases = {}
+        out = []
+        for s in stmts:
+            s = _SubstituteAliases(aliases).visit(s)
+
+            if (isinstance(s, ast.Assign)
+                    and len(s.targets) == 1
+                    and isinstance(s.targets[0], ast.Name)
+                    and stored_names[s.targets[0].id] == 1
+                    and self.isAlias(s.value)):
+                aliases[s.targets[0].id] = s.value
+                continue  # drop the assignment
+
+            out.append(s)
+        return out
+
+    def isAlias(self, v):
+        if isinstance(v, ast.Constant):
+            return True
+        # self.x.get() / self.x.getWidth()
+        if (isinstance(v, ast.Call) and not v.args and not v.keywords
+                and isinstance(v.func, ast.Attribute)):
+            return v.func.attr in ('get', 'getWidth')
+        # self.n where n is a constructor constant that is never modified
+        if (isinstance(v, ast.Attribute) and isinstance(v.value, ast.Name)
+                and v.value.id == 'self'):
+            return (v.attr not in self.stored_attrs
+                    and isinstance(getattr(self.obj, v.attr, None), (int, bool)))
+        return False
+    
+class ReplaceWidthCalls(TracedTransformer):
+    """
+    Replaces <wire>.getWidth() with the integer width of the wire,
+    resolved against the live object (e.g. self.a.getWidth() -> 8)
+    """
+    def __init__(self, obj):
+        super().__init__()
+        self.obj = obj
+
+    def resolve(self, node):
+        if isinstance(node, ast.Name) and node.id == 'self':
+            return self.obj
+        if isinstance(node, ast.Attribute):
+            return getattr(self.resolve(node.value), node.attr)
+        raise TranspilationException(
+            f'Cannot resolve "{ast.unparse(node)}" to compute its width')
+
+    def visit_Call(self, node):
+        node = self.generic_visit(node)
+
+        if (isinstance(node.func, ast.Attribute)
+                and node.func.attr == 'getWidth'
+                and not node.args and not node.keywords):
+            try:
+                wire = self.resolve(node.func.value)
+                return ast.Constant(value=int(wire.getWidth()))
+            except AttributeError as e:
+                raise TranspilationException(
+                    f'Cannot compute width of "{ast.unparse(node.func.value)}": {e}')
+
+        return node
+    
+class RemovePrints(TracedTransformer):
         
     def visit_Call(self, node):
         from py4hw.rtl_generation import getAstName
@@ -414,7 +606,7 @@ class RemovePrints(ast.NodeTransformer):
         
         return node
 
-class RemoveAssert(ast.NodeTransformer):
+class RemoveAssert(TracedTransformer):
         
     def visit_Assert(self, node):
         from py4hw.rtl_generation import getAstName
@@ -422,7 +614,7 @@ class RemoveAssert(ast.NodeTransformer):
         # remove asserts
         return VerilogComment('assert removed')
         
-class ReplaceDocStrings(ast.NodeTransformer):
+class ReplaceDocStrings(TracedTransformer):
     
     def visit_VerilogProcess(self, node):
         newbody = []
@@ -433,7 +625,7 @@ class ReplaceDocStrings(ast.NodeTransformer):
             newbody.append(obj)
         return VerilogProcess(newbody, node.sensitivity_list)
     
-class ReplaceParameterCalls(ast.NodeTransformer):
+class ReplaceParameterCalls(TracedTransformer):
         
     def visit_Call(self, node):
         from py4hw.rtl_generation import getAstName
@@ -458,14 +650,31 @@ class ReplaceParameterCalls(ast.NodeTransformer):
         node = ast.NodeTransformer.generic_visit(self, node)
         
         return node
+
+def isSelfAttribute(node):
+    """True only for the exact form `self.<name>`."""
+    return (isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == 'self')
     
-class ReplaceWireCalls(ast.NodeTransformer):
+class ReplaceWireCalls(TracedTransformer):
         
+    WIRE_METHODS = ('get', 'put', 'prepare')
+    
     def visit_Call(self, node):
         from py4hw.rtl_generation import getAstName
 
+        #print('Replacing Wire Call in', ast.unparse(node))
         attr = getAstName(node.func)
         
+        # Wire accesses must be of the form self.<wire name>.<method>(...)
+        if attr in self.WIRE_METHODS and isinstance(node.func, ast.Attribute):
+            if not isSelfAttribute(node.func.value):
+                raise TranspilationException(
+                    "Cannot transpile '{}': '{}()' is only supported on a wire "
+                    "of the form self.<wire name>, but found '{}'".format(
+                        ast.unparse(node), attr, ast.unparse(node.func.value)))
+                
         #print('checking call', attr)
         if (attr == 'get'):
             #if isinstance(node.func.value, ast.Attribute):
@@ -492,7 +701,7 @@ class ReplaceWireCalls(ast.NodeTransformer):
     
     
 
-class ReplaceOperators(ast.NodeTransformer):
+class ReplaceOperators(TracedTransformer):
     
     def visit_BinOp(self, node):
         #print('replacing BinOp')
@@ -544,12 +753,12 @@ class ReplaceOperators(ast.NodeTransformer):
         return node
 
     
-class ReplaceExpr(ast.NodeTransformer):
+class ReplaceExpr(TracedTransformer):
     def visit_Expr(self, node):
         
         return node.value
 
-class ReplaceIfExp(ast.NodeTransformer):
+class ReplaceIfExp(TracedTransformer):
     def visit_IfExp(self, node):
         cond = ast.NodeTransformer.generic_visit(self, node.test)
         positive = ast.NodeTransformer.generic_visit(self, node.body)
@@ -557,7 +766,7 @@ class ReplaceIfExp(ast.NodeTransformer):
         return VerilogTernaryConditionalOperator(cond, positive, negative)
         
 
-class ReplaceWiresAndVariables(ast.NodeTransformer):
+class ReplaceWiresAndVariables(TracedTransformer):
     # We replace names by verilog wires or variables that were identified in the constructor
     
     def __init__(self, ports, variables, arguments):
@@ -598,7 +807,7 @@ class ReplaceWiresAndVariables(ast.NodeTransformer):
         return VerilogVariable(name, 'integer')
     
 
-class ReplaceConstant(ast.NodeTransformer):
+class ReplaceConstant(TracedTransformer):
     def __init__(self):
         super().__init__()
 
@@ -613,7 +822,7 @@ class ReplaceConstant(ast.NodeTransformer):
         return VerilogConstant(node.n)
     
     
-class ReplaceAssign(ast.NodeTransformer):
+class ReplaceAssign(TracedTransformer):
             
     def visit_Assign(self, node):
         if (len(node.targets) > 1):
@@ -641,7 +850,7 @@ class ReplaceAssign(ast.NodeTransformer):
         
         return node
 
-class ExtractInitializers(ast.NodeTransformer):
+class ExtractInitializers(TracedTransformer):
     # We get port descriptions from addIn, addOut calls
     # @todo Why do we do it like this instead of analyzing the port information of the object ??
     
@@ -772,7 +981,7 @@ class ExtractInitializers(ast.NodeTransformer):
         
         return node
 
-class FlattenOperators(ast.NodeTransformer):
+class FlattenOperators(TracedTransformer):
     # If recursive operators are found they are extracted, new wires
     # are created and the structure is flattened
     ic = -1
