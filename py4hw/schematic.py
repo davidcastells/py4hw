@@ -419,7 +419,7 @@ class Schematic:
         Schematic.mapping[Mux2] = Mux2Symbol
         Schematic.mapping[Range] = RangeSymbol
 
-        self.mapping[Waveform] = ScopeSymbol # Temp solution
+        #self.mapping[Waveform] = ScopeSymbol # Temp solution
 
         self.parent = parent
         self.render = render        
