@@ -912,7 +912,7 @@ class ExtractInitializers(TracedTransformer):
                 # @todo review what to do here
                 pass
             else:
-                print('# name not expected', fname)
+                print('# name not expected name:', fname)
 
             w = VerilogWire(pname)
             self.ports[pname] = w        
@@ -961,7 +961,7 @@ class ExtractInitializers(TracedTransformer):
         elif (isinstance(node.value, ast.Name)):
             #return VerilogConstant(getattr(self.obj, node.value.id))
             vname = node.targets[0].attr
-            print('Assign ', vname , '=', node.value)
+            # print('Assign ', vname , '=', node.value)
             self.arguments[vname] = VerilogConstant(getattr(self.obj, node.value.id))
             return None
         
