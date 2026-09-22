@@ -1,7 +1,20 @@
+from .path import is_cygwin_path
+from .path import is_windows_path
+from .path import windows_to_cygwin
+
 def patch_edalize_for_project(project_dir, VIVADO_PATH, BASH):
     from edalize.build_runners.make import Make
     import edalize.tools.vivado as vivado_tool
     import edalize.flows.edaflow as edaflow_mod
+    
+    if not(is_cygwin_path(project_dir)):
+        project_dir = windows_to_cygwin(project_dir)
+
+    if not(is_cygwin_path(VIVADO_PATH)):
+        VIVADO_PATH = windows_to_cygwin(VIVADO_PATH)
+
+    if not(is_windows_path(BASH)):
+        raise Exception(f'BASH should be a windows path, now = {BASH}')
 
     if (hasattr(vivado_tool.Vivado, 'py4hw_patch')):
         print('Edalize was already patched for py4hw')
