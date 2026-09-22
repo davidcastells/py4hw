@@ -33,10 +33,10 @@ class SevenSegmentsController(py4hw.Logic):
         self.addIn('hex1', hexs[1])
         self.addIn('hex2', hexs[2])
         self.addIn('hex3', hexs[3])
-        self.addIn('dps0', dps[0])
-        self.addIn('dps1', dps[1])
-        self.addIn('dps2', dps[2])
-        self.addIn('dps3', dps[3])
+        self.addIn('dp0', dps[0])
+        self.addIn('dp1', dps[1])
+        self.addIn('dp2', dps[2])
+        self.addIn('dp3', dps[3])
 
         tick = self.wire('tick')
         sel = self.wire('sel', len(hexs))
@@ -81,6 +81,44 @@ class Basys3(py4hw.HWSystem):
             #keys[key_name] = keyn
 
         return keys
+    
+    def getPMODAInput(self, i):
+        
+        ii = self.wire(f'ja_ii{i}')
+        o = self.wire(f'ja_o{i}')
+        
+        wbidir = py4hw.FakeWire(f'JA[{i}]')
+        
+        if not('ja' in [p.name for p in self.inOutPorts]):
+            self.addInOut(f'JA', self.wire(f'w_ja', 8))
+                
+        from py4hw.external.xilinx.io import TristateBuffer
+        
+        t = self.wire(f'ja_t{i}')
+        py4hw.Constant(self, f'ja_t{i}', 1, t)
+        TristateBuffer(self, f'ja_tbuf{i}', ii, t, o, wbidir)
+            
+        return o
+
+    def getPMODAOutput(self, i):
+        
+        oe = self.wire(f'ja_oe{i}')
+        ii = self.wire(f'ja_ii{i}')
+        o = self.wire(f'ja_o{i}')
+        
+        wbidir = py4hw.FakeWire(f'JA[{i}]')
+
+        if not('ja' in [p.name for p in self.inOutPorts]):
+            self.addInOut(f'JA', self.wire(f'w_ja', 8))
+                
+        from py4hw.external.xilinx.io import TristateBuffer
+        
+        t = self.wire(f'ja_t{i}')
+        py4hw.Constant(self, f'ja_t{i}', 0, t)
+        TristateBuffer(self, f'ja_tbuf{i}', ii, t, o, wbidir)
+            
+        return ii
+
     
     def getSevenSegments(self, reset, mux_freq=200):
 
