@@ -68,13 +68,20 @@ class Basys3(py4hw.HWSystem):
 
         return key
         
-    def getLED(self, i):
-        raise Exception('not implemented')
-        key = self.wire('led', 4)
-        self.addOut('led', key)
+    def getButtons(self):
+        # Reference manual state they are active high
+        key_names = ['btnC', 'btnU', 'btnL', 'btnR', 'btnD']
+        keys = {}
+        
+        for key_name in key_names:
+            key = self.wire(key_name)
+            #keyn = self.wire(f'{key_name}_n')
+            keys[key_name] = self.addIn(key_name, key)
+            #py4hw.Not(self, f'{key_name}_n', key, keyn)
+            #keys[key_name] = keyn
 
-        return key
-
+        return keys
+    
     def getSevenSegments(self, reset, mux_freq=200):
 
         segs = self.wires('segs', 4, 7)
@@ -209,11 +216,11 @@ set_property -dict { PACKAGE_PIN W4   IOSTANDARD LVCMOS33 } [get_ports {an[3]}]
 
 
 ##Buttons
-#set_property -dict { PACKAGE_PIN U18   IOSTANDARD LVCMOS33 } [get_ports btnC]
-#set_property -dict { PACKAGE_PIN T18   IOSTANDARD LVCMOS33 } [get_ports btnU]
-#set_property -dict { PACKAGE_PIN W19   IOSTANDARD LVCMOS33 } [get_ports btnL]
-#set_property -dict { PACKAGE_PIN T17   IOSTANDARD LVCMOS33 } [get_ports btnR]
-#set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33 } [get_ports btnD]
+set_property -dict { PACKAGE_PIN U18   IOSTANDARD LVCMOS33 } [get_ports btnC]
+set_property -dict { PACKAGE_PIN T18   IOSTANDARD LVCMOS33 } [get_ports btnU]
+set_property -dict { PACKAGE_PIN W19   IOSTANDARD LVCMOS33 } [get_ports btnL]
+set_property -dict { PACKAGE_PIN T17   IOSTANDARD LVCMOS33 } [get_ports btnR]
+set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33 } [get_ports btnD]
 
 
 ##Pmod Header JA
