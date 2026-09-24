@@ -101,7 +101,7 @@ class DrawIoDiagramGenerator:
 
     
 
-    def generate(self, circuit: py4hw.Logic, output_path: str) -> None:
+    def generate(self, circuit: py4hw.Logic, output_path: str, debug=False) -> None:
         work_path = (output_path
             if output_path.endswith(".drawio") or output_path.endswith(".xml")
             else output_path + ".drawio"
@@ -194,15 +194,18 @@ class DrawIoDiagramGenerator:
 
         # 4. Generate Wires
         for wire_name, wire in wires.items():
-            print(f'wire: {wire_name}', end=' ')
+            if (debug):
+                print(f'wire: {wire_name}', end=' ')
 
             source, sinks = _PortResolver.wire_endpoints(circuit, wire, instances)
 
-            print(source, end=' -> ')
-            print(sinks)
+            if (debug):
+                print(source, end=' -> ')
+                print(sinks)
 
             if (source is None):
-                print('no source')
+                if (debug):
+                    print('no source')
                 continue
 
             src_inst, src_port = source
@@ -211,14 +214,16 @@ class DrawIoDiagramGenerator:
             for sink_inst, sink_port in sinks:
                 to_id, to_anchor = self._unpack_port(layout[sink_inst]["in"][sink_port])
 
-                print('   ', f'{from_id} -> {to_id}')
+                if (debug):
+                    print('   ', f'{from_id} -> {to_id}')
 
                 self._create_edge(
                     root, from_id, to_id, label=wire_name,
                     exit_anchor=from_anchor, entry_anchor=to_anchor,
                 )
 
-            print()
+            if (debug):
+                print()
 
         # 5. Output XML File
         raw_xml = ET.tostring(mxfile, encoding="utf-8")
