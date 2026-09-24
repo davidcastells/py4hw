@@ -165,6 +165,55 @@ class BinaryToBCD(Logic):
 
         
         
+class BinaryToBCDDigits(Logic):
+    
+    def __init__(self, parent, name : str, a: Wire, r:list):
+        """
+        Initialize the BinaryToBCD logic circuit.
+
+        This circuit converts a binary number represented by the input wire `a`
+        into Binary-Coded Decimal (BCD) format.
+        The result is stored into a list of digits `r`.
+
+        Parameters
+        ----------
+        parent : Logic
+            Parent circuit.
+        name : str
+            Name of the instance.
+        a : Wire
+            Input wire containing the binary number to be converted.
+        r : List of Wires
+            List of Output wires containing the BCD representation of the input number.
+        """
+        from ..helper import LogicHelper    
+
+        super().__init__(parent, name)
+        
+        a = self.addIn('a', a)
+        
+        for ri in range(len(r)):
+            self.addOut(f'r{ri}', r[ri])
+    
+        hlp = LogicHelper(self)
+        
+        w = a.getWidth()
+        assert(isinstance(r, list))
+        assert(r[0].getWidth() == 4)
+        digits = len(r)
+
+        print('Number of BCD digits:', digits)
+        
+        
+        v = a
+        k10 = hlp.hw_constant(4, 10)
+        
+        for i in range(digits):
+            #rem = self.wire('mod{}'.format(i), 4)
+            div = self.wire('div{}'.format(i), w)
+            Mod(self, 'mod{}'.format(i), v, k10, r[i])
+            Div(self, 'div{}'.format(i), v, k10, div)
+            v = div
         
 
 
