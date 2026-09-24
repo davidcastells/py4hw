@@ -45,5 +45,65 @@ class Test_Counter:
         py4hw.Scope(sys, 'q', [q])
         sys.getSimulator().clk(20)
         
+class Test_ModuloCounter:
+
+    def test_integrity(self):
+        hw = py4hw.HWSystem()
+        
+        reset = hw.wire('reset')
+        inc = hw.wire('inc')
+        q = hw.wire('q', 32)
+        carryout = hw.wire('carryout')
+        
+        py4hw.Constant(hw, 'reset', 0, reset)
+        py4hw.Constant(hw, 'inc', 1, inc)
+
+        py4hw.ModuloCounter(hw, 'counter', 5, reset,  inc, q, carryout )       
+                
+        py4hw.debug.checkIntegrity(hw)
+
+    def test_count(self):
+        hw = py4hw.HWSystem()
+        
+        reset = hw.wire('reset')
+        inc = hw.wire('inc')
+        q = hw.wire('q', 8)
+        carryout = hw.wire('carryout')
+        
+        py4hw.Constant(hw, 'reset', 0, reset)
+        py4hw.Constant(hw, 'inc', 1, inc)
+
+        py4hw.ModuloCounter(hw, 'counter', 5, reset,  inc, q, carryout )       
+                
+        hw.getSimulator().clk()
+        assert(q.get() == 1)
+        hw.getSimulator().clk(3)
+        assert(q.get() == 4)
+        hw.getSimulator().clk()
+        assert(q.get() == 0)
+
+
+    def test_carryout(self):
+        hw = py4hw.HWSystem()
+        
+        reset = hw.wire('reset')
+        inc = hw.wire('inc')
+        q = hw.wire('q', 8)
+        carryout = hw.wire('carryout')
+        
+        py4hw.Constant(hw, 'reset', 0, reset)
+        py4hw.Sequence(hw, 'inc', [0, 1], inc)
+
+        py4hw.ModuloCounter(hw, 'counter', 5, reset,  inc, q, carryout )       
+                
+        hw.getSimulator().clk(2)
+        assert(carryout.get() == 0)
+        hw.getSimulator().clk(3*2)
+        assert(carryout.get() == 0)
+        hw.getSimulator().clk()
+        assert(carryout.get() == 1)
+        hw.getSimulator().clk()
+        assert(carryout.get() == 1)
+        
 if __name__ == '__main__':
     pytest.main(args=['-q', 'Test_Counter.py'])
