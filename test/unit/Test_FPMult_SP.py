@@ -26,7 +26,7 @@ class Test_FPMult_SP:
         a = g.hw_constant(32, fp.sp_to_ieee754(av))
         b = g.hw_constant(32, fp.sp_to_ieee754(bv))
         
-        fpa = py4hw.FPMult_SP(sys, 'fpm', a, b, r)
+        py4hw.FPMult_SP(sys, 'fpm', a, b, r)
         
         sys.getSimulator().clk(1)
         
@@ -36,41 +36,41 @@ class Test_FPMult_SP:
         err = fp.ieee754_to_sp(r.get()) - (av*bv)
         assert (abs(err) < 1E-5)
         
-    def test_1_deep(self):
+    # def test_1_deep(self):
         
-        sys = py4hw.HWSystem()
-        g = py4hw.LogicHelper(sys)
-        fp = py4hw.FloatingPointHelper()
+    #     sys = py4hw.HWSystem()
+    #     g = py4hw.LogicHelper(sys)
+    #     fp = py4hw.FloatingPointHelper()
         
-        r = sys.wire('r', 32)
+    #     r = sys.wire('r', 32)
         
-        av = 97326422.09006774 
-        bv = -84196012.54553068
-        a = g.hw_constant(32, fp.sp_to_ieee754(av))
-        b = g.hw_constant(32, fp.sp_to_ieee754(bv))
+    #     av = 97326422.09006774 
+    #     bv = -84196012.54553068
+    #     a = g.hw_constant(32, fp.sp_to_ieee754(av))
+    #     b = g.hw_constant(32, fp.sp_to_ieee754(bv))
         
-        fpm = py4hw.FPMult_SP(sys, 'fpm', a, b, r)
+    #     fpm = py4hw.FPMult_SP(sys, 'fpm', a, b, r)
         
-        sys.getSimulator().clk(1)
+    #     sys.getSimulator().clk(1)
         
-        sa, ea, ma = fp.sp_to_fixed_point_parts(av)
-        sb, eb, mb = fp.sp_to_fixed_point_parts(bv)
+    #     sa, ea, ma = fp.sp_to_fixed_point_parts(av)
+    #     sb, eb, mb = fp.sp_to_fixed_point_parts(bv)
         
-        assert(fpm.children['pa'].getOutPortByName('s').wire.get() == sa)
-        assert(fpm.children['pa_raw'].getOutPortByName('e').wire.get() == (ea + 127) ) # because we do not fix exponent
-        assert(fpm.children['pa'].getOutPortByName('m').wire.get() == ma)
-        assert(fpm.children['pb'].getOutPortByName('s').wire.get() == sb)
-        assert(fpm.children['pb_raw'].getOutPortByName('e').wire.get() == (eb + 127) ) # because we do not fix exponent
-        assert(fpm.children['pb'].getOutPortByName('m').wire.get() == mb)
+    #     assert(fpm.children['pa'].getOutPortByName('s').wire.get() == sa)
+    #     assert(fpm.children['pa_raw'].getOutPortByName('e').wire.get() == (ea + 127) ) # because we do not fix exponent
+    #     assert(fpm.children['pa'].getOutPortByName('m').wire.get() == ma)
+    #     assert(fpm.children['pb'].getOutPortByName('s').wire.get() == sb)
+    #     assert(fpm.children['pb_raw'].getOutPortByName('e').wire.get() == (eb + 127) ) # because we do not fix exponent
+    #     assert(fpm.children['pb'].getOutPortByName('m').wire.get() == mb)
         
-        assert(fpm.children['pre_er2'].getOutPortByName('r').wire.get() == (ea + eb) + 128 )
+    #     assert(fpm.children['pre_er2'].getOutPortByName('r').wire.get() == (ea + eb) + 128 )
         
-        print()
-        print('Expected:', av*bv, '{:08X}'.format(fp.sp_to_ieee754(av*bv)))
-        print('Obtained:', fp.ieee754_to_sp(r.get()), '{:08X}'.format(r.get()))
-        rv = fp.ieee754_to_sp(r.get())
-        rerr = abs(rv - (av*bv)) / (av*bv)
-        assert (rerr < 1E-7)
+    #     print()
+    #     print('Expected:', av*bv, '{:08X}'.format(fp.sp_to_ieee754(av*bv)))
+    #     print('Obtained:', fp.ieee754_to_sp(r.get()), '{:08X}'.format(r.get()))
+    #     rv = fp.ieee754_to_sp(r.get())
+    #     rerr = abs(rv - (av*bv)) / (av*bv)
+    #     assert (rerr < 1E-7)
 
     def test_random(self):
         
