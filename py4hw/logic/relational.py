@@ -483,7 +483,7 @@ class FPComparator_SP(Logic):
             Active if a < b (normal mode) or |a| < |b| (absolute mode).
 .
         absolute : bool, optional
-            Selects the absolute mode. The default is False.
+            Selects the absolute mode (ignoring the sign). The default is False.
 
         Returns
         -------
@@ -506,9 +506,21 @@ class FPComparator_SP(Logic):
         
         a = self.addIn('a', a)
         b = self.addIn('b', b)
-        gt = self.addOut('gt', gt)
-        eq = self.addOut('eq', eq)
-        lt = self.addOut('lt', lt)
+
+        if (gt is None):
+            gt = self.wire('gt')
+        else:
+            gt = self.addOut('gt', gt)
+        
+        if (eq is None):
+            eq = self.wire('eq')
+        else:
+            eq = self.addOut('eq', eq)
+
+        if (lt is None):
+            lt = self.wire('lt')
+        else:
+            lt = self.addOut('lt', lt)
         
         sa = self.wire('sa')
         sb = self.wire('sb')
