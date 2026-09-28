@@ -849,6 +849,9 @@ class Mux(Logic):
 
         lins = []
         for idx, inv in enumerate(ins):
+            if (inv is None):
+                raise Exception(f'Mux input {idx} is None!')
+                
             lins.append(self.addIn('in{}'.format(idx), inv))
         
         if (sel.getWidth() == 1):
