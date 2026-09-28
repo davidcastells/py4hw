@@ -11,20 +11,25 @@ from py4hw.logic.storage import *
 import py4hw.debug
 
 
-sys = py4hw.HWSystem()
-g = py4hw.LogicHelper(sys)
+hw = py4hw.HWSystem()
+g = py4hw.LogicHelper(hw)
 fp = py4hw.FloatingPointHelper()
 
-r = sys.wire('r', 32)
-p_lost = sys.wire('p_lost')
-denorm = sys.wire('denorm')
-invalid = sys.wire('invalid')
+r = hw.wire('r', 32)
+p_lost = hw.wire('p_lost')
+denorm = hw.wire('denorm')
+invalid = hw.wire('invalid')
 
 av = -2003144064.0
 
 a = g.hw_constant(32, fp.sp_to_ieee754(av))
 
 
-fpa = py4hw.FPtoInt_SP(sys, 'fpa', a, r, p_lost, denorm, invalid)
+fpa = py4hw.FPtoInt_SP(hw, 'fpa', a, r, p_lost, denorm, invalid)
 
-py4hw.gui.Workbench(sys)
+print('Expecting', hex(int(av) & ((1<<32)-1)))
+
+hw.getSimulator().clk()
+
+
+py4hw.gui.Workbench(hw)
