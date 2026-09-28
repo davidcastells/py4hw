@@ -29,9 +29,10 @@ class Test_FPtoInt_SP:
         
         fpa = py4hw.FPtoInt_SP(sys, 'fp2i', a, r, p_lost, denorm, invalid)
         
+        
         sys.getSimulator().clk(1)
         
-        assert (r.get() == int(av))
+        assert r.get() == int(av), f'got value: {r.get()} while expecting value: {int(av)}  '
         assert (p_lost.get() == int(abs(av- int(av)) > 0))
         assert (denorm.get() == 0)
         assert (invalid.get() == 0)
