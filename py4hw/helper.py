@@ -1622,3 +1622,51 @@ class Sound:
         wave = (wave * envelope * volume).astype(np.float32)
         sd.play(wave, sample_rate)
         sd.wait()  # omit to play asynchronously
+
+
+
+class FileSystem:
+    
+    @staticmethod
+    def createTempFile( prefix: str = "tmp_", suffix: str = ".tmp") -> Path:
+        """
+        Creates a named temporary file that persists after process exit
+        and is placed in a directory cleaned up on reboot by the OS.
+        
+        :param prefix: Prefix for the temporary file name.
+        :param suffix: Extension/suffix for the temporary file name.
+        :return: Path object pointing to the created temporary file.
+        """
+        import tempfile
+        import platform
+        from pathlib import Path
+
+
+        system_name = platform.system()
+
+        if system_name == "Linux":
+            temp_dir = Path("/tmp")
+        elif system_name == "Windows":
+            # On Windows, system temp directory (e.g. AppData\Local\Temp or C:\Windows\Temp)
+            temp_dir = Path(tempfile.gettempdir())
+        else:
+            # Fallback for macOS and other Unix-like systems
+            print(f'WARNING: System {system_name} not tested! Report an issue to https://github.com/davidcastells/py4hw/issues if an error occurs')
+            temp_dir = Path(tempfile.gettempdir())
+
+        # Ensure directory exists
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        # delete=False prevents python from deleting the file when closed,
+        # leaving OS-level reboot/cleanup mechanisms to remove it later.
+        with tempfile.NamedTemporaryFile(
+            dir=temp_dir, 
+            prefix=prefix, 
+            suffix=suffix, 
+            delete=False
+        ) as temp_file:
+            file_path = Path(temp_file.name)
+
+        return file_path
+
+
