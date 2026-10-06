@@ -773,11 +773,11 @@ class RandomUniform(Logic):
                 
         
     def clock(self):
-        import numpy as np
+        import random
         # low is inclusive, high is inclusive (+1 for randint/uniform range)
         # Automatically determine range based on bit-width
 
-        v = int(np.random.randint(0, 1 << self.r.getWidth()))
+        v = int(random.randint(0, 1 << self.r.getWidth()))
         self.r.prepare(v)
         
         
