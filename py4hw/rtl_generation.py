@@ -771,7 +771,10 @@ class VerilogGenerator:
     def provideBody(self, obj:Logic):
 
         if (has_method(obj, 'verilogBody')):
-            return obj.verilogBody()
+            body = obj.verilogBody()
+            if (body is None):
+                raise Exception(f'verilogBody for circuit {obj.getFullName()} does not provide any body')
+            return body
 
         ret = self.providingBody[type(obj)]
         return ret(obj)
