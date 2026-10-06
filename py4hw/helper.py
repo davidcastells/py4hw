@@ -1628,7 +1628,7 @@ class Sound:
 class FileSystem:
     
     @staticmethod
-    def createTempFile( prefix: str = "tmp_", suffix: str = ".tmp") -> Path:
+    def createTempFile( prefix: str = "tmp_", suffix: str = ".tmp"):
         """
         Creates a named temporary file that persists after process exit
         and is placed in a directory cleaned up on reboot by the OS.
