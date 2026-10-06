@@ -2,7 +2,7 @@
 """
 Created on Tue Oct  8 15:12:40 2024
 
-@author: 2016570
+@author: dcr
 """
 
 import py4hw
