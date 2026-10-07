@@ -851,7 +851,12 @@ class ModuloCounter(Logic):
         reset = self.addIn('reset', reset)
         inc = self.addIn('inc', inc)
         q = self.addOut('q', q)
-        carryout = self.addOut('carryout', carryout)
+        
+        if (carryout is None):
+            # create dummy carryout if not provided
+            carryout = self.wire('carryout')
+        else:
+            carryout = self.addOut('carryout', carryout)
     
         one = self.wire('one', q.getWidth())
         zero = self.wire('zero', q.getWidth())
