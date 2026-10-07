@@ -43,7 +43,7 @@ class dcfifo (py4hw.Logic):
         ret += 'wire wrreq;\n'
         ret += 'wire rdreq;\n'
         ret += '// Ready/Valid to FIFO Control Handshaking\n'
-        ret += 'assign wr_rdy = ~wrfull;\n'
+        ret += 'assign tx_ready = ~wrfull;\n'
         ret += 'assign wrreq  = tx_valid && tx_ready;\n'
         ret += 'assign rx_valid = ~rdempty;\n'
         ret += 'assign rdreq  = rx_valid && rx_ready;\n'
