@@ -25,7 +25,7 @@ class alt_jtag_atlantic (py4hw.Logic):
     def structureName(self):
         return 'alt_jtag_atlantic_wrapper'
     
-    def propagate(self):
+    def clock(self):
         pass
     
     def verilogBody(self):
