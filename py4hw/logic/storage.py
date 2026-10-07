@@ -249,8 +249,91 @@ class AsynchronousMemory(Logic):
         
     
     
+class AsynchronousMemory(Logic):
+    def __init__(self, parent, name, read_address, write_address, write, readdata, writedata):
+        super().__init__(parent, name)
+        
+        self.read_address = self.addIn('read_address', read_address)
+        self.write_address = self.addIn('write_address', write_address)
+        self.write = self.addIn('write', write)
+        self.readdata = self.addOut('readdata', readdata)
+        self.writedata = self.addIn('writedata', writedata)
+        
+        if (read_address.getWidth() != write_address.getWidth()):
+            raise Exception('read and write address must have the same width')
+            
+        if (read_address.getWidth() > 10):
+            raise Exception(f'Memory too big! address width = {read_address.getWidth()}')
+            
+        numcells = 1 << read_address.getWidth()
+        
+        self.data = [0] * numcells
+        
+    def propagate(self):
+        radd = self.read_address.get()
+        wadd = self.write_address.get()
+        
+        # Asynchronous write occurs immediately when enable signal is high
+        if self.write.get():
+            self.data[wadd] = self.writedata.get()
 
+        # Asynchronous read continuously propagates memory content to output
+        self.readdata.put(self.data[radd])
 
+    def verilogBody(self):
+        numcells = 1 << self.read_address.getWidth()
+        w = self.readdata.getWidth()
+        
+        s = f'(* ramstyle = "no_rw_check" *) reg [{w-1}:0] mem [0:{numcells-1}];\n'
+        
+        # Asynchronous write block
+        s += 'always @(*) begin\n'
+        s += '    if (write)\n'
+        s += '        mem[write_address] = writedata;\n'
+        s += 'end\n\n'
+        
+        # Asynchronous read (combinational assignment)
+        s += 'assign readdata = mem[read_address];\n'
+
+        return s
+
+class AsynchronousROM(Logic):
+    def __init__(self, parent, name, read_address, readdata, contents):
+        super().__init__(parent, name)
+        
+        self.read_address = self.addIn('read_address', read_address)
+        self.readdata = self.addOut('readdata', readdata)
+        
+        numcells = 1 << read_address.getWidth()
+        
+        if len(contents) > numcells:
+            raise Exception(f'ROM contents length ({len(contents)}) exceeds address capacity ({numcells})')
+            
+        # Initialize memory with provided contents, padding remaining cells with 0 if necessary
+        self.data = list(contents) + [0] * (numcells - len(contents))
+
+    def propagate(self):
+        radd = self.read_address.get()
+        # Asynchronously supply data for the active read address
+        self.readdata.put(self.data[radd])
+
+    def verilogBody(self):
+        numcells = 1 << self.read_address.getWidth()
+        w = self.readdata.getWidth()
+        
+        s = f'reg [{w-1}:0] mem [0:{numcells-1}];\n\n'
+        
+        # Initialize ROM contents using initial block
+        s += 'initial begin\n'
+        for addr, val in enumerate(self.data):
+            s += f'    mem[{addr}] = {w}\'h{val:x};\n'
+        s += 'end\n\n'
+        
+        # Asynchronous combinational read
+        s += 'assign readdata = mem[read_address];\n'
+
+        return s
+    
 class SynchronousMemory(Logic):
     def __init__(self, parent, name, read_address, write_address, write, readdata, writedata):
         super().__init__(parent, name)
