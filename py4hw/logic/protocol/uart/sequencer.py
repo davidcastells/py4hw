@@ -10,87 +10,46 @@ from py4hw.logic.clock import ClockDivider
 from py4hw.logic.clock import EdgeDetector
 from .serdes import UARTSerializer
             
+import math
+
 class MsgSequencer(Logic):
-    def __init__(self, parent, name, ready, valid, v, msg):
+    def __init__(self, parent, name, reset, ready, valid, v, msg):
         super().__init__(parent, name)
         
-        self.ready = self.addIn('ready', ready)
-        self.valid = self.addOut('valid', valid)
-        self.v = self.addOut('v', v)
-        self.state = 0
-        self.count = 0
-        self.msg = msg
+        from py4hw.logic.bitwise import Constant
+        from py4hw.logic.bitwise import And2
+        from py4hw.logic.storage import Reg
+        from py4hw.logic.storage import AsynchronousROM
+        from py4hw.logic.arithmetic import ModuloCounter    
         
-    def clock(self):
-        if (self.state == 0): # IDLE
-            
-            if (self.ready.get()):
-                self.state = 1
-                self.valid.prepare(1)
-            else:
-                self.valid.prepare(0)    
+        self.addIn('reset', reset)
+        self.addIn('ready', ready)
+        self.addOut('valid', valid)
+        self.addOut('v', v)
+        
+        msg_len = len(msg)
+        aw = max(1, math.ceil(math.log2(msg_len)))
+        
+        transfer = self.wire('transfer', 1)
+        address = self.wire('address', aw)
+        rom_out = self.wire('rom_out', v.getWidth())
+        
+        # Valid signal is always 1
+        Constant(self, 'valid', 1, valid)
                 
-        elif (self.state == 1): # VALID
-            self.v.prepare(ord(self.msg[self.count]))
-            
-            if (self.ready.get() == 0): 
-                # if ready was deactivated wait here
-                self.valid.prepare(1)
-            else:
-                self.valid.prepare(0)
-                self.count = (self.count + 1) % len(self.msg)
-                self.state = 0
-            
-    def verilogBody(self):
-        import math
-        ret = ''
-        ret += 'reg state = 0;\n'
-        mlen = len(self.msg)
-        wcount = int(math.ceil(math.log2(mlen)))
-        ret += f'reg [{wcount-1}:0] count = 0;\n'
-        ret += 'reg rvalid = 0;\n'
-        ret += 'reg [7:0] rv = 0;\n'
+        # transfer = ready AND valid
+        And2(self, 'transfer', ready, valid, transfer)
         
-        ret += 'assign valid = rvalid;\n'
-        ret += 'assign v = rv;\n'
+        # Increments on transfer signal
+        ModuloCounter(self, 'addr', reset=reset, inc=transfer, q=address, mod=msg_len, carryout=None)
         
-        ret += f'reg [7:0] msg [0:{mlen-1}];\n'
-        ret += 'initial begin\n'
+        # 6. Asynchronous ROM: Stores ASCII values of msg characters
+        ascii_msg = [ord(char) for char in msg]
+        AsynchronousROM(self, 'rom', address, rom_out, ascii_msg)
         
-        for idx, c in enumerate(self.msg):
-            ret += f"   msg[{idx}] =  8'h{ord(c):02X};\n"
-            link = ', '
-        ret += 'end\n'
+        # 7. Output Register: Loads ROM data when transfer is asserted, drives 'v'
+        Reg(self, 'v', d=rom_out, q= v, enable=transfer)
         
-        from py4hw.logic.clock import getObjectClockDriver
-        
-        drv = getObjectClockDriver(self)
-        
-        ret += f'always @(posedge {drv.name}) begin\n'
-        ret += '   if (state == 0) begin\n'
-        ret += '      if (ready == 1) begin\n'
-        ret += '             state <= 1;\n'
-        ret += '             rvalid <= 1;\n'
-        ret += '          end\n'
-        ret += '      else begin\n'
-        ret += '             rvalid <= 0;\n'
-        ret += '          end \n'
-        ret += '   end else if (state == 1) begin\n'
-        ret += '      rv <= msg[count];\n'
-        ret += '      rvalid <= 1;\n'
-        ret += '      if (ready == 1) begin\n'
-        ret += '             rvalid <= 1;\n'
-        ret += '          end \n'
-        ret += '      else begin\n'
-        ret += '             rvalid <= 0;\n'
-        ret += f'            count <= (count + 1) % {mlen};\n'
-        ret += '             state <= 0;\n'
-        ret += '          end\n'
-        ret += '      end\n'
-        ret += 'end\n'
-        
-        return ret
-    
 class ReadyFlowControl(Logic):
     #
     #  | msg |-> valid ------------> | in_valid      out_valid |-------------> valid ->| ser |
