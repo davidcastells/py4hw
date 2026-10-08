@@ -34,6 +34,22 @@ class alt_jtag_atlantic (py4hw.Logic):
 
         ret = ''
         
+        ret += 'reg [7:0]   r_dat;\n'
+        ret += 'wire        r_ena;\n'
+        ret += 'reg    r_tx_ready;\n'
+
+        ret += 'assign tx_ready = r_tx_ready;\n'
+
+        ret += 'always @(posedge atlantic_clk) begin\n'
+        ret += 'if (tx_valid & r_ena) begin\n'
+        ret += " r_tx_ready <= 1'b1;\n"
+        ret += ' r_dat  <= tx_data;\n'
+        ret += ' end else begin\n'
+        ret += " r_tx_ready <= 1'b0;\n"
+        ret += 'end \n'
+        ret += 'end\n'
+
+
         ret += 'alt_jtag_atlantic #('
         ret += '.INSTANCE_ID(0),'
         ret += '.LOG2_RXFIFO_DEPTH(6),'
@@ -42,8 +58,8 @@ class alt_jtag_atlantic (py4hw.Logic):
         ret += ')\n i_uart ('
         ret += f'.clk({clk_name}),'
         ret += '.rst_n   (~reset),'
-        ret += '.r_dat  (tx_data),'
-        ret += '.r_ena  (tx_valid),'
+        ret += '.r_dat  (r_dat),'
+        ret += '.r_ena  (r_ena),'
         ret += '.r_val  (tx_ready),\n'
         ret += '// Not interested in RX\n' 
         ret += '.t_dat  (),'
