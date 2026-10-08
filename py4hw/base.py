@@ -583,6 +583,10 @@ class FakeWire():
     
     def getFullPath(self):
         return self.name
+    
+    def get(self):
+        # just to pretend to be like a real wire
+        return 0
 
 class InPort:
     """
