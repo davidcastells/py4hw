@@ -92,7 +92,7 @@ def patch_edalize_for_quartus_project(project_dir, QUARTUS_PATH, BASH, verbose=F
         if (gVerbose):
             print('BUILD OPTIONS:', self.build_options)
             
-        return (BASH, ['-l', '-c', f'cd {project_dir};/bin/make']) 
+        return (BASH, ['-l', '-c', f'cd {project_dir};/usr/bin/make']) 
 
 
     # _orig_setup = vivado_tool.Vivado.setup
@@ -105,7 +105,7 @@ def patch_edalize_for_quartus_project(project_dir, QUARTUS_PATH, BASH, verbose=F
 
         if cmd == 'make':
             args = kw.pop('args', a[0] if a else [])
-            full_cmd = f'cd {project_dir}; /bin/make ' + ' '.join(args)
+            full_cmd = f'cd {project_dir}; /usr/bin/make ' + ' '.join(args)
             # drop positional args, since args is now passed by keyword
             return _orig_run_tool(self, BASH, args=['-l', '-c', full_cmd], **kw)
         
@@ -141,12 +141,12 @@ def patch_edalize_for_quartus_project(project_dir, QUARTUS_PATH, BASH, verbose=F
             path = os.path.join(self.work_root, target_file)
             with open(path) as f:
                 txt = f.read()
-            txt = txt.replace('quartus_sh', QUARTUS_PATH + '/quartus_sh') 
-            txt = txt.replace('quartus_map', QUARTUS_PATH + '/quartus_map') 
-            txt = txt.replace('quartus_fit', QUARTUS_PATH + '/quartus_fit') 
-            txt = txt.replace('quartus_sta', QUARTUS_PATH + '/quartus_sta') 
-            txt = txt.replace('quartus_asm', QUARTUS_PATH + '/quartus_asm') 
-            txt = txt.replace('quartus_dse', QUARTUS_PATH + '/quartus_dse') 
+            txt = txt.replace('quartus_sh', QUARTUS_PATH + '/quartus_sh.exe') 
+            txt = txt.replace('quartus_map', QUARTUS_PATH + '/quartus_map.exe') 
+            txt = txt.replace('quartus_fit', QUARTUS_PATH + '/quartus_fit.exe') 
+            txt = txt.replace('quartus_sta', QUARTUS_PATH + '/quartus_sta.exe') 
+            txt = txt.replace('quartus_asm', QUARTUS_PATH + '/quartus_asm.exe') 
+            txt = txt.replace('quartus_dse', QUARTUS_PATH + '/quartus_dse.exe') 
     
     
             with open(path, 'w') as f:
