@@ -81,8 +81,6 @@ class DE0(py4hw.HWSystem):
         #clk50 = self.addIn('CLOCK_50', clk50)
         clockDriver = py4hw.ClockDriver('CLOCK_50', 50E6, 0, wire=clk50)
         
-        print('Initial', self.getFullPath(),  self._wires)
-        
         self.clockDriver = clockDriver
     
     
@@ -388,8 +386,6 @@ class DE1SoC(py4hw.HWSystem):
         #clk50 = self.addIn('CLOCK_50', clk50)
         clockDriver = py4hw.ClockDriver('CLOCK_50', self.clk_freq , 0, wire=clk50)
         
-        print('Initial', self.getFullPath(),  self._wires)
-        
         self.clockDriver = clockDriver
         
     
@@ -646,6 +642,18 @@ class DE10_Lite(py4hw.HWSystem):
         py4hw.ConcatenateLSBF(self, 'LEDR', led, leds)        
         return led
     
+    def getOutputHex(self, i):
+        assert(i >= 0 and i <= 5)
+        name = 'HEX{}'.format(i)
+        namen = 'HEXn{}'.format(i)
+        p = self.wire(name, 7)
+        pn = self.wire(namen, 7)
+        
+        py4hw.Not(self, namen, pn, p)
+        self.addOut(name, p)
+        return pn
+    
+    
     def getJTAGUART(self, reset):
         from py4hw.external.altera.ip.alt import alt_jtag_atlantic
         from py4hw.external.altera.ip.fifos import dcfifo
@@ -683,16 +691,12 @@ class DE10_Lite(py4hw.HWSystem):
 
     def getQsf(self):
         qsf = '''
-    #============================================================
-# Build by Terasic System Builder
-#============================================================
 
 set_global_assignment -name FAMILY "MAX 10 FPGA"
 set_global_assignment -name DEVICE 10M50DAF484C7G
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 6
-set_global_assignment -name SDC_FILE DE10_LITE_Golden_Top.SDC
 
 #============================================================
 # CLOCK
@@ -1116,6 +1120,9 @@ set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_
 '''
         return qsf
     
+    def getPinAssignments(self):
+        pins = {'GPIO[35]':'PIN_AA2',}
+        return pins
     
     def build(self, projectDir, createdStructures=[], delete_existing=False):
 
