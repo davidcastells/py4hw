@@ -83,8 +83,6 @@ def patch_edalize_for_quartus_project(project_dir, QUARTUS_PATH, BASH, verbose=F
         WINDOWS_QUARTUS_PATH = QUARTUS_PATH
         QUARTUS_PATH = windows_to_cygwin(QUARTUS_PATH)
 
-    if not(is_windows_path(BASH)):
-        raise Exception(f'BASH should be a windows path, now = {BASH}')
 
     if (hasattr(quartus_tool.Quartus, 'py4hw_patch')):
         print('Edalize was already patched for py4hw')
