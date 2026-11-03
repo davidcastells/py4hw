@@ -57,6 +57,19 @@ I've identifyied a number of low-effort aspects that should be done
 ## Publications ##
 
 Cite as
+
+```
+@inproceedings{castells2026py4hw,
+  title={py4hw: An Object-Oriented Python Framework for FPGA-Based Design and Education: Special Session Paper},
+  author={Castells-Rufas, David and Oliva-Abell{\'o}, Ariadna and Novo, David and Martorell, Xavier},
+  booktitle={2026 Forum on Specification \& Design Languages (FDL)},
+  pages={1--2},
+  year={2026},
+  organization={IEEE},
+  doi = {10.1109/FDL71572.2026.11724688}
+}
+```
+
 ```
 @conference{castells2023streamlining,
   author       = {David Castells-Rufas and Gemma Rotger and David Novo},
