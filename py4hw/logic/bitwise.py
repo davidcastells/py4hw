@@ -5,6 +5,7 @@ Created on Wed Jan 19 12:36:38 2022
 @author: dcr
 """
 from .. import *
+from .assertion import *
 from .relational import *
 from deprecated import deprecated
 import math
@@ -12,7 +13,7 @@ import math
 class And(Logic):
     def __init__(self, parent, name:str, ins, r: Wire):
         '''
-        Initialize a multi-input AND gate.
+            ize a multi-input AND gate.
 
         Parameters
         ----------
@@ -1006,6 +1007,7 @@ class Select(Logic):
         self.addOut('r', r)
         Or(self, 'or', final, r)
 
+        AssertOneActive(self, 'assert_one_hot', sels)
 
 class OneHotMux(Logic):
     def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
