@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
                          
 setup(
     name='py4hw',
-    version='2026.8',
+    version='2026.9',
     author='David Castells-Rufas',
     author_email='david.castells@uab.cat',
     description='py4hw is a library to model, simulate, and execute digital logic circuits. It promotes the use of structural and behavioural design styles to build hardware.',
