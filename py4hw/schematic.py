@@ -445,7 +445,7 @@ class Schematic:
 
     def _reset_symbol_matrix(self):
         self.symbol_matrix = np.empty((0,0), dtype=object) # initialize symbol matrix
-
+        self._adjacency_cache = {}
 
     def _expand_symbol_matrix(self, num_rows, num_cols):        
         cr, cc= self.symbol_matrix.shape
@@ -800,6 +800,10 @@ class Schematic:
             circuit instances
     
         """
+        cache_key = (c, withFeedback)
+        if cache_key in self._adjacency_cache:
+            return self._adjacency_cache[cache_key]
+        
         c0_syms = []
         c1_syms = []
     
@@ -835,7 +839,10 @@ class Schematic:
                     am[sym0_id, sym1_id] = self.areSourceTarget(sym0, sym1)
     
     
-        return c0_syms, c1_syms, am
+        result = (c0_syms, c1_syms, am)
+        self._adjacency_cache[cache_key] = result
+    
+        return result
                     
     def removeArrowsSpecialCases(self):
         """
