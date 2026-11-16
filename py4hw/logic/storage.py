@@ -299,6 +299,20 @@ class AsynchronousMemory(Logic):
 
 class AsynchronousROM(Logic):
     def __init__(self, parent, name, read_address, readdata, contents):
+        """
+        Asynchronous Read-Only Memory (ROM) component.
+
+        Args:
+            parent: The parent logic component in the simulation hierarchy.
+            name (str): The identifier name of the ROM component.
+            read_address: The input signal object providing the address to read.
+            readdata: The output signal object receiving the asynchronous read data.
+            contents (iterable): Initial values to store in the ROM memory cells.
+
+        Raises:
+            Exception: If the length of `contents` exceeds the maximum addressable 
+                       capacity determined by the width of `read_address`.
+        """
         super().__init__(parent, name)
         
         self.read_address = self.addIn('read_address', read_address)
@@ -509,9 +523,11 @@ class ShiftRegisterBidirectional(Logic):
         Buf(self, 'right_out', q[depth-1], right_out)
         
 class Stack_ShiftRegister(Logic):
-    def __init__(self, parent, name, din, dout, push, pop, empty, full, depth):
+    def __init__(self, parent, name, din, pre_dout, dout, push, pop, empty, full, depth):
         
         from .bitwise import Constant
+        from .bitwise import And2
+        from .bitwise import Not
         
         super().__init__(parent, name)
 
@@ -520,6 +536,7 @@ class Stack_ShiftRegister(Logic):
         self.addIn("din", din)
         self.addIn("push", push)
         self.addIn("pop", pop)
+        self.addOut("pre_dout", pre_dout)
         self.addOut("dout", dout)
         
         if not(empty is None):
@@ -528,8 +545,47 @@ class Stack_ShiftRegister(Logic):
         if not(full is None):
             self.addOut("full", full)
 
+        # --- occupancy tracking: 1-bit shift register in lockstep with the data ---
+        one = self.wire('one', 1)
+        zero1 = self.wire('zero1', 1)
+        Constant(self, 'one', 1, one)
+        Constant(self, 'zero1', 0, zero1)
+
+        valid_top = self.wire('valid_top', 1)   # 1 when at least one entry
+        valid_bot = self.wire('valid_bot', 1)   # 1 when every slot is used
+        empty_i = self.wire('empty_i', 1)
+        full_i = self.wire('full_i', 1)
+        
+        Not(self, 'not_valid_top', valid_top, empty_i)
+        Buf(self, 'full_buf_i', valid_bot, full_i)
+        
+        not_full = self.wire('not_full', 1)
+        not_push = self.wire('not_push', 1)
+        not_empty = self.wire('not_empty', 1)
+        pop_np = self.wire('pop_np', 1)
+        push_ok = self.wire('push_ok', 1)
+        pop_ok = self.wire('pop_ok', 1)
+        
+        Not(self, 'not_full', full_i, not_full)
+        Not(self, 'not_push', push, not_push)
+        Not(self, 'not_empty', empty_i, not_empty)
+        And2(self, 'push_ok', push, not_full, push_ok)
+        And2(self, 'pop_np', pop, not_push, pop_np)
+        And2(self, 'pop_ok', pop_np, not_empty, pop_ok)
+        
+        # push shifts a 1 in from the left, pop shifts a 0 in from the right
+        ShiftRegisterBidirectional(self, 'valid', one, zero1, valid_top, valid_bot,
+                                   pop_ok, push_ok, depth)
+        
+        # forward the flags to the optional outputs
+        if not (empty is None):
+            Buf(self, 'empty_buf', empty_i, empty)
+        if not (full is None):
+            Buf(self, 'full_buf', full_i, full)
+            
+        #-------------------
+        
         zerow = self.wire('zerow', din.getWidth())
-        pre_dout = self.wire('pre_dout', dout.getWidth())
         rout = self.wire('rout', dout.getWidth())
         
         Constant(self, 'zerow', 0 , zerow)
