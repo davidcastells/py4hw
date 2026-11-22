@@ -278,214 +278,252 @@ class Waveform(Logic):
         
         return ret
     
-    def gui(self, root=None, shortNames=False):
+    def gui(self, root=None, shortNames=False, detached=False):
         
-        window = WaveformWindow(root, self, shortNames)
+        window = WaveformWindow(root, self, shortNames, blocking=not(detached))
+
+# These imports are assumed to already exist in your module (plus `threading`):
+import threading
+import tkinter
+import tkinter.font
+
+
 
 class WaveformWindow:
-    
-    def __init__(self, root, wvf, shortNames):
-        from py4hw.gui import getResourceIcon 
-        if (root is None):
-            self.root = tkinter.Tk()
-        else:
-            self.root = root
 
+    def __init__(self, root, wvf, shortNames, blocking=False):
+        """
+        root     : an existing Tk/Toplevel (the caller owns the mainloop), or None
+        blocking : only used when root is None.
+                   False (default) -> window runs in its own thread, __init__ returns immediately
+                   True            -> old behaviour, __init__ returns when the window is closed
+        """
         self.waveform = wvf
         self.shortNames = shortNames
-            
-        self.root.title('Waveform viewer ' + wvf.name)
-        
-        font = tkinter.font.Font(size=9)
-        
+        self.foreground = 'black'
+
+        # geometry shared by the tree (left) and the canvas (right)
+        self.vspace = 21          # row height in pixels (must match Treeview rowheight)
+        self.off = 18             # baseline of the clock row inside its 21 px row
+        self.hclock = 20
+
+        self.root = root
+        self._thread = None
+        self._error = None
+
+        if root is not None:
+            # embedded in an application that already runs a mainloop
+            self._build()
+        elif blocking:
+            self.root = tkinter.Tk()
+            self._build()
+            self.root.mainloop()
+        else:
+            ready = threading.Event()
+            self._thread = threading.Thread(target=self._run, args=(ready,),
+                                            daemon=True, name='WaveformWindow')
+            self._thread.start()
+            ready.wait()
+            if self._error is not None:
+                raise self._error
+
+    def wait(self):
+        """Block until the window is closed (useful at the end of a script)."""
+        if self._thread is not None:
+            self._thread.join()
+
+    # ------------------------------------------------------------------
+    # construction
+    # ------------------------------------------------------------------
+    def _run(self, ready):
+        # Tk object creation and mainloop must happen in the same thread
+        try:
+            self.root = tkinter.Tk()
+            self._build()
+        except Exception as e:
+            self._error = e
+            ready.set()
+            return
+        ready.set()
+        self.root.mainloop()
+
+    def _build(self):
+        from py4hw.gui import getResourceIcon
+
+        self.root.title('Waveform viewer ' + self.waveform.name)
+
+        self.treeFont = tkinter.font.Font(size=9)
+
         style = ttk.Style()
         style.configure("Treeview", fg="light yellow")
-        style.configure("Treeview", rowheight=21) 
-        style.configure("Prolepsis.Treeview", font=font)
-        
+        style.configure("Treeview", rowheight=self.vspace)
+        style.configure("Prolepsis.Treeview", font=self.treeFont)
+
         self.topPane = PanedWindow(self.root, orient=VERTICAL)
 
-        self.toolbar= Frame(self.topPane, bd=1, relief=RAISED)
-        
-        icon_zo = getResourceIcon('zoomout24.png')
-        icon_zi = getResourceIcon('zoomin24.png')
-        
+        # --- toolbar ---------------------------------------------------
+        self.toolbar = Frame(self.topPane, bd=1, relief=RAISED)
 
-        zoomInButton = ttk.Button(self.toolbar,  image=icon_zi, text="Zoom in", command=self.zoomIn)
-        zoomOutButton = ttk.Button(self.toolbar, image=icon_zo, text="Zoom out", command=self.zoomOut)
+        # keep references, otherwise Tk images get garbage collected
+        self.icon_zo = getResourceIcon('zoomout24.png')
+        self.icon_zi = getResourceIcon('zoomin24.png')
 
+        zoomInButton = ttk.Button(self.toolbar, image=self.icon_zi, text="Zoom in", command=self.zoomIn)
+        zoomOutButton = ttk.Button(self.toolbar, image=self.icon_zo, text="Zoom out", command=self.zoomOut)
         zoomInButton.pack(side=tkinter.LEFT)
         zoomOutButton.pack(side=tkinter.LEFT)
 
         self.topPane.add(self.toolbar)
 
+        # --- main pane -------------------------------------------------
         self.mainPane = PanedWindow(self.topPane, orient=HORIZONTAL)
         self.topPane.add(self.mainPane)
-        
-        self.hierarchyFrame = Frame(self.mainPane) # PanedWindow(self.mainPane, relief = SUNKEN, width=50, height=100)
-        #self.hierarchyPane.pack()
-        
 
-        self.hierarchyTree()
+        # left: names
+        self.hierarchyFrame = Frame(self.mainPane)
+        self.buildHierarchyTree()
+        self.mainPane.add(self.hierarchyFrame, minsize=80)
 
-        self.mainPane.add(self.hierarchyFrame)
+        # right: waveforms
+        self.linesFrame = Frame(self.mainPane)
+        self.mainPane.add(self.linesFrame, stretch='always')
 
-        self.linesPane = PanedWindow(self.mainPane, relief = SUNKEN, width=100, height=100)
-        self.mainPane.add(self.linesPane)
+        self.canvas = Canvas(self.linesFrame, bg='white', width=400, height=100)
+        self.canvas.configure(yscrollincrement=str(self.vspace))   # scroll in whole rows
 
-        self.hclock = 20
-        self.hw = self.hclock * self.getNumClocks()
-        
-        self.canvas = Canvas(self.linesPane, bg='white', scrollregion=(0,0, self.hw,1000))
-        #self.canvas.configure(yscrollcommand=self.scroll.set)
-        self.canvas.configure(yscrollincrement='20')
-        
-        self.h_scroll = ttk.Scrollbar(self.linesPane, orient=HORIZONTAL, command=self.canvas.xview)
-        self.v_scroll = ttk.Scrollbar(self.linesPane, orient=VERTICAL, command=self.sync_scrolls)
-        self.canvas.configure(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
+        self.h_scroll = ttk.Scrollbar(self.linesFrame, orient=HORIZONTAL, command=self.canvas.xview)
+        # the vertical scrollbar drives the tree; the tree then drives the canvas
+        self.v_scroll = ttk.Scrollbar(self.linesFrame, orient=VERTICAL, command=self.tree.yview)
+        self.canvas.configure(xscrollcommand=self.h_scroll.set)
 
-        
-        self.linesPane.add(self.canvas)
-        self.h_scroll.pack(side=tkinter.BOTTOM, fill=X)
-        self.v_scroll.pack(side=tkinter.RIGHT, fill=Y)
+        self.canvas.grid(row=0, column=0, sticky='nsew')
+        self.v_scroll.grid(row=0, column=1, sticky='ns')
+        self.h_scroll.grid(row=1, column=0, sticky='ew')
+        self.linesFrame.rowconfigure(0, weight=1)
+        self.linesFrame.columnconfigure(0, weight=1)
 
+        # mouse wheel on the canvas
+        self.canvas.bind('<MouseWheel>', self._on_canvas_wheel)   # Windows / macOS
+        self.canvas.bind('<Button-4>', self._on_canvas_wheel)     # Linux
+        self.canvas.bind('<Button-5>', self._on_canvas_wheel)
+
+        self._updateScrollRegion()
         self.drawWaveforms()
 
         self.topPane.pack(fill=BOTH, expand=True)
 
-        self.root.mainloop()
-        
-        self.foreground = 'black'
-        
+    def buildHierarchyTree(self):
+        f = self.hierarchyFrame
 
+        self.tree = ttk.Treeview(f, show='tree', selectmode=tkinter.BROWSE,
+                                 yscrollcommand=self._on_tree_yscroll)
+        tv = self.tree
+        tv["style"] = "Prolepsis.Treeview"
+
+        self.tree_hscroll = ttk.Scrollbar(f, orient=HORIZONTAL, command=tv.xview)
+        tv.configure(xscrollcommand=self.tree_hscroll.set)
+
+        tv.grid(row=0, column=0, sticky='nsew')
+        self.tree_hscroll.grid(row=1, column=0, sticky='ew')
+        f.rowconfigure(0, weight=1)
+        f.columnconfigure(0, weight=1)
+
+        # First row: the clock
+        # @todo we should take the clock name from the clock driver of self.waveform
+        names = ["clk"]
+        for wav in self.waveform.wires:
+            names.append(wav.name if self.shortNames else wav.getFullPath())
+
+        for name in names:
+            tv.insert("", tkinter.END, text=name, open=True)
+
+        # The #0 column must not stretch, and must be as wide as the longest name,
+        # otherwise the horizontal scrollbar has nothing to scroll.
+        needed = max(self.treeFont.measure(n) for n in names) + 40   # indent + margins
+        tv.column("#0", width=max(needed, 150), minwidth=needed, stretch=False)
+
+    # ------------------------------------------------------------------
+    # scrolling: the tree is the master, the canvas follows it
+    # ------------------------------------------------------------------
+    def _on_tree_yscroll(self, first, last):
+        # called by the tree for ANY vertical scroll (wheel, keyboard, scrollbar...)
+        self.v_scroll.set(first, last)
+        self.canvas.yview_moveto(first)
+
+    def _on_canvas_wheel(self, event):
+        step = -3 if (event.num == 4 or event.delta > 0) else 3
+        if event.state & 0x1:                       # shift -> horizontal
+            self.canvas.xview_scroll(step, 'units')
+        else:
+            self.tree.yview_scroll(step, 'units')   # tree callback syncs the canvas
+        return 'break'
+
+    def _updateScrollRegion(self):
+        # height == exactly the height of all tree rows, so both panes share the same scale
+        numrows = len(self.waveform.wires) + 1
+        self.hw = self.hclock * self.getNumClocks()
+        self.canvas.config(scrollregion=(0, 0, self.hw, numrows * self.vspace))
+
+    # ------------------------------------------------------------------
+    # zoom / redraw
+    # ------------------------------------------------------------------
     def zoomIn(self):
         self.hclock *= 1.1
-        self.hw = self.hclock * self.getNumClocks()
-
-        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
-    
+
     def zoomOut(self):
         self.hclock /= 1.1
-        self.hw = self.hclock * self.getNumClocks()
-
-        self.canvas.config(scrollregion=(0, 0, self.hw, 1000))
         self.redraw()
-    
-    def sync_scrolls(self, *args):
-        print('sync_scolls args:', args)
-        self.hierarchyTree.yview(*args)
-        self.v_scroll.set(*args)
-        self.canvas.yview_moveto(args[0])
-    
-    def yview(self, *args):
-        print('yview args:', args)
-        
-        print(*args)
-        self.hierarchyTree.yview(*args)
-        self.canvas.yview(*args)
-        
-    def hierarchyTree(self):
-    
-        tree_scroll = Scrollbar(self.hierarchyFrame)
-        tree_scroll.pack(side=RIGHT, fill=Y)
-
-        self.scroll = tree_scroll 
-        
-        self.hierarchyTree = ttk.Treeview(self.hierarchyFrame, yscrollcommand=tree_scroll.set)
-        tv = self.hierarchyTree  
-        
-        tree_scroll.config(command=self.yview)
-        
-        self.map_id_obj = {}
-    
-        #tv.bind('<<TreeviewSelect>>', self.callback)
-        
-        #self.hierarchyPane.add(tv)        
-        #self.hierarchyPane.pack(fill=BOTH, expand=YES)
-        tv.pack(side=LEFT, fill=BOTH, expand=YES)
-        
-        # @todo we should take the clock name from the clock driver of self.waveform
-        
-        # First row: the clock
-        tv.insert("", tkinter.END, text="clk", open=True)
-        
-        #wd = self.waveform.getDict()
-        wires = self.waveform.wires
-        
-        for wav in wires:
-            if (self.shortNames):
-                name = wav.name
-            else:
-                name = wav.getFullPath()
-
-            dc_iid = tv.insert("", tkinter.END, text=name, open=True)
-        
-        # self.map_id_obj[dc_iid] = self.sys
-    
-        # self.populateTree(tv, dc_iid, self.sys)
-        
-        # print(tv.cget("displaycolumns"))
-        #tv.config(columns=[ 'instance', 'type'])
-        #tv.config(displaycolumns=[ 0, 1])
-        #tv.heading('instance', text='Instance name')
-        #tv.heading("type", text="Type")
-        tv.heading("#0", text="Name")
-        tv.config(selectmode=tkinter.BROWSE)
-        tv.tag_configure("ally", background="green")
-        #tv.tag_bind("char", "<Double-Button-1>", event)
-        
-        #tv.config(style="Prolepsis.Treeview")
-        tv["style"] = "Prolepsis.Treeview"
-        #tv.config(bg="light yellow")
-        print(ttk.Style().lookup("Prolepsis.Treeview", "background"))
 
     def redraw(self):
+        self._updateScrollRegion()
         self.canvas.delete('all')
         self.drawWaveforms()
-        self.canvas.update()
+        self.canvas.update_idletasks()
 
     def getNumClocks(self):
         wd = self.waveform.getDict()
         return len(list(wd.values())[0])
-    
+
+    # ------------------------------------------------------------------
+    # drawing
+    # ------------------------------------------------------------------
     def drawWaveforms(self):
-        off = 43
-        vspace = 21
+        off = self.off
+        vspace = self.vspace
         wd = self.waveform.getDict()
 
-        
-        hclock = self.hclock # this is the width of the clock (in pixels ?)
+        hclock = self.hclock  # width of a clock cycle in pixels
         vsig = 15
         vtext = 7
         htrans = 3
-        
+
         numclocks = self.getNumClocks()
         numrows = len(self.waveform.wires) + 1  # +1 for the clock row
 
         # --- Background: thin vertical tick lines at each clock edge ---
-        y_top = off - vsig - 5
-        y_bottom = off + (numrows - 1) * vspace + 5
-        
+        y_top = 0
+        y_bottom = numrows * vspace
+
         self.setColor('#cccccc')
         for clk in range(numclocks + 1):
             x = clk * hclock
             self.canvas.create_line(x, y_top, x, y_bottom, fill=self.foreground, dash=(2, 2))
-        
+
         self.setColor('blue')
 
         # Draw clock signal
         y_high = off - vsig
         y_low = off
-        
+
         # first line shows rest state (no clock)
         self.drawLine(0, y_low, hclock, y_low)
-        
+
         for clk in range(1, numclocks):
             x0 = clk * hclock
             xmid = clk * hclock + hclock / 2
             x1 = (clk + 1) * hclock
-    
+
             # rising edge at the start of the cycle
             self.drawLine(x0, y_low, x0, y_high)
             self.drawArrow(x0, y_high)
@@ -495,67 +533,65 @@ class WaveformWindow:
             self.drawLine(xmid, y_high, xmid, y_low)
             # low half
             self.drawLine(xmid, y_low, x1, y_low)
-            
-        self.setColor('blue')            
-            
+
+        self.setColor('blue')
+
         for idx, obj in enumerate(self.waveform.wires):
             row = idx + 1
-            
+
             if (isinstance(obj, FieldInspector)):
                 w = obj
                 ww = -1
             else:
                 w = Waveform.getwire(obj)
                 ww = w.getWidth()
-                
+
             data = wd[w]
             fmt = self.waveform.format[idx]
 
-            #print('drawing wire', idx, w.getFullPath())            
             if (ww == 1):
                 lastval = None
             else:
-                lastval = '?' # arbitrary value 
-            
+                lastval = '?'  # arbitrary value
+
             for clk in range(len(data)):
                 val = data[clk]
                 if (ww == 1):
                     # binary wires
-                    self.drawLine(clk*hclock, off + row*vspace - val*vsig, 
-                                  (clk+1)*hclock, off + row*vspace - val*vsig)     
+                    self.drawLine(clk*hclock, off + row*vspace - val*vsig,
+                                  (clk+1)*hclock, off + row*vspace - val*vsig)
                     if not(lastval is None):
                         # draw the transition at the beginning
-                        self.drawLine(clk*hclock, off + row*vspace - lastval*vsig, 
-                                  clk*hclock, off + row*vspace - val*vsig)     
-                    lastval = val 
+                        self.drawLine(clk*hclock, off + row*vspace - lastval*vsig,
+                                      clk*hclock, off + row*vspace - val*vsig)
+                    lastval = val
                 else:
                     # non binary wires
-
                     if not(lastval is None) and (lastval != val):
                         # draw the transition at the beginning
-                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig, 
-                                  clk*hclock + htrans, off + row*vspace )     
-                        self.drawLine(clk*hclock - htrans, off + row*vspace , 
-                                  clk*hclock + htrans, off + row*vspace - vsig)     
-                        self.drawLine(clk*hclock + htrans, off + row*vspace - vsig, 
-                                  (clk+1)*hclock - htrans, off + row*vspace - vsig)     
-                        self.drawLine(clk*hclock + htrans, off + row*vspace , 
-                                  (clk+1)*hclock - htrans, off + row*vspace )     
+                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig,
+                                      clk*hclock + htrans, off + row*vspace)
+                        self.drawLine(clk*hclock - htrans, off + row*vspace,
+                                      clk*hclock + htrans, off + row*vspace - vsig)
+                        self.drawLine(clk*hclock + htrans, off + row*vspace - vsig,
+                                      (clk+1)*hclock - htrans, off + row*vspace - vsig)
+                        self.drawLine(clk*hclock + htrans, off + row*vspace,
+                                      (clk+1)*hclock - htrans, off + row*vspace)
 
                         self.drawText(clk*hclock + htrans, off + row*vspace - vtext, fmt.format(val), 'w')
                     else:
-                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig, 
-                                  (clk+1)*hclock - htrans, off + row*vspace - vsig)     
-                        self.drawLine(clk*hclock - htrans, off + row*vspace , 
-                                  (clk+1)*hclock - htrans, off + row*vspace )
-                    lastval = val 
-        
+                        self.drawLine(clk*hclock - htrans, off + row*vspace - vsig,
+                                      (clk+1)*hclock - htrans, off + row*vspace - vsig)
+                        self.drawLine(clk*hclock - htrans, off + row*vspace,
+                                      (clk+1)*hclock - htrans, off + row*vspace)
+                    lastval = val
+
     def setColor(self, color):
         self.foreground = color
-        
+
     def drawLine(self, x0, y0, x1, y1):
         self.canvas.create_line(x0, y0, x1, y1, fill=self.foreground)
-        
+
     def drawArrow(self, x, y, size=3):
         """
         Draws a small downward-pointing triangle whose tip sits at (x, y).
@@ -565,97 +601,10 @@ class WaveformWindow:
             x - size, y + size * 1.5,
             x + size, y + size * 1.5,
             x, y,
-            fill=self.foreground, outline=self.foreground)        
+            fill=self.foreground, outline=self.foreground)
 
     def drawText(self, x, y, text, anchor):
-        if (anchor == 'w'):
-            ha = 'left'
-        elif (anchor == 'e'):
-            ha = 'right'
-        elif (anchor == 'c'):
-            ha = 'center'
-            
-        self.canvas.create_text(x,y, anchor=anchor, text=text)
-        
-@deprecated # use Waveform, just maintened for reference
-class OldWaveform(Logic):
-
-    def __init__(self, parent: Logic, name: str, wires):
-        """
-
-        Parameters
-        ----------
-        parent : Logic
-              Parent circuit.
-        name : str
-            Name of the instance.
-        wires
-              Wire or list of wire to monitor.
-
-        Returns
-        -------
-        None.
-
-        """
-        super().__init__(parent, name)
-        self.waves = {}  # A dictionary keyed by fullname , wavem and data
-        self.prevs = {}
-        self.ck = {"name": "CK", "wave": "P"}
-
-        self.wires = wires # if isinstance(wires, list) else [wires]
-        for x in self.wires:
-            if (isinstance(x, Wire)):
-                self.addIn(x.name, x)
-                self.waves[x] = {"name": x.getFullPath(), "wave": "x", "data": []}
-                self.prevs[x] = None
-            else:
-                raise Exception('We only support wires by now')
-                
-        # Get simulator
-        self.sim = parent
-        while self.sim.parent != None:
-            self.sim = self.sim.parent
-
-        self.sim.getSimulator().addListener(self)
-
-    def simulatorUpdated(self):
-        for x in self.wires:
-            if self.prevs[x] == x.get():
-                self.waves[x]["wave"] += "."
-            elif x.getWidth() == 1:
-                self.waves[x]["wave"] += str(x.get())
-            else:
-                self.waves[x]["wave"] += "2"
-                self.waves[x]["data"].append(hex(x.get()))
-
-            self.prevs[x] = x.get()
-
-        self.ck["wave"] += "."
-
-    def get_waveform(self, with_ck=True):
-        signals = list(self.waves.values())
-        for x in signals:
-            x["wave"] += "x"
-
-        if with_ck:
-            ck = self.ck.copy()
-            ck["wave"] += "x"
-            signals.insert(0, ck)
-
-        waveform = {
-            "signal": signals,
-            "head": {
-                "text": self.name,
-                "tock": 0,
-            }
-        }
-
-        return waveform
-    
-    def draw(self):
-        import nbwavedrom as wave
-        return wave.draw(self.get_waveform())
-    
+        self.canvas.create_text(x, y, anchor=anchor, text=text)
 
 class Scope(Logic):
 
