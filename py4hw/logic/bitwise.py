@@ -215,6 +215,8 @@ class BitsLSBF(Logic):
 
         self.bits = []
         for i in range(w):
+            if (bits[i].getWidth() != 1):
+                raise Exception(f'Expecting width 1 in {bits[i].name} wire')
             self.bits.append(self.addOut('b{}'.format(i), bits[i]))
 
     def propagate(self):
@@ -1365,6 +1367,52 @@ class Range(Logic):
         mask = (1 << (self.high - self.low + 1)) - 1
         newvalue = (value >> self.low) & mask
         self.r.put(newvalue)
+        
+        
+class RangesLSBF(Logic):
+    def __init__(self, parent:Logic, name:str, a:Wire, r:list, useWireNames=False):
+        """
+        @todo create a meaningful docstring.
+
+        Parameters
+        ----------
+        parent : Logic
+            DESCRIPTION.
+        name : str
+            DESCRIPTION.
+        a : Wire
+            DESCRIPTION.
+        r : list
+            DESCRIPTION.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            DESCRIPTION.
+        """
+        
+        super().__init__(parent, name)
+        
+        aname = 'a' if not(useWireNames) else a.name
+        self.addIn(aname, a)
+        
+        tw = 0
+        for i in range(len(r)):
+            w = r[i].getWidth()
+            rname = f'r{i}' if not(useWireNames) else r[i].name
+            self.addOut(rname, r[i])
+            if (w == 1):
+                Bit(self, rname, a, tw, r[i])
+            else:
+                Range(self, rname, a, tw + w , tw, r[i])
+            tw += w
+            
+        if (tw != a.getWidth()):
+            raise Exception('the sum of output widths should be equal to the input width')
 
 class Digit7Segment(Logic):
     def __init__(self, parent, name, v, led):
@@ -1406,14 +1454,6 @@ class Digit7Segment(Logic):
         e = self.wire('e')
         f = self.wire('f')
         g = self.wire('g')
-        
-        na = self.wire('na')
-        nb = self.wire('nb')
-        nc = self.wire('nc')
-        nd = self.wire('nd')
-        ne = self.wire('ne')
-        nf = self.wire('nf')
-        ng = self.wire('ng')
         
         ConcatenateLSBF(self, 'led', [a,b,c,d,e,f,g], led)
         
