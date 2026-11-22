@@ -235,6 +235,9 @@ class Simulator:
     def addListener(self, listener):
         self.listeners.append(listener)
         
+    def removeListener(self, listener):
+        self.listeners.remove(listener)
+    
     def _notifyListeners(self):
         for listener in self.listeners:
             listener.simulatorUpdated()
