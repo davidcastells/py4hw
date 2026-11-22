@@ -312,6 +312,12 @@ class Logic:
         else:
             return objFound;
         
+    def getTop(self):
+        if isinstance(self, HWSystem):
+            return self
+        else:
+            return self.parent.getTop()
+        
 class Parameter:
     def __init__(self, obj, name):
         self.obj = obj
