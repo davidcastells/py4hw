@@ -14,6 +14,7 @@ import tkinter
 import tkinter.font
 from tkinter import *
 from tkinter import ttk
+import threading
     
 class FieldInspector:
     def __init__(self, obj, field):
@@ -282,12 +283,6 @@ class Waveform(Logic):
         
         window = WaveformWindow(root, self, shortNames, blocking=not(detached))
 
-# These imports are assumed to already exist in your module (plus `threading`):
-import threading
-import tkinter
-import tkinter.font
-
-
 
 class WaveformWindow:
 
@@ -306,6 +301,11 @@ class WaveformWindow:
         self.vspace = 21          # row height in pixels (must match Treeview rowheight)
         self.off = 18             # baseline of the clock row inside its 21 px row
         self.hclock = 20
+
+        self.pollMs = 100          # how often the Tk thread checks for new simulation data
+        self.followLatest = True   # keep the view at the right edge if it was already there
+        self._dirty = False        # set by the simulator thread, consumed by the Tk thread
+        self._closed = False
 
         self.root = root
         self._thread = None
@@ -411,6 +411,45 @@ class WaveformWindow:
         self.drawWaveforms()
 
         self.topPane.pack(fill=BOTH, expand=True)
+
+        # --- live updates ----------------------------------------------
+        self.topPane.bind('<Destroy>', self._on_destroy)
+        self.waveform.getTop().getSimulator().addListener(self)
+        self.root.after(self.pollMs, self._poll)
+
+    # ------------------------------------------------------------------
+    # simulator listener
+    # ------------------------------------------------------------------
+    def simulatorUpdated(self, *args, **kwargs):
+        """
+        Called by the simulator, i.e. from the simulation thread.
+        It must NOT touch any Tk object (Tk is not thread safe), so it only
+        raises a flag; the Tk thread picks it up in _poll().
+        """
+        self._dirty = True
+
+    __call__ = simulatorUpdated   # in case the simulator invokes listeners as callables
+
+    def _poll(self):
+        # runs in the Tk thread
+        if self._closed:
+            return
+        if self._dirty:
+            self._dirty = False
+            self.refresh()
+        self.root.after(self.pollMs, self._poll)
+
+    def _on_destroy(self, event):
+        if event.widget is self.topPane:
+            self._closed = True
+
+    def refresh(self):
+        """Redraw with the latest data, keeping the scroll position."""
+        _, last = self.canvas.xview()
+        atEnd = last >= 0.999
+        self.redraw()
+        if self.followLatest and atEnd:
+            self.canvas.xview_moveto(1.0)
 
     def buildHierarchyTree(self):
         f = self.hierarchyFrame
