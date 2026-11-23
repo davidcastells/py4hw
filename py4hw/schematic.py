@@ -373,6 +373,8 @@ class Schematic:
     
     def __init__(self, obj:Logic, render='matplotlib', parent=None, placeAndRoute=True, showValues=False):
    
+        from .logic.simulation import Scope
+        
         if not(obj.isStructural()):
             raise Exception('Schematics are only available to structural circuits')
 
