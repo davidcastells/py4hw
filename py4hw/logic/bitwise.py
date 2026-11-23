@@ -970,7 +970,7 @@ class Repeat(Logic):
 
 # deprecated use OneHotMux
 class Select(Logic):
-    def __init__(self, parent, name: str, sels:list, ins:list, r: Wire):
+    def __init__(self, parent, name: str, sels:list, ins:list, r: Wire, useWireNames=False):
         """
         Implements a one-hot multiplexer using one-hot encoded selection signals.
 
@@ -986,6 +986,8 @@ class Select(Logic):
             List of input wires to the multiplexer.
         r : Wire
             Output wire that will receive the selected input value.
+        useWireNames : Boolean
+            True if use wire names for inputs and outputs.
         
         Notes
         -----
@@ -997,8 +999,10 @@ class Select(Logic):
 
         for idx, sel in enumerate(sels):
             inv = ins[idx]
-            self.addIn('sel{}'.format(idx), sel)
-            self.addIn('in{}'.format(idx), inv)
+            selname = 'sel{}'.format(idx) if not(useWireNames) else sel.name
+            inname = 'in{}'.format(idx) if not(useWireNames) else inv.name
+            self.addIn(selname, sel)
+            self.addIn(inname, inv)
             selx = self.wire('selx{}'.format(idx), inv.getWidth())
             and_sel = self.wire('and_sel{}'.format(idx), inv.getWidth())
 
