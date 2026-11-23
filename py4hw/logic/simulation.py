@@ -283,15 +283,20 @@ class Waveform(Logic):
         
         window = WaveformWindow(root, self, shortNames, blocking=not(detached))
 
+from py4hw.gui import GuiManager                  
+
 
 class WaveformWindow:
 
-    def __init__(self, root, wvf, shortNames, blocking=False):
+    def __init__(self, root, wvf, shortNames, blocking=False, manager=None):
         """
-        root     : an existing Tk/Toplevel (the caller owns the mainloop), or None
-        blocking : only used when root is None.
-                   False (default) -> window runs in its own thread, __init__ returns immediately
-                   True            -> old behaviour, __init__ returns when the window is closed
+        root     : None (default) -> the window is created in the py4hw GUI thread through
+                   the GuiManager, so all windows share one Tk root and one thread.
+                   A Tk/Toplevel   -> used directly as the window; the caller must be on
+                   the thread that runs its mainloop.
+        blocking : only with root=None. True -> return when the window is closed
+                   (other windows keep working).
+        manager  : GuiManager to use; defaults to GuiManager.default().
         """
         self.waveform = wvf
         self.shortNames = shortNames
@@ -306,51 +311,47 @@ class WaveformWindow:
         self.followLatest = True   # keep the view at the right edge if it was already there
         self._dirty = False        # set by the simulator thread, consumed by the Tk thread
         self._closed = False
+        self._closed_event = threading.Event()
 
-        self.root = root
-        self._thread = None
-        self._error = None
+        self.toplevel = None
+        self.root = None
 
-        if root is not None:
-            # embedded in an application that already runs a mainloop
-            self._build()
-        elif blocking:
-            self.root = tkinter.Tk()
-            self._build()
-            self.root.mainloop()
-        else:
-            ready = threading.Event()
-            self._thread = threading.Thread(target=self._run, args=(ready,),
-                                            daemon=True, name='WaveformWindow')
-            self._thread.start()
-            ready.wait()
-            if self._error is not None:
-                raise self._error
+        # Register from the calling (simulation) thread, not from the GUI thread, so the
+        # simulator's listener list is never modified from another thread while it may
+        # be iterating it. The callback only sets a flag, so it is thread safe.
+        self.waveform.getTop().getSimulator().addListener(self)
+
+        try:
+            if root is not None:
+                self._create(root)
+            else:
+                mgr = manager if manager is not None else GuiManager.default()
+                mgr.open_window(lambda r, m: self._create(tkinter.Toplevel(r)),
+                                blocking=blocking)
+        except BaseException:
+            self._closed = True   # stop reacting to the simulator
+            raise
+
+    def _create(self, win):
+        """Build the window contents into `win`. Must run in the GUI thread."""
+        self.toplevel = win
+        self.root = win
+        self._build()
+        return self               # exposes .toplevel, which GuiManager tracks
 
     def wait(self):
         """Block until the window is closed (useful at the end of a script)."""
-        if self._thread is not None:
-            self._thread.join()
-
-    # ------------------------------------------------------------------
-    # construction
-    # ------------------------------------------------------------------
-    def _run(self, ready):
-        # Tk object creation and mainloop must happen in the same thread
-        try:
-            self.root = tkinter.Tk()
-            self._build()
-        except Exception as e:
-            self._error = e
-            ready.set()
-            return
-        ready.set()
-        self.root.mainloop()
+        while not self._closed_event.wait(0.2):
+            pass
 
     def _build(self):
         from py4hw.gui import getResourceIcon
 
         self.root.title('Waveform viewer ' + self.waveform.name)
+        
+        self.icon_win = getResourceIcon('waveform.png')
+        if self.icon_win is not None:
+            self.root.iconphoto(True, self.icon_win)
 
         self.treeFont = tkinter.font.Font(size=9)
 
@@ -414,7 +415,6 @@ class WaveformWindow:
 
         # --- live updates ----------------------------------------------
         self.topPane.bind('<Destroy>', self._on_destroy)
-        self.waveform.getTop().getSimulator().addListener(self)
         self.root.after(self.pollMs, self._poll)
 
     # ------------------------------------------------------------------
@@ -442,6 +442,7 @@ class WaveformWindow:
     def _on_destroy(self, event):
         if event.widget is self.topPane:
             self._closed = True
+            self._closed_event.set()
 
     def refresh(self):
         """Redraw with the latest data, keeping the scroll position."""
@@ -644,6 +645,7 @@ class WaveformWindow:
 
     def drawText(self, x, y, text, anchor):
         self.canvas.create_text(x, y, anchor=anchor, text=text)
+
 
 class Scope(Logic):
 
