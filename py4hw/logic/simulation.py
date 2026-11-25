@@ -330,6 +330,7 @@ class WaveformWindow:
                                 blocking=blocking)
         except BaseException:
             self._closed = True   # stop reacting to the simulator
+            self._unregister()
             raise
 
     def _create(self, win):
@@ -339,6 +340,13 @@ class WaveformWindow:
         self._build()
         return self               # exposes .toplevel, which GuiManager tracks
 
+    def _unregister(self):
+        """Stop listening, so the simulator no longer keeps this window alive."""
+        try:
+            self.waveform.getTop().getSimulator().removeListener(self)
+        except Exception:
+            pass   # already removed, or the simulator has no such method
+            
     def wait(self):
         """Block until the window is closed (useful at the end of a script)."""
         while not self._closed_event.wait(0.2):
@@ -442,6 +450,13 @@ class WaveformWindow:
     def _on_destroy(self, event):
         if event.widget is self.topPane:
             self._closed = True
+            self._unregister()
+            # Release Tk-owned objects now, in the GUI thread. If they were only freed
+            # later (e.g. at interpreter exit, from the main thread) Tkinter would have
+            # to call into the GUI thread from another thread.
+            self.icon_zi = None 
+            self.icon_zo = None
+            self.treeFont = None
             self._closed_event.set()
 
     def refresh(self):
